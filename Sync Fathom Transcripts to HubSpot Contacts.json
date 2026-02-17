@@ -1,0 +1,557 @@
+{
+  "name": "Sync Fathom Transcripts to HubSpot Contacts",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fathom-transcript",
+        "options": {}
+      },
+      "id": "f5f4af32-43ca-480d-b12d-6ea2b1135b96",
+      "name": "Fathom Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        48,
+        304
+      ],
+      "webhookId": "9100ff95-13c4-443b-994a-e761762f5891"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "attendees",
+              "value": "={{ $json.body.attendees.filter(email => !email.includes('brcg.co')) }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "transcript",
+              "value": "={{ $json.body.transcript }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "meetingTitle",
+              "value": "={{ $json.body.title }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a2bd4666-5b64-4532-8f2c-edf337881d05",
+      "name": "Extract Attendee Emails",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        304,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "attendees",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "id": "11a23a82-8b01-4af9-bdd4-1392176a9dda",
+      "name": "Split Attendees",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        560,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "search",
+        "filterGroupsUi": {
+          "filterGroupsValues": [
+            {
+              "filtersUi": {
+                "filterValues": [
+                  {
+                    "propertyName": "email|string",
+                    "type": "string",
+                    "value": "={{ $json.attendees }}"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {}
+      },
+      "id": "834ab9ea-0c84-4d6d-8313-d25518eb2a2f",
+      "name": "Search Contact in HubSpot",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        928,
+        304
+      ],
+      "credentials": {
+        "hubspotOAuth2Api": {
+          "id": "RxHXL5wAKUOvfNSc",
+          "name": "HubSpot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.id }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6c1172d7-6b49-4770-999a-0fb672d657f3",
+      "name": "Contact Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1152,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "contactId",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "transcript",
+              "value": "={{ $('Extract Attendee Emails').item.json.transcript }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "email",
+              "value": "={{ $('Extract Attendee Emails').item.json.attendees }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6ea9d551-cc80-481d-8ed6-35492915983f",
+      "name": "Prepare Transcript Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1440,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "email": "={{ $json.email }}",
+        "additionalFields": {
+          "customPropertiesUi": {
+            "customPropertiesValues": [
+              {
+                "property": "fathom_transcript",
+                "value": "={{ $json.transcript }}"
+              }
+            ]
+          }
+        },
+        "options": {}
+      },
+      "id": "c9e5a132-a411-4c9d-a1b2-c1ddc6be2829",
+      "name": "Update Contact with Transcript",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        1808,
+        304
+      ],
+      "credentials": {
+        "hubspotOAuth2Api": {
+          "id": "RxHXL5wAKUOvfNSc",
+          "name": "HubSpot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "channel",
+        "operation": "close",
+        "channelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1328,
+        608
+      ],
+      "id": "2afbf4fa-6711-436e-a575-df2d3545ac47",
+      "name": "Close a channel",
+      "webhookId": "cbb421e7-882c-4ad5-b77b-879bbfba8210"
+    },
+    {
+      "parameters": {
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1536,
+        608
+      ],
+      "id": "581c060a-eec7-4cb1-8fe2-082e460e4df4",
+      "name": "Send a message",
+      "webhookId": "be805acc-9b37-4e98-a011-302f9ae65d66"
+    },
+    {
+      "parameters": {
+        "content": "## need to add correct property in hubspot\n"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1728,
+        112
+      ],
+      "id": "019f7886-2204-4632-b35f-6989e85b658a",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "transcript",
+              "value": "={{ $json.transcript }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "contactId",
+              "value": "={{ $json.contactId }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c918b14e-26c5-432f-b6fe-ff6b0777826f",
+      "name": "Prepare Transcript for AI",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        832,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Please summarize the following meeting transcript:\n\n{{ $json.transcript }}",
+        "options": {
+          "systemMessage": "You are a professional meeting summarizer. Your task is to analyze meeting transcripts and create concise, well-structured summaries that capture key discussion points, decisions made, and action items. Keep summaries professional and under 500 words."
+        }
+      },
+      "id": "2ae08947-bb4e-4fc1-91d6-e84f3be932fe",
+      "name": "Summarize Transcript",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1152,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "a07dacd4-ac7b-40a3-aef3-33b533932b87",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1104,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "contactId",
+              "value": "={{ $('Prepare Transcript for AI').item.json.contactId }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "email",
+              "value": "={{ $('Prepare Transcript for AI').item.json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "summary",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3aec9165-f626-4de5-ba3f-fa6459c3c532",
+      "name": "Prepare Summary for HubSpot",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1616,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "email": "={{ $json.email }}",
+        "additionalFields": {
+          "customPropertiesUi": {
+            "customPropertiesValues": [
+              {
+                "property": "fathom_transcript_summary",
+                "value": "={{ $json.summary }}"
+              }
+            ]
+          }
+        },
+        "options": {}
+      },
+      "id": "73741684-5d71-42ef-acf1-f048235303f0",
+      "name": "Update Contact with Summary",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        2048,
+        304
+      ],
+      "credentials": {
+        "hubspotOAuth2Api": {
+          "id": "RxHXL5wAKUOvfNSc",
+          "name": "HubSpot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## need to add correct property in hubspot\n"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2016,
+        112
+      ],
+      "id": "c000b6af-9524-40f0-a0e0-aa867d110ede",
+      "name": "Sticky Note1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Fathom Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Attendee Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Attendee Emails": {
+      "main": [
+        [
+          {
+            "node": "Split Attendees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Attendees": {
+      "main": [
+        [
+          {
+            "node": "Search Contact in HubSpot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Contact in HubSpot": {
+      "main": [
+        [
+          {
+            "node": "Contact Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contact Found?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Transcript Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Close a channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Transcript Data": {
+      "main": [
+        [
+          {
+            "node": "Update Contact with Transcript",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Transcript for AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Close a channel": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Transcript for AI": {
+      "main": [
+        [
+          {
+            "node": "Summarize Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Summarize Transcript",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Transcript": {
+      "main": [
+        [
+          {
+            "node": "Prepare Summary for HubSpot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Summary for HubSpot": {
+      "main": [
+        [
+          {
+            "node": "Update Contact with Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "9d0a4f59-93a1-4678-b0ff-3f261b9d78c1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "732ac02a64522b76e92e4308b0e0b9a099973980eefbb770488c6e9ceb641867"
+  },
+  "id": "5pUz0HdratCtT2gElHDiS",
+  "tags": [
+    {
+      "updatedAt": "2026-02-17T18:52:29.547Z",
+      "createdAt": "2026-02-17T18:52:29.547Z",
+      "id": "q1r3cEmwjggtsKmS",
+      "name": "Sales-Brain"
+    }
+  ]
+}
