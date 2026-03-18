@@ -1,0 +1,1070 @@
+{
+  "name": "automated live n8n linkedin jobs",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        160,
+        16
+      ],
+      "id": "81518fb7-e1ce-461d-a9ec-c1157a09ff7e",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "Run actor and get dataset",
+        "actorSource": "store",
+        "actorId": {
+          "__rl": true,
+          "value": "BHzefUZlZRKWxkTck",
+          "mode": "id"
+        },
+        "customBody": "{\n    \"contractType\": \"F\",\n    \"location\": \"Orlando, Florida\",\n    \"proxy\": {\n        \"useApifyProxy\": true,\n        \"apifyProxyGroups\": [\n            \"RESIDENTIAL\"\n        ]\n    },\n    \"publishedAt\": \"r86400\",\n    \"title\": \"Data Analyst\",\n    \"workType\": \"3\"\n}",
+        "timeout": 300,
+        "build": "latest"
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        400,
+        160
+      ],
+      "id": "865c4896-193a-4869-a307-cd6ccd1f43a2",
+      "name": "Run an Actor and get dataset",
+      "credentials": {
+        "apifyApi": {
+          "id": "7f1zYscdyWdnrwY1",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3c1fb7c8-4248-4781-ad92-675ee10ed06c",
+              "name": "title",
+              "value": "={{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "984fcf42-6631-4b1f-b73e-5d0c0b084594",
+              "name": "companyName",
+              "value": "={{ $json.companyName }}",
+              "type": "string"
+            },
+            {
+              "id": "d3dd7d2a-7b9a-4758-a30c-83905cbff2ea",
+              "name": "location",
+              "value": "={{ $json.location }}",
+              "type": "string"
+            },
+            {
+              "id": "ca0e8eae-31ad-4113-8dd2-89c8a8380c1a",
+              "name": "postedTime",
+              "value": "={{ $json.postedTime }}",
+              "type": "string"
+            },
+            {
+              "id": "570d884a-8b61-453e-a79b-9dbbead8194f",
+              "name": "contractType",
+              "value": "={{ $json.contractType }}",
+              "type": "string"
+            },
+            {
+              "id": "b78fdc84-881d-4f07-a31b-588d61c3dfb0",
+              "name": "experienceLevel",
+              "value": "={{ $json.experienceLevel }}",
+              "type": "string"
+            },
+            {
+              "id": "64114774-14c4-4db5-8739-629ee4257f3b",
+              "name": "applyUrl",
+              "value": "={{ $json.applyUrl }}",
+              "type": "string"
+            },
+            {
+              "id": "4c0e085c-121e-416a-80ab-3b38290405f3",
+              "name": "jobUrl",
+              "value": "={{ $json.jobUrl }}",
+              "type": "string"
+            },
+            {
+              "id": "16237724-b202-42b1-adfb-36ff14328723",
+              "name": "description",
+              "value": "={{ $json.description }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        640,
+        160
+      ],
+      "id": "9211cf56-a841-4f27-a4a0-cbe0ef92e55a",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1NFKs45tvcfy1HY6tivUuy6x38DYDuRQRsfv1x0sVCtY",
+          "mode": "list",
+          "cachedResultName": "n8n_jobs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NFKs45tvcfy1HY6tivUuy6x38DYDuRQRsfv1x0sVCtY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NFKs45tvcfy1HY6tivUuy6x38DYDuRQRsfv1x0sVCtY/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        512,
+        -112
+      ],
+      "id": "60e742b5-c44b-4baf-a565-e13c530f89ac",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "IDWp9jekwItzlhj9",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "816e389d-f788-4925-b24b-41e4d0ca16f6",
+              "leftValue": "={{ $json.title }}",
+              "rightValue": "Data",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "1b5f80e4-b25a-4609-98c7-ea4247f04e36",
+              "leftValue": "={{ $json.title }}",
+              "rightValue": "Engineer",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "efdd91d4-8a5f-453c-b61d-2dba82a2e28c",
+              "leftValue": "={{ $json.title }}",
+              "rightValue": "=Analytics",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "05d53703-0ab9-41cf-9993-c67c4671fe14",
+              "leftValue": "={{ $json.title }}",
+              "rightValue": "Analyst",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1088,
+        64
+      ],
+      "id": "c1972ffd-e518-43fc-aab9-bc61113362fe",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "jobUrl",
+              "field2": "jobUrl"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.compareDatasets",
+      "typeVersion": 2.3,
+      "position": [
+        832,
+        -16
+      ],
+      "id": "bc8ee4bf-f9e1-4d3c-a7ea-8266caf45d3a",
+      "name": "Compare Datasets"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.description }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=Please analyze the following job description in the user message against the candidate.\n\nAdditional JOB DATA:\n- Title: {{ $json.title }}\n- Company: {{ $json.companyName }}\n- Description: {{ $json.description }}\n- applyUrl: {{ $json.applyUrl }}\n- jobUrl: {{ $json.jobUrl }}\n- postedTime: {{ $json.postedTime }}\n\nCANDIDATE PROFILE:\n- Skills: Python, SQL, Risk, Underwriting, AML, Machine Learning, Data Visualization, n8n, Ai Agents, Prompt Engineering\n- Experience: 5 years\n\n---\nOutput either a Yes or No if you think the canidate can be a good fit. If you are unsure, default to No. Below are examples based on the profile above\n\n--------------------------------------------\nEXAMPLE 1\n- Title: Compliance Data Analyst\n- Company: Coinbase\n- Description: Join our Compliance team to analyze transaction patterns, build SQL dashboards for KYC monitoring, and support AML investigations. Must have strong SQL skills and understanding of financial regulations. Python experience is a plus.\n- applyUrl: https://coinbase.com/careers/apply/67890\n- jobUrl: https://coinbase.com/careers/67890\n- postedTime: 1 week ago\n\nCANDIDATE PROFILE:\n- Skills: Python, SQL, Risk, Underwriting, AML, Machine Learning, Data Visualization, n8n, Ai Agents, Prompt Engineering\n- Experience: 5 years\n\njob_fit: Yes \n--------------------------------------------\nEXAMPLE 2\n- Title: Frontend React Developer\n- Company: Vercel\n- Description: We're seeking a Frontend Developer with 5+ years of React, TypeScript, and Next.js experience. You'll build user interfaces, optimize performance, and collaborate with designers. Knowledge of modern CSS frameworks and component libraries required.\n- applyUrl: https://vercel.com/careers/apply/11111\n- jobUrl: https://vercel.com/careers/11111\n- postedTime: 3 days ago\n\nCANDIDATE PROFILE:\n- Skills: Python, SQL, Risk, Underwriting, AML, Machine Learning, Data Visualization, n8n, Ai Agents, Prompt Engineering\n- Experience: 5 years\n\njob_fit: No \n--------------------------------------------\nEXAMPLE 3\n- Title: AI Automation Engineer\n- Company: Zapier\n- Description: Build intelligent automation workflows using AI agents and LLMs. Create prompt engineering solutions for enterprise customers. Experience with workflow automation tools (n8n, Zapier, Make) and Python scripting required.\n- applyUrl: https://zapier.com/jobs/apply/22222\n- jobUrl: https://zapier.com/jobs/22222\n- postedTime: 5 days ago\n\nCANDIDATE PROFILE:\n- Skills: Python, SQL, Risk, Underwriting, AML, Machine Learning, Data Visualization, n8n, Ai Agents, Prompt Engineering\n- Experience: 5 years\n\njob_fit: No \n--------------------------------------------\nEXAMPLE 4\n\n- Title: Senior Database Administrator\n- Company: MongoDB\n- Description: Manage large-scale database infrastructure across cloud environments. Requires 5+ years of DBA experience with MongoDB, PostgreSQL, or MySQL. Must have deep expertise in database performance tuning, replication, sharding, and disaster recovery.\n- applyUrl: https://mongodb.com/careers/apply/33333\n- jobUrl: https://mongodb.com/careers/33333\n- postedTime: 1 day ago\n\nCANDIDATE PROFILE:\n- Skills: Python, SQL, Risk, Underwriting, AML, Machine Learning, Data Visualization, n8n, Ai Agents, Prompt Engineering\n- Experience: 5 years\n\njob_fit: No \n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1312,
+        64
+      ],
+      "id": "b37c7fc8-1338-4490-aff1-0250c52dce67",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1712,
+        256
+      ],
+      "id": "398f0977-32df-4617-92ba-c915fe97bd95",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-pro-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1312,
+        304
+      ],
+      "id": "e53b84e3-a47b-4edc-a53b-3af6af952fd1",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "8SOGMd5MmXXCT0Ky",
+          "name": "n8n gemini 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n\t\"job_fit\": \"No\",\n    \"fit_score\": 100,\n    \"key_matching_keys\": [\"json\",\"ai\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1488,
+        272
+      ],
+      "id": "0131cc80-7016-4249-a141-d8412687b36d",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9d6578f4-198c-40c9-b6b9-4136a6ba0d71",
+              "leftValue": "={{ $json.output.job_fit }}",
+              "rightValue": "Yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1712,
+        64
+      ],
+      "id": "4ffac218-b9e6-425c-850f-437e283c10c0",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Filter').item.json.description }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=Please analyze the following job description in the user message against the candidate.\n\nAdditional JOB DATA:\n- Title: {{ $('Filter').item.json.title }}\n- Company: {{ $('Filter').item.json.companyName }}\n- applyUrl: {{ $('Filter').item.json.applyUrl }}\n- jobUrl: {{ $('Filter').item.json.jobUrl }}\n- postedTime: {{ $('Filter').item.json.postedTime }}\n\nCANDIDATE PROFILE:\n- Skills: Python, SQL, Risk, Underwriting, AML, Machine Learning, Data Visualization, n8n, Ai Agents, Prompt Engineering\n- Experience: 5 years\n\n---\nOutput the JSON with missing_skills, fit_summary, and cover_letter_draft.\n\nmissing_skills -> Anything in the job description not in the candidate skills section\n\nfit_summary -> 1 sentance describing the fit based on the profile\n\ncover_letter_draft -> short paragraph used for an application. What a canidate uses to apply with.\n\n\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1968,
+        48
+      ],
+      "id": "563bc8b2-6494-4e30-b820-9e9460e784bc",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-pro-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1952,
+        272
+      ],
+      "id": "3816e487-bc2b-4e20-b3ef-4261d8859296",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "8SOGMd5MmXXCT0Ky",
+          "name": "n8n gemini 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"job_analysis\": {\n    \"job_title\": \"Senior DevOps Engineer\",\n    \"fit_summary\": \"Candidate has 6 years of experience with Kubernetes and AWS which aligns with the core requirements.\",\n    \"missing_skills\": [\n      \"Azure DevOps\",\n      \"Istio\"\n    ],\n    \"application_materials\": {\n      \"tailored_cover_letter\": \"...\",\n      \"linkedin_dm\": \"...\"\n    },\n    \"metadata\": {\n      \"apply_url\": \"https://linkedin.com/apply/...\",\n      \"job_url\": \"https://linkedin.com/jobs/view/...\",\n      \"posted_time\": \"2 hours ago\"\n    }\n  }\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2144,
+        240
+      ],
+      "id": "eada450e-ebbe-4e38-be7c-e81c5c3bc40a",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1NFKs45tvcfy1HY6tivUuy6x38DYDuRQRsfv1x0sVCtY",
+          "mode": "list",
+          "cachedResultName": "n8n_jobs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NFKs45tvcfy1HY6tivUuy6x38DYDuRQRsfv1x0sVCtY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NFKs45tvcfy1HY6tivUuy6x38DYDuRQRsfv1x0sVCtY/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "title": "={{ $json.output.job_analysis.job_title }}",
+            "jobUrl": "={{ $json.output.job_analysis.metadata.job_url }}",
+            "applyUrl": "={{ $json.output.job_analysis.metadata.apply_url }}",
+            "location": "={{ $('Filter').item.json.location }}",
+            "companyName": "={{ $('Filter').item.json.companyName }}",
+            "postedTime": "={{ $('Filter').item.json.postedTime }}",
+            "contractType": "={{ $('Filter').item.json.contractType }}",
+            "experienceLevel": "={{ $('Filter').item.json.experienceLevel }}",
+            "description": "={{ $('Filter').item.json.description }}",
+            "fit summary": "={{ $json.output.job_analysis.fit_summary }}",
+            "skills misssing": "={{ $json.output.job_analysis.missing_skills }}",
+            "Cover Letter": "={{ $json.output.job_analysis.application_materials.tailored_cover_letter }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "companyName",
+              "displayName": "companyName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "postedTime",
+              "displayName": "postedTime",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contractType",
+              "displayName": "contractType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "experienceLevel",
+              "displayName": "experienceLevel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "applyUrl",
+              "displayName": "applyUrl",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "jobUrl",
+              "displayName": "jobUrl",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Cover Letter",
+              "displayName": "Cover Letter",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "skills misssing",
+              "displayName": "skills misssing",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "fit summary",
+              "displayName": "fit summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Applied",
+              "displayName": "Applied",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2352,
+        -128
+      ],
+      "id": "4d4944cd-07cf-456d-a66e-9634b2818c58",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "IDWp9jekwItzlhj9",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "=🎯 *New High-Match Job Found!*\n*Role:* {{ $json.output.job_analysis.job_title }}\n\n*Experience Level:* {{ $('Filter').item.json.experienceLevel }}\n\n🔥 *Missing Skills:* {{ $json.output.job_analysis.missing_skills }}\n\nApply link: {{ $json.output.job_analysis.metadata.apply_url }}\n\nJob link: {{ $json.output.job_analysis.metadata.job_url }}\n",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2400,
+        48
+      ],
+      "id": "98ef448b-2f90-443a-9ada-66737c1f3135",
+      "name": "Send a text message",
+      "webhookId": "89af923c-f779-4c73-89c0-7af2b32b938a",
+      "credentials": {
+        "telegramApi": {
+          "id": "Uc3Ha5Mt2k4txTVb",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "Improvements\n1. Expand cover letter\n2. How to search for multiple jobs or options, cities etc."
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1440,
+        976
+      ],
+      "typeVersion": 1,
+      "id": "6203c7ec-66b6-433a-a95a-3ad75b6d78d7",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {
+    "Run an Actor and get dataset": [
+      {
+        "json": {
+          "id": "4356552594",
+          "publishedAt": "2026-02-05",
+          "salary": "",
+          "title": "Senior Analyst, Commercial Analytics",
+          "jobUrl": "https://www.linkedin.com/jobs/view/senior-analyst-commercial-analytics-at-signature-aviation-4356552594?trk=public_jobs_topcard-title",
+          "companyName": "Signature Aviation",
+          "companyUrl": "https://www.linkedin.com/company/signatureaviation?trk=public_jobs_topcard-org-name",
+          "location": "Orlando, FL",
+          "postedTime": "20 hours ago",
+          "applicationsCount": "75 applicants",
+          "description": "Job Description\n\nThe Sr. Commercial Analytics Analyst is responsible for supporting revenue performance goals and helping shape business decisions through data analytics. This role supports building the company and market performance narrative through analysis and data visualization. This role will be a subject matter expert for market performance and requires a blend of technological capability and creativity to build useful reports and dashboards for executive consumption.\n\nResponsibilities\n\nEssential Duties and Responsibilities:\n\n\n * Owns and maintains daily, weekly, and monthly reporting needs and evolves as necessary to support business needs.\n * Validate data insights through audit analysis to ensure the highest accuracy of reporting outputs.\n * Act as an internal consultant in forecasting, market share assessment, and customer insights to support commercial initiatives to maximize margin performance.\n * Responsible for ad-hoc analyses to identify performance insights for the commercial team.\n * Incorporate the latest analytics technologies to drive efficiency and ease of analytical capabilities.\n * Support monthly executive reporting updates and revenue/market performance narrative.\n * Support annual budget and quarterly forecasting process.\n * Act as project lead for sales, marketing, and regional revenue management teams reporting needs – extract business requirements, identify key success metrics, and communicate timelines.\n * Act as liaison for the broader organization for providing market and revenue performance insights.\n   \n   \n\nSupervisor And Financial Responsibilities\n\n\n * N/A\n   \n   \n\nQualifications\n\nMinimum Education and/or Experience:\n\n\n * Masters level degree in Economics, Statistics, Finance, Marketing Analytics, or related analytical field\n * 3-5 years experience in revenue management, pricing strategy, or analytics.\n   \n   \n\nAdditional Knowledge And Skills\n\n\n * SQL and/or R programming experience\n * Experience with Tableau data visualization reporting\n * Strong abilities in verbal and written communication, presentation of complex concepts, and partnering skills\n * Understanding Revenue Management concepts (i.e., demand forecasting, segmentation, dilution, displacement, etc.).\n   \n   \n\nAn Equal Opportunity Employer including Disability/Vets\n\nAbout Us\n\nWith more than 225 locations worldwide, Signature Aviation is the largest global network of private aviation terminals, delivering safe, convenient, and elevated experiences to those we serve. As a premier hospitality organization and a certified Great Place to Work™, we are committed to redefining private air travel. Our nearly 6,000-strong team of aviation experts and enthusiasts is dedicated to delivering excellence to our guests and communities, and it starts with taking care of our team. Signature provides a variety of benefits, programs, and resources to support our team members’ overall well-being and professional development. We proudly volunteer and give back, focusing on elevating the neighborhoods where we operate, empowering the next generation of aviation professionals, and supporting our veterans.\n\nFrom your health to your financial wellness, there are several benefits for you and your family when joining Signature Aviation.\n\nOur Benefits\n\n\n * Medical/prescription drug, dental, and vision Insurance\n * Health Savings Account\n * Flexible Spending Accounts\n * Life Insurance\n * Disability Insurance\n * 401(k)\n * Critical Illness, Hospital Indemnity and Accident Insurance\n * Identity Theft and Legal Services\n * Paid time off\n * Paid Maternity Leave\n * Tuition reimbursement\n * Training and Development\n * Employee Assistance Program (EAP) & Perks\n   \n   \n\nQualified applicants will receive consideration for employment without regard to age, race, color, religion, sex, sexual orientation, gender identity, national origin, or other protected characteristics.",
+          "contractType": "Full-time",
+          "experienceLevel": "Mid-Senior level",
+          "workType": "Business Development and Sales",
+          "sector": "Airlines and Aviation",
+          "applyUrl": "https://hdbt.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/job/15524/?utm_medium=jobboard&utm_source=linkedin",
+          "applyType": "EXTERNAL",
+          "descriptionHtml": "\n          <strong>Job Description<br><br></strong>The Sr. Commercial Analytics Analyst is responsible for supporting revenue performance goals and helping shape business decisions through data analytics. This role supports building the company and market performance narrative through analysis and data visualization. This role will be a subject matter expert for market performance and requires a blend of technological capability and creativity to build useful reports and dashboards for executive consumption.<br><br><strong>Responsibilities<br><br></strong><strong>Essential Duties and Responsibilities:<br><br></strong><ul><li>Owns and maintains daily, weekly, and monthly reporting needs and evolves as necessary to support business needs.</li><li>Validate data insights through audit analysis to ensure the highest accuracy of reporting outputs.</li><li>Act as an internal consultant in forecasting, market share assessment, and customer insights to support commercial initiatives to maximize margin performance.</li><li>Responsible for ad-hoc analyses to identify performance insights for the commercial team.</li><li>Incorporate the latest analytics technologies to drive efficiency and ease of analytical capabilities.</li><li>Support monthly executive reporting updates and revenue/market performance narrative.</li><li>Support annual budget and quarterly forecasting process.</li><li>Act as project lead for sales, marketing, and regional revenue management teams reporting needs &#x2013; extract business requirements, identify key success metrics, and communicate timelines.</li><li>Act as liaison for the broader organization for providing market and revenue performance insights.<br><br></li></ul><strong>Supervisor And Financial Responsibilities<br><br></strong><ul><li>N/A<br><br></li></ul><strong>Qualifications<br><br></strong><strong>Minimum Education and/or Experience:<br><br></strong><ul><li>Masters level degree in Economics, Statistics, Finance, Marketing Analytics, or related analytical field</li><li>3-5 years experience in revenue management, pricing strategy, or analytics.<br><br></li></ul><strong>Additional Knowledge And Skills<br><br></strong><ul><li>SQL and/or R programming experience</li><li>Experience with Tableau data visualization reporting</li><li>Strong abilities in verbal and written communication, presentation of complex concepts, and partnering skills</li><li>Understanding Revenue Management concepts (i.e., demand forecasting, segmentation, dilution, displacement, etc.).<br><br></li></ul>An Equal Opportunity Employer including Disability/Vets<br><br><strong>About Us<br><br></strong>With more than 225 locations worldwide, Signature Aviation is the largest global network of private aviation terminals, delivering safe, convenient, and elevated experiences to those we serve. As a premier hospitality organization and a certified Great Place to Work&#x2122;, we are committed to redefining private air travel. Our nearly 6,000-strong team of aviation experts and enthusiasts is dedicated to delivering excellence to our guests and communities, and it starts with taking care of our team. Signature provides a variety of benefits, programs, and resources to support our team members&#x2019; overall well-being and professional development. We proudly volunteer and give back, focusing on elevating the neighborhoods where we operate, empowering the next generation of aviation professionals, and supporting our veterans.<br><br>From your health to your financial wellness, there are several benefits for you and your family when joining Signature Aviation.<br><br><strong>Our Benefits<br><br></strong><ul><li>Medical/prescription drug, dental, and vision Insurance</li><li>Health Savings Account</li><li>Flexible Spending Accounts</li><li>Life Insurance</li><li>Disability Insurance</li><li>401(k)</li><li>Critical Illness, Hospital Indemnity and Accident Insurance</li><li>Identity Theft and Legal Services</li><li>Paid time off</li><li>Paid Maternity Leave</li><li>Tuition reimbursement </li><li>Training and Development</li><li>Employee Assistance Program (EAP) &amp; Perks<br><br></li></ul>Qualified applicants will receive consideration for employment without regard to age, race, color, religion, sex, sexual orientation, gender identity, national origin, or other protected characteristics.\n        ",
+          "companyId": "23000",
+          "benefits": "",
+          "posterProfileUrl": "",
+          "posterFullName": ""
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      },
+      {
+        "json": {
+          "id": "4362810120",
+          "publishedAt": "2026-02-05",
+          "salary": "",
+          "title": "Palantir Forward Deployed Engineer",
+          "jobUrl": "https://www.linkedin.com/jobs/view/palantir-forward-deployed-engineer-at-deloitte-4362810120?trk=public_jobs_topcard-title",
+          "companyName": "Deloitte",
+          "companyUrl": "https://www.linkedin.com/company/deloitte?trk=public_jobs_topcard-org-name",
+          "location": "Lake Mary, FL",
+          "postedTime": "3 hours ago",
+          "applicationsCount": "Be among the first 25 applicants",
+          "description": "Our Deloitte AI & Engineering team to transform technology platforms, drive innovation, and help make a significant impact on our clients' success. You'll work alongside talented professionals reimagining and reengineering operations and processes that are critical to businesses. Your contributions can help clients improve financial performance, accelerate new digital ventures, and fuel growth through innovation.\n\nWork You'll Do\n\nThe Senior Palantir Data Scientist will design future-state, modern data architecture, pipelining, and analysis for transformation at the enterprise level using advanced cloud architectural principles. Using tools such as Palantir Foundry, they will also work with cutting-edge DevOps technologies, develop advanced analytics products, and apply\n\ndata pipelining and statistical programming tools to enterprise data to advance and enable key mission outcomes.\n\nThe team\n\nDeloitte's Government and Public Services (GPS) practice - our people, ideas, technology and outcomes-is designed for impact. Serving federal, state, & local government clients as well as public higher education institutions, our team of professionals brings fresh perspective to help clients anticipate disruption, reimagine the possible, and fulfill their mission promise.\n\nOur AI & Data offering provides a full spectrum of solutions for designing, developing, and operating cutting-edge Data and AI platforms, products, insights, and services. Our offerings help clients innovate, enhance and operate their data, AI, and analytics capabilities, ensuring they can mature and scale effectively.\n\nQualifications\n\nRequired:\n\n\n * Bachelor's degree required.\n * Must be legally authorized to work in the United States without the need for employer sponsorship, now or at any time in the future\n * Must be able to obtain and maintain the required clearance for this role.\n * 5+ years of data science and/or data manipulation and analysis\n * 3+ years experience working with Palantir Foundry\n * Ability to travel 10%, on average, based on the work you do and the clients and industries/sectors you serve. This may include overnight travel.\n * Expected to co-locate in your designed office/USDC location up to 30% of the time.\n * Must live in a commutable distance to or be willing to relocate to one of the following delivery locations: Gilbert, AZ; Lake Mary, FL; Mechanicsburg, PA.\n   \n   \n\nPreferred:\n\n\n * 5+ years of experience with pipeline and application development within Palantir Foundry\n * 5+ years of prior professional services or federal consulting experience\n * Proven leadership experience with the ability to translate technical concepts to nontechnical audiences\n * Creativity and innovation - desire to learn and apply new technologies, products, and libraries\n * Strong written and verbal communication skills\n * Strong organizational skills\n   \n   \n\nInformation for applicants with a need for accommodation: https://www2.deloitte.com/us/en/pages/careers/articles/join-deloitte-assistance-for-disabled-applicants.html\n\n",
+          "contractType": "Full-time",
+          "experienceLevel": "Not Applicable",
+          "workType": "Engineering and Information Technology",
+          "sector": "Accounting, IT Services and IT Consulting, and Business Consulting and Services",
+          "applyUrl": "https://ars2.equest.com/?response_id=e39b2509876cce3185cb6deec3f23f57",
+          "applyType": "EXTERNAL",
+          "descriptionHtml": "\n          Our Deloitte AI &amp; Engineering team to transform technology platforms, drive innovation, and help make a significant impact on our clients&apos; success. You&apos;ll work alongside talented professionals reimagining and reengineering operations and processes that are critical to businesses. Your contributions can help clients improve financial performance, accelerate new digital ventures, and fuel growth through innovation.<br><br><strong>Work You&apos;ll Do<br><br></strong>The Senior Palantir Data Scientist will design future-state, modern data architecture, pipelining, and analysis for transformation at the enterprise level using advanced cloud architectural principles. Using tools such as Palantir Foundry, they will also work with cutting-edge DevOps technologies, develop advanced analytics products, and apply<br><br>data pipelining and statistical programming tools to enterprise data to advance and enable key mission outcomes.<br><br><strong>The team<br><br></strong>Deloitte&apos;s Government and Public Services (GPS) practice - our people, ideas, technology and outcomes-is designed for impact. Serving federal, state, &amp; local government clients as well as public higher education institutions, our team of professionals brings fresh perspective to help clients anticipate disruption, reimagine the possible, and fulfill their mission promise.<br><br>Our AI &amp; Data offering provides a full spectrum of solutions for designing, developing, and operating cutting-edge Data and AI platforms, products, insights, and services. Our offerings help clients innovate, enhance and operate their data, AI, and analytics capabilities, ensuring they can mature and scale effectively.<br><br><strong>Qualifications<br><br></strong>Required:<br><br><ul><li>Bachelor&apos;s degree required.</li><li>Must be legally authorized to work in the United States without the need for employer sponsorship, now or at any time in the future</li><li>Must be able to obtain and maintain the required clearance for this role.</li><li>5+ years of data science and/or data manipulation and analysis</li><li>3+ years experience working with Palantir Foundry </li><li>Ability to travel 10%, on average, based on the work you do and the clients and industries/sectors you serve. This may include overnight travel. </li><li>Expected to co-locate in your designed office/USDC location up to 30% of the time. </li><li>Must live in a commutable distance to or be willing to relocate to one of the following delivery locations: Gilbert, AZ; Lake Mary, FL; Mechanicsburg, PA.<br><br></li></ul>Preferred:<br><br><ul><li>5+ years of experience with pipeline and application development within Palantir Foundry</li><li>5+ years of prior professional services or federal consulting experience</li><li>Proven leadership experience with the ability to translate technical concepts to nontechnical audiences </li><li>Creativity and innovation - desire to learn and apply new technologies, products, and libraries</li><li>Strong written and verbal communication skills</li><li>Strong organizational skills<br><br></li></ul>Information for applicants with a need for accommodation: https://www2.deloitte.com/us/en/pages/careers/articles/join-deloitte-assistance-for-disabled-applicants.html<br><br>\n        ",
+          "companyId": "1038",
+          "benefits": "",
+          "posterProfileUrl": "",
+          "posterFullName": ""
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      },
+      {
+        "json": {
+          "id": "4362752739",
+          "publishedAt": "2026-02-05",
+          "salary": "$90,000.00/yr - $150,000.00/yr",
+          "title": "Senior SOC Analyst",
+          "jobUrl": "https://www.linkedin.com/jobs/view/senior-soc-analyst-at-deloitte-4362752739?trk=public_jobs_topcard-title",
+          "companyName": "Deloitte",
+          "companyUrl": "https://www.linkedin.com/company/deloitte?trk=public_jobs_topcard-org-name",
+          "location": "Lake Mary, FL",
+          "postedTime": "4 hours ago",
+          "applicationsCount": "Be among the first 25 applicants",
+          "description": "Are you an experienced, passionate pioneer in technology who wants to work in a collaborative environment? As an experienced Senior SOC Analyst you will have the ability to share new ideas and collaborate on projects as a consultant without the extensive demands of travel. If so, consider an opportunity with Deloitte under our Project Delivery Talent Model. Project Delivery Model (PDM) is a talent model that is tailored specifically for long-term, onsite client service delivery.\n\nRecruiting for this role ends on 03/13/2026\n\nWork You'll Do/Responsibilities\n\n\n * Responsible for handling security events/alerts and providing rapid response with the understanding of network infrastructure and security tools.\n * Execute a cyber threat hunting program to identify, detect, mitigate, respond to cyber threats and advanced threat actors.\n * Schedule SOC analyst shifts and serve as an escalation point for issues and performance.\n * Develop plans and remediate gaps found by the Offensive Security/Red team.\n * Resolve network incidents, plan and implement requests and changes, troubleshoot and implement resolutions for problems.\n * Communicate regularly with Engagement Managers (Directors), project team members, and representatives from various functional and / or technical teams, including escalating any matters that require additional attention and consideration from engagement management\n * Independently and collaboratively lead client engagement workstreams focused on improvement, optimization, and transformation of processes including implementing leading practice workflows, addressing deficits in quality, and driving operational outcomes\n   \n   \n\nThe Team\n\nOur Cyber Operate offering develops and transforms cyber programs in line with a client's strategic objectives, regulatory requirements, and risk appetite. It keeps the enterprise a step ahead of the evolving threat landscape and gives stakeholders confidence in the organization's cyber posture. Includes design of the cyber organization, governance, and risk assessments.\n\nQualifications\n\nRequired\n\n\n * Bachelor's degree, preferably in Computer Science, Information Technology, Computer Engineering, or related IT discipline; or equivalent experience\n * 5+ years of proven SOC experience\n * Experience evaluating vulnerabilities and patch management.\n * Experience with overall security operations\n * Experience with incidence response\n * Limited immigration sponsorship may be available\n * Ability to travel 10%, on average, based on the work you do and the clients and industries/sectors you serve\n   \n   \n\nPreferred\n\n\n * Experience with threat hunting\n   \n   \n\nThe wage range for this role takes into account the wide range of factors that are considered in making compensation decisions including but not limited to skill sets; experience and training; licensure and certifications; and other business and organizational needs. The disclosed range estimate has not been adjusted for the applicable geographic differential associated with the location at which the position may be filled. At Deloitte, it is not typical for an individual to be hired at or near the top of the range for their role and compensation decisions are dependent on the facts and circumstances of each case. A reasonable estimate of the current range is $90,000 to $150,000.\n\nYou may also be eligible to participate in a discretionary annual incentive program, subject to the rules governing the program, whereby an award, if any, depends on various factors, including, without limitation, individual and organizational performance.\n\nAdditional Requirements\n\nInformation for applicants with a need for accommodation: https://www2.deloitte.com/us/en/pages/careers/articles/join-deloitte-assistance-for-disabled-applicants.html",
+          "contractType": "Full-time",
+          "experienceLevel": "Not Applicable",
+          "workType": "Information Technology",
+          "sector": "Accounting, IT Services and IT Consulting, and Business Consulting and Services",
+          "applyUrl": "https://ars2.equest.com/?response_id=c4cea1a0853038c29266cc9732a01c82",
+          "applyType": "EXTERNAL",
+          "descriptionHtml": "\n          Are you an experienced, passionate pioneer in technology who wants to work in a collaborative environment? As an experienced <strong>Senior SOC Analyst</strong> you will have the ability to share new ideas and collaborate on projects as a consultant without the extensive demands of travel. If so, consider an opportunity with Deloitte under our Project Delivery Talent Model. Project Delivery Model (PDM) is a talent model that is tailored specifically for long-term, onsite client service delivery.<br><br><strong> Recruiting for this role ends on 03/13/2026 <br><br></strong><strong>Work You&apos;ll Do/Responsibilities<br><br></strong><ul><li> Responsible for handling security events/alerts and providing rapid response with the understanding of network infrastructure and security tools. </li><li> Execute a cyber threat hunting program to identify, detect, mitigate, respond to cyber threats and advanced threat actors. </li><li> Schedule SOC analyst shifts and serve as an escalation point for issues and performance. </li><li> Develop plans and remediate gaps found by the Offensive Security/Red team. </li><li> Resolve network incidents, plan and implement requests and changes, troubleshoot and implement resolutions for problems. </li><li> Communicate regularly with Engagement Managers (Directors), project team members, and representatives from various functional and / or technical teams, including escalating any matters that require additional attention and consideration from engagement management </li><li> Independently and collaboratively lead client engagement workstreams focused on improvement, optimization, and transformation of processes including implementing leading practice workflows, addressing deficits in quality, and driving operational outcomes <br><br></li></ul><strong> The Team <br><br></strong>Our Cyber Operate offering develops and transforms cyber programs in line with a client&apos;s strategic objectives, regulatory requirements, and risk appetite. It keeps the enterprise a step ahead of the evolving threat landscape and gives stakeholders confidence in the organization&apos;s cyber posture. Includes design of the cyber organization, governance, and risk assessments.<br><br><strong>Qualifications<br><br></strong><strong> Required <br><br></strong><ul><li> Bachelor&apos;s degree, preferably in Computer Science, Information Technology, Computer Engineering, or related IT discipline; or equivalent experience </li><li> 5+ years of proven SOC experience </li><li> Experience evaluating vulnerabilities and patch management. </li><li> Experience with overall security operations </li><li> Experience with incidence response </li><li> Limited immigration sponsorship may be available </li><li> Ability to travel 10%, on average, based on the work you do and the clients and industries/sectors you serve <br><br></li></ul><strong>Preferred<br><br></strong><ul><li> Experience with threat hunting <br><br></li></ul>The wage range for this role takes into account the wide range of factors that are considered in making compensation decisions including but not limited to skill sets; experience and training; licensure and certifications; and other business and organizational needs. The disclosed range estimate has not been adjusted for the applicable geographic differential associated with the location at which the position may be filled. At Deloitte, it is not typical for an individual to be hired at or near the top of the range for their role and compensation decisions are dependent on the facts and circumstances of each case. A reasonable estimate of the current range is &#x24;90,000 to &#x24;150,000.<br><br>You may also be eligible to participate in a discretionary annual incentive program, subject to the rules governing the program, whereby an award, if any, depends on various factors, including, without limitation, individual and organizational performance.<br><br><strong>Additional Requirements<br><br></strong>Information for applicants with a need for accommodation: https://www2.deloitte.com/us/en/pages/careers/articles/join-deloitte-assistance-for-disabled-applicants.html\n        ",
+          "companyId": "1038",
+          "benefits": "",
+          "posterProfileUrl": "",
+          "posterFullName": ""
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      },
+      {
+        "json": {
+          "id": "4297302364",
+          "publishedAt": "2026-02-05",
+          "salary": "",
+          "title": "Sr. Data Quality Analyst",
+          "jobUrl": "https://www.linkedin.com/jobs/view/sr-data-quality-analyst-at-darden-4297302364?trk=public_jobs_topcard-title",
+          "companyName": "Darden",
+          "companyUrl": "https://www.linkedin.com/company/darden?trk=public_jobs_topcard-org-name",
+          "location": "Orlando, FL",
+          "postedTime": "5 hours ago",
+          "applicationsCount": "Over 200 applicants",
+          "description": "Job Overview\n\nThe responsibilities of the Sr. Data Quality Analyst include implementation and support of business rules within the data quality framework. This role will participate in the full data quality lifecycle from requirement elicitation through ongoing support. The candidate selected for this role will develop technical components that meet the business/functional requirements or from logged data incidents. The position plays a pivotal role in the definition of our data quality program, which includes policy, process, standards, and tools. The role demands an ability to understand the data semantics, business use and relationships.\n\nRoles And Responsibilities\n\n\n * Ability to translate business concerns into technical requirements/specifications\n * Ability to elicit requirements both from business users as well as Data Incident Management. Ensure data issues detected in the past are not repeated in the future.\n * Develop technical specifications that demonstrate how data quality will be preserved/enforced. Maintain as built documentation for the current as-built rules register.\n * Build quality rules code base to monitor data flows and ensure acceptable levels of trust.\n * Participate in Data Profiling POC evaluating product capabilities and make recommendations.\n * Oversee the execution of data profiling both for the purpose of ensuring acceptable quality as part of ingestion but also to understand data shift over time. Adjust these two profiling processes as necessary to meet business objectives.\n * Analyze Profiling and Rule results to ensure business requirements are being met. Fine tune configurations and rules to optimize both results and performance. Make design/process recommendations as needed.\n * Triage data anomalies to determine root cause. Participate in solutioning sessions to determine anomaly resolution and address any data purity issues.\n * Work with the BA team to generate data to power quality dashboards, which allow both data providers and data consumers to monitor data quality.\n * Contribute to business/technical definitions of data objects within the data catalogue.\n * Assist in the creation and maintenance of Data Lineage documentation.\n * Serve as an SME for multiple data domains. Assist business users in the selection, understanding and use of data.\n * Perform UAT on data sets as part of data ingestion, egress, transformation and rule execution.\n * Ensure that all solutions, technical configurations and other work products are thoroughly unit-tested prior to delivery. Participate in system/integration testing as appropriate. Perform reviews and other QA steps as requested.\n * Adhere to Darden SDLC, coding and data standards.\n * Proactively identify data issues or process issues impacting data.\n * Effectively communicate with stakeholders. Ensure issues are analyzed discussed and resolved in a timely manner.\n * Consistently enhance skills and job knowledge by researching techniques, technologies and software products; reading professional publications.\n * Provide for thorough and accurate Data Quality Tool administration to ensure the platform is properly managed.\n   \n   \n\nRequired Technical Skills\n\n\n * Strong understanding of data structures, data types, and data transformation.\n * Ability to perform complex data mappings, workflows and sessions.\n * Experience with SQL, and other data transformation/analytics tools such as Informatica, Talend, or Alteryx.\n * Expertise in reading, analyzing and debugging SQL.\n * Ability to troubleshoot data processing performance issue.\n * Experience or willingness to learn data profiling/quality tools such as Collibra, Ataccama, Informatica or OEDQ.\n * Experience or willingness to learn SparkSQL and Databricks.\n * Good analytical, problem solving and debugging skills, with strong ability to quickly learn and comprehend business processes and problems in order to effectively analyze result set and triage quality issues.\n * Work in multiple stages of the SDLC from development through production support.\n * Expertise in working with spreadsheets, strong understanding of financial concepts and data.\n * Ability to work independently, take ownership of tasks and follow through to implementation/resolution.\n * Resolve end user data problems through collaboration with both technical and functional personnel in a team environment.\n * Demonstrated competency in developing and testing complex rule sets.\n * Exceptional verbal and written communications skills, with an ability to express complex technical concepts in business terms.\n * Solid teamwork and interpersonal skills.\n * Strong analytical, problem-solving and conceptual skills.\n   \n   \n\nRequired Education\n\n\n * Bachelor's degree in IT related discipline or equivalent experience (BS / BA in MIS, Computer Science, Business, Mathematics or Engineering)\n   \n   \n\nOther Key Qualifications\n\n\n * Data modeling Experience\n * Experience with Cloud Data Warehouse products such as Snowflake or Azure Synapse\n * Experience using reporting tools like Power BI for Data quality visualizations\n * Experience with Python, Scala or Java\n * Knowledge of restaurant or retail business\n   \n   \n\nPreferred Skills And Experience\n\n\n * 5+ years’ experience across Business Intelligence/Data Warehouse/Data Lake projects\n * 1+ years’ experience on Data Quality and Governance initiatives, with at least one successful implementation\n * Experience programming in SQL with ability to develop complex queries against large disparate data sets\n * Experience with data integration patterns, data pipelines and tools such as Azure Data Factory\n * Knowledge of Data and Delta Lake Structures\n   \n   ",
+          "contractType": "Full-time",
+          "experienceLevel": "Mid-Senior level",
+          "workType": "Information Technology",
+          "sector": "Restaurants",
+          "applyType": "EASY_APPLY",
+          "applyUrl": "https://www.linkedin.com/jobs/view/sr-data-quality-analyst-at-darden-4297302364?trk=public_jobs_topcard-title",
+          "descriptionHtml": "\n          <strong>Job Overview<br><br></strong>The responsibilities of the Sr. Data Quality Analyst include implementation and support of business rules within the data quality framework. This role will participate in the full data quality lifecycle from requirement elicitation through ongoing support. The candidate selected for this role will develop technical components that meet the business/functional requirements or from logged data incidents. The position plays a pivotal role in the definition of our data quality program, which includes policy, process, standards, and tools. The role demands an ability to understand the data semantics, business use and relationships.<br><br><strong>Roles And Responsibilities<br><br></strong><ul><li>Ability to translate business concerns into technical requirements/specifications</li><li>Ability to elicit requirements both from business users as well as Data Incident Management. Ensure data issues detected in the past are not repeated in the future.</li><li>Develop technical specifications that demonstrate how data quality will be preserved/enforced. Maintain as built documentation for the current as-built rules register.</li><li>Build quality rules code base to monitor data flows and ensure acceptable levels of trust.</li><li>Participate in Data Profiling POC evaluating product capabilities and make recommendations.</li><li>Oversee the execution of data profiling both for the purpose of ensuring acceptable quality as part of ingestion but also to understand data shift over time. Adjust these two profiling processes as necessary to meet business objectives.</li><li>Analyze Profiling and Rule results to ensure business requirements are being met. Fine tune configurations and rules to optimize both results and performance. Make design/process recommendations as needed.</li><li>Triage data anomalies to determine root cause. Participate in solutioning sessions to determine anomaly resolution and address any data purity issues.</li><li>Work with the BA team to generate data to power quality dashboards, which allow both data providers and data consumers to monitor data quality.</li><li>Contribute to business/technical definitions of data objects within the data catalogue.</li><li>Assist in the creation and maintenance of Data Lineage documentation.</li><li>Serve as an SME for multiple data domains. Assist business users in the selection, understanding and use of data.</li><li>Perform UAT on data sets as part of data ingestion, egress, transformation and rule execution.</li><li>Ensure that all solutions, technical configurations and other work products are thoroughly unit-tested prior to delivery. Participate in system/integration testing as appropriate. Perform reviews and other QA steps as requested.</li><li>Adhere to Darden SDLC, coding and data standards.</li><li>Proactively identify data issues or process issues impacting data.</li><li>Effectively communicate with stakeholders. Ensure issues are analyzed discussed and resolved in a timely manner.</li><li>Consistently enhance skills and job knowledge by researching techniques, technologies and software products; reading professional publications.</li><li>Provide for thorough and accurate Data Quality Tool administration to ensure the platform is properly managed.<br><br></li></ul><strong>Required Technical Skills<br><br></strong><ul><li>Strong understanding of data structures, data types, and data transformation.</li><li>Ability to perform complex data mappings, workflows and sessions.</li><li>Experience with SQL, and other data transformation/analytics tools such as Informatica, Talend, or Alteryx.</li><li>Expertise in reading, analyzing and debugging SQL.</li><li>Ability to troubleshoot data processing performance issue.</li><li>Experience or willingness to learn data profiling/quality tools such as Collibra, Ataccama, Informatica or OEDQ.</li><li>Experience or willingness to learn SparkSQL and Databricks.</li><li>Good analytical, problem solving and debugging skills, with strong ability to quickly learn and comprehend business processes and problems in order to effectively analyze result set and triage quality issues.</li><li> Work in multiple stages of the SDLC from development through production support.</li><li>Expertise in working with spreadsheets, strong understanding of financial concepts and data.</li><li>Ability to work independently, take ownership of tasks and follow through to implementation/resolution.</li><li>Resolve end user data problems through collaboration with both technical and functional personnel in a team environment.</li><li>Demonstrated competency in developing and testing complex rule sets.</li><li>Exceptional verbal and written communications skills, with an ability to express complex technical concepts in business terms.</li><li>Solid teamwork and interpersonal skills.</li><li>Strong analytical, problem-solving and conceptual skills.<br><br></li></ul><strong>Required Education<br><br></strong><ul><li>Bachelor&apos;s degree in IT related discipline or equivalent experience (BS / BA in MIS, Computer Science, Business, Mathematics or Engineering)<br><br></li></ul><strong>Other Key Qualifications<br><br></strong><ul><li>Data modeling Experience</li><li>Experience with Cloud Data Warehouse products such as Snowflake or Azure Synapse</li><li>Experience using reporting tools like Power BI for Data quality visualizations</li><li>Experience with Python, Scala or Java</li><li>Knowledge of restaurant or retail business<br><br></li></ul><strong>Preferred Skills And Experience<br><br></strong><ul><li>5+ years&#x2019; experience across Business Intelligence/Data Warehouse/Data Lake projects</li><li>1+ years&#x2019; experience on Data Quality and Governance initiatives, with at least one successful implementation</li><li>Experience programming in SQL with ability to develop complex queries against large disparate data sets</li><li>Experience with data integration patterns, data pipelines and tools such as Azure Data Factory</li><li>Knowledge of Data and Delta Lake Structures<br><br></li></ul>\n        ",
+          "companyId": "163347",
+          "benefits": "",
+          "posterProfileUrl": "",
+          "posterFullName": ""
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ],
+    "Edit Fields": [
+      {
+        "json": {
+          "title": "Senior Analyst, Commercial Analytics",
+          "companyName": "Signature Aviation",
+          "location": "Orlando, FL",
+          "postedTime": "20 hours ago",
+          "contractType": "Full-time",
+          "experienceLevel": "Mid-Senior level",
+          "applyUrl": "https://hdbt.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/job/15524/?utm_medium=jobboard&utm_source=linkedin",
+          "jobUrl": "https://www.linkedin.com/jobs/view/senior-analyst-commercial-analytics-at-signature-aviation-4356552594?trk=public_jobs_topcard-title",
+          "description": "Job Description\n\nThe Sr. Commercial Analytics Analyst is responsible for supporting revenue performance goals and helping shape business decisions through data analytics. This role supports building the company and market performance narrative through analysis and data visualization. This role will be a subject matter expert for market performance and requires a blend of technological capability and creativity to build useful reports and dashboards for executive consumption.\n\nResponsibilities\n\nEssential Duties and Responsibilities:\n\n\n * Owns and maintains daily, weekly, and monthly reporting needs and evolves as necessary to support business needs.\n * Validate data insights through audit analysis to ensure the highest accuracy of reporting outputs.\n * Act as an internal consultant in forecasting, market share assessment, and customer insights to support commercial initiatives to maximize margin performance.\n * Responsible for ad-hoc analyses to identify performance insights for the commercial team.\n * Incorporate the latest analytics technologies to drive efficiency and ease of analytical capabilities.\n * Support monthly executive reporting updates and revenue/market performance narrative.\n * Support annual budget and quarterly forecasting process.\n * Act as project lead for sales, marketing, and regional revenue management teams reporting needs – extract business requirements, identify key success metrics, and communicate timelines.\n * Act as liaison for the broader organization for providing market and revenue performance insights.\n   \n   \n\nSupervisor And Financial Responsibilities\n\n\n * N/A\n   \n   \n\nQualifications\n\nMinimum Education and/or Experience:\n\n\n * Masters level degree in Economics, Statistics, Finance, Marketing Analytics, or related analytical field\n * 3-5 years experience in revenue management, pricing strategy, or analytics.\n   \n   \n\nAdditional Knowledge And Skills\n\n\n * SQL and/or R programming experience\n * Experience with Tableau data visualization reporting\n * Strong abilities in verbal and written communication, presentation of complex concepts, and partnering skills\n * Understanding Revenue Management concepts (i.e., demand forecasting, segmentation, dilution, displacement, etc.).\n   \n   \n\nAn Equal Opportunity Employer including Disability/Vets\n\nAbout Us\n\nWith more than 225 locations worldwide, Signature Aviation is the largest global network of private aviation terminals, delivering safe, convenient, and elevated experiences to those we serve. As a premier hospitality organization and a certified Great Place to Work™, we are committed to redefining private air travel. Our nearly 6,000-strong team of aviation experts and enthusiasts is dedicated to delivering excellence to our guests and communities, and it starts with taking care of our team. Signature provides a variety of benefits, programs, and resources to support our team members’ overall well-being and professional development. We proudly volunteer and give back, focusing on elevating the neighborhoods where we operate, empowering the next generation of aviation professionals, and supporting our veterans.\n\nFrom your health to your financial wellness, there are several benefits for you and your family when joining Signature Aviation.\n\nOur Benefits\n\n\n * Medical/prescription drug, dental, and vision Insurance\n * Health Savings Account\n * Flexible Spending Accounts\n * Life Insurance\n * Disability Insurance\n * 401(k)\n * Critical Illness, Hospital Indemnity and Accident Insurance\n * Identity Theft and Legal Services\n * Paid time off\n * Paid Maternity Leave\n * Tuition reimbursement\n * Training and Development\n * Employee Assistance Program (EAP) & Perks\n   \n   \n\nQualified applicants will receive consideration for employment without regard to age, race, color, religion, sex, sexual orientation, gender identity, national origin, or other protected characteristics."
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      },
+      {
+        "json": {
+          "title": "Palantir Forward Deployed Engineer",
+          "companyName": "Deloitte",
+          "location": "Lake Mary, FL",
+          "postedTime": "3 hours ago",
+          "contractType": "Full-time",
+          "experienceLevel": "Not Applicable",
+          "applyUrl": "https://ars2.equest.com/?response_id=e39b2509876cce3185cb6deec3f23f57",
+          "jobUrl": "https://www.linkedin.com/jobs/view/palantir-forward-deployed-engineer-at-deloitte-4362810120?trk=public_jobs_topcard-title",
+          "description": "Our Deloitte AI & Engineering team to transform technology platforms, drive innovation, and help make a significant impact on our clients' success. You'll work alongside talented professionals reimagining and reengineering operations and processes that are critical to businesses. Your contributions can help clients improve financial performance, accelerate new digital ventures, and fuel growth through innovation.\n\nWork You'll Do\n\nThe Senior Palantir Data Scientist will design future-state, modern data architecture, pipelining, and analysis for transformation at the enterprise level using advanced cloud architectural principles. Using tools such as Palantir Foundry, they will also work with cutting-edge DevOps technologies, develop advanced analytics products, and apply\n\ndata pipelining and statistical programming tools to enterprise data to advance and enable key mission outcomes.\n\nThe team\n\nDeloitte's Government and Public Services (GPS) practice - our people, ideas, technology and outcomes-is designed for impact. Serving federal, state, & local government clients as well as public higher education institutions, our team of professionals brings fresh perspective to help clients anticipate disruption, reimagine the possible, and fulfill their mission promise.\n\nOur AI & Data offering provides a full spectrum of solutions for designing, developing, and operating cutting-edge Data and AI platforms, products, insights, and services. Our offerings help clients innovate, enhance and operate their data, AI, and analytics capabilities, ensuring they can mature and scale effectively.\n\nQualifications\n\nRequired:\n\n\n * Bachelor's degree required.\n * Must be legally authorized to work in the United States without the need for employer sponsorship, now or at any time in the future\n * Must be able to obtain and maintain the required clearance for this role.\n * 5+ years of data science and/or data manipulation and analysis\n * 3+ years experience working with Palantir Foundry\n * Ability to travel 10%, on average, based on the work you do and the clients and industries/sectors you serve. This may include overnight travel.\n * Expected to co-locate in your designed office/USDC location up to 30% of the time.\n * Must live in a commutable distance to or be willing to relocate to one of the following delivery locations: Gilbert, AZ; Lake Mary, FL; Mechanicsburg, PA.\n   \n   \n\nPreferred:\n\n\n * 5+ years of experience with pipeline and application development within Palantir Foundry\n * 5+ years of prior professional services or federal consulting experience\n * Proven leadership experience with the ability to translate technical concepts to nontechnical audiences\n * Creativity and innovation - desire to learn and apply new technologies, products, and libraries\n * Strong written and verbal communication skills\n * Strong organizational skills\n   \n   \n\nInformation for applicants with a need for accommodation: https://www2.deloitte.com/us/en/pages/careers/articles/join-deloitte-assistance-for-disabled-applicants.html\n\n"
+        },
+        "pairedItem": {
+          "item": 1
+        }
+      },
+      {
+        "json": {
+          "title": "Senior SOC Analyst",
+          "companyName": "Deloitte",
+          "location": "Lake Mary, FL",
+          "postedTime": "4 hours ago",
+          "contractType": "Full-time",
+          "experienceLevel": "Not Applicable",
+          "applyUrl": "https://ars2.equest.com/?response_id=c4cea1a0853038c29266cc9732a01c82",
+          "jobUrl": "https://www.linkedin.com/jobs/view/senior-soc-analyst-at-deloitte-4362752739?trk=public_jobs_topcard-title",
+          "description": "Are you an experienced, passionate pioneer in technology who wants to work in a collaborative environment? As an experienced Senior SOC Analyst you will have the ability to share new ideas and collaborate on projects as a consultant without the extensive demands of travel. If so, consider an opportunity with Deloitte under our Project Delivery Talent Model. Project Delivery Model (PDM) is a talent model that is tailored specifically for long-term, onsite client service delivery.\n\nRecruiting for this role ends on 03/13/2026\n\nWork You'll Do/Responsibilities\n\n\n * Responsible for handling security events/alerts and providing rapid response with the understanding of network infrastructure and security tools.\n * Execute a cyber threat hunting program to identify, detect, mitigate, respond to cyber threats and advanced threat actors.\n * Schedule SOC analyst shifts and serve as an escalation point for issues and performance.\n * Develop plans and remediate gaps found by the Offensive Security/Red team.\n * Resolve network incidents, plan and implement requests and changes, troubleshoot and implement resolutions for problems.\n * Communicate regularly with Engagement Managers (Directors), project team members, and representatives from various functional and / or technical teams, including escalating any matters that require additional attention and consideration from engagement management\n * Independently and collaboratively lead client engagement workstreams focused on improvement, optimization, and transformation of processes including implementing leading practice workflows, addressing deficits in quality, and driving operational outcomes\n   \n   \n\nThe Team\n\nOur Cyber Operate offering develops and transforms cyber programs in line with a client's strategic objectives, regulatory requirements, and risk appetite. It keeps the enterprise a step ahead of the evolving threat landscape and gives stakeholders confidence in the organization's cyber posture. Includes design of the cyber organization, governance, and risk assessments.\n\nQualifications\n\nRequired\n\n\n * Bachelor's degree, preferably in Computer Science, Information Technology, Computer Engineering, or related IT discipline; or equivalent experience\n * 5+ years of proven SOC experience\n * Experience evaluating vulnerabilities and patch management.\n * Experience with overall security operations\n * Experience with incidence response\n * Limited immigration sponsorship may be available\n * Ability to travel 10%, on average, based on the work you do and the clients and industries/sectors you serve\n   \n   \n\nPreferred\n\n\n * Experience with threat hunting\n   \n   \n\nThe wage range for this role takes into account the wide range of factors that are considered in making compensation decisions including but not limited to skill sets; experience and training; licensure and certifications; and other business and organizational needs. The disclosed range estimate has not been adjusted for the applicable geographic differential associated with the location at which the position may be filled. At Deloitte, it is not typical for an individual to be hired at or near the top of the range for their role and compensation decisions are dependent on the facts and circumstances of each case. A reasonable estimate of the current range is $90,000 to $150,000.\n\nYou may also be eligible to participate in a discretionary annual incentive program, subject to the rules governing the program, whereby an award, if any, depends on various factors, including, without limitation, individual and organizational performance.\n\nAdditional Requirements\n\nInformation for applicants with a need for accommodation: https://www2.deloitte.com/us/en/pages/careers/articles/join-deloitte-assistance-for-disabled-applicants.html"
+        },
+        "pairedItem": {
+          "item": 2
+        }
+      },
+      {
+        "json": {
+          "title": "Sr. Data Quality Analyst",
+          "companyName": "Darden",
+          "location": "Orlando, FL",
+          "postedTime": "5 hours ago",
+          "contractType": "Full-time",
+          "experienceLevel": "Mid-Senior level",
+          "applyUrl": "https://www.linkedin.com/jobs/view/sr-data-quality-analyst-at-darden-4297302364?trk=public_jobs_topcard-title",
+          "jobUrl": "https://www.linkedin.com/jobs/view/sr-data-quality-analyst-at-darden-4297302364?trk=public_jobs_topcard-title",
+          "description": "Job Overview\n\nThe responsibilities of the Sr. Data Quality Analyst include implementation and support of business rules within the data quality framework. This role will participate in the full data quality lifecycle from requirement elicitation through ongoing support. The candidate selected for this role will develop technical components that meet the business/functional requirements or from logged data incidents. The position plays a pivotal role in the definition of our data quality program, which includes policy, process, standards, and tools. The role demands an ability to understand the data semantics, business use and relationships.\n\nRoles And Responsibilities\n\n\n * Ability to translate business concerns into technical requirements/specifications\n * Ability to elicit requirements both from business users as well as Data Incident Management. Ensure data issues detected in the past are not repeated in the future.\n * Develop technical specifications that demonstrate how data quality will be preserved/enforced. Maintain as built documentation for the current as-built rules register.\n * Build quality rules code base to monitor data flows and ensure acceptable levels of trust.\n * Participate in Data Profiling POC evaluating product capabilities and make recommendations.\n * Oversee the execution of data profiling both for the purpose of ensuring acceptable quality as part of ingestion but also to understand data shift over time. Adjust these two profiling processes as necessary to meet business objectives.\n * Analyze Profiling and Rule results to ensure business requirements are being met. Fine tune configurations and rules to optimize both results and performance. Make design/process recommendations as needed.\n * Triage data anomalies to determine root cause. Participate in solutioning sessions to determine anomaly resolution and address any data purity issues.\n * Work with the BA team to generate data to power quality dashboards, which allow both data providers and data consumers to monitor data quality.\n * Contribute to business/technical definitions of data objects within the data catalogue.\n * Assist in the creation and maintenance of Data Lineage documentation.\n * Serve as an SME for multiple data domains. Assist business users in the selection, understanding and use of data.\n * Perform UAT on data sets as part of data ingestion, egress, transformation and rule execution.\n * Ensure that all solutions, technical configurations and other work products are thoroughly unit-tested prior to delivery. Participate in system/integration testing as appropriate. Perform reviews and other QA steps as requested.\n * Adhere to Darden SDLC, coding and data standards.\n * Proactively identify data issues or process issues impacting data.\n * Effectively communicate with stakeholders. Ensure issues are analyzed discussed and resolved in a timely manner.\n * Consistently enhance skills and job knowledge by researching techniques, technologies and software products; reading professional publications.\n * Provide for thorough and accurate Data Quality Tool administration to ensure the platform is properly managed.\n   \n   \n\nRequired Technical Skills\n\n\n * Strong understanding of data structures, data types, and data transformation.\n * Ability to perform complex data mappings, workflows and sessions.\n * Experience with SQL, and other data transformation/analytics tools such as Informatica, Talend, or Alteryx.\n * Expertise in reading, analyzing and debugging SQL.\n * Ability to troubleshoot data processing performance issue.\n * Experience or willingness to learn data profiling/quality tools such as Collibra, Ataccama, Informatica or OEDQ.\n * Experience or willingness to learn SparkSQL and Databricks.\n * Good analytical, problem solving and debugging skills, with strong ability to quickly learn and comprehend business processes and problems in order to effectively analyze result set and triage quality issues.\n * Work in multiple stages of the SDLC from development through production support.\n * Expertise in working with spreadsheets, strong understanding of financial concepts and data.\n * Ability to work independently, take ownership of tasks and follow through to implementation/resolution.\n * Resolve end user data problems through collaboration with both technical and functional personnel in a team environment.\n * Demonstrated competency in developing and testing complex rule sets.\n * Exceptional verbal and written communications skills, with an ability to express complex technical concepts in business terms.\n * Solid teamwork and interpersonal skills.\n * Strong analytical, problem-solving and conceptual skills.\n   \n   \n\nRequired Education\n\n\n * Bachelor's degree in IT related discipline or equivalent experience (BS / BA in MIS, Computer Science, Business, Mathematics or Engineering)\n   \n   \n\nOther Key Qualifications\n\n\n * Data modeling Experience\n * Experience with Cloud Data Warehouse products such as Snowflake or Azure Synapse\n * Experience using reporting tools like Power BI for Data quality visualizations\n * Experience with Python, Scala or Java\n * Knowledge of restaurant or retail business\n   \n   \n\nPreferred Skills And Experience\n\n\n * 5+ years’ experience across Business Intelligence/Data Warehouse/Data Lake projects\n * 1+ years’ experience on Data Quality and Governance initiatives, with at least one successful implementation\n * Experience programming in SQL with ability to develop complex queries against large disparate data sets\n * Experience with data integration patterns, data pipelines and tools such as Azure Data Factory\n * Knowledge of Data and Delta Lake Structures\n   \n   "
+        },
+        "pairedItem": {
+          "item": 3
+        }
+      }
+    ],
+    "Filter": [
+      {
+        "json": {
+          "title": "Senior Analyst, Commercial Analytics",
+          "companyName": "Signature Aviation",
+          "location": "Orlando, FL",
+          "postedTime": "20 hours ago",
+          "contractType": "Full-time",
+          "experienceLevel": "Mid-Senior level",
+          "applyUrl": "https://hdbt.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/job/15524/?utm_medium=jobboard&utm_source=linkedin",
+          "jobUrl": "https://www.linkedin.com/jobs/view/senior-analyst-commercial-analytics-at-signature-aviation-4356552594?trk=public_jobs_topcard-title",
+          "description": "Job Description\n\nThe Sr. Commercial Analytics Analyst is responsible for supporting revenue performance goals and helping shape business decisions through data analytics. This role supports building the company and market performance narrative through analysis and data visualization. This role will be a subject matter expert for market performance and requires a blend of technological capability and creativity to build useful reports and dashboards for executive consumption.\n\nResponsibilities\n\nEssential Duties and Responsibilities:\n\n\n * Owns and maintains daily, weekly, and monthly reporting needs and evolves as necessary to support business needs.\n * Validate data insights through audit analysis to ensure the highest accuracy of reporting outputs.\n * Act as an internal consultant in forecasting, market share assessment, and customer insights to support commercial initiatives to maximize margin performance.\n * Responsible for ad-hoc analyses to identify performance insights for the commercial team.\n * Incorporate the latest analytics technologies to drive efficiency and ease of analytical capabilities.\n * Support monthly executive reporting updates and revenue/market performance narrative.\n * Support annual budget and quarterly forecasting process.\n * Act as project lead for sales, marketing, and regional revenue management teams reporting needs – extract business requirements, identify key success metrics, and communicate timelines.\n * Act as liaison for the broader organization for providing market and revenue performance insights.\n   \n   \n\nSupervisor And Financial Responsibilities\n\n\n * N/A\n   \n   \n\nQualifications\n\nMinimum Education and/or Experience:\n\n\n * Masters level degree in Economics, Statistics, Finance, Marketing Analytics, or related analytical field\n * 3-5 years experience in revenue management, pricing strategy, or analytics.\n   \n   \n\nAdditional Knowledge And Skills\n\n\n * SQL and/or R programming experience\n * Experience with Tableau data visualization reporting\n * Strong abilities in verbal and written communication, presentation of complex concepts, and partnering skills\n * Understanding Revenue Management concepts (i.e., demand forecasting, segmentation, dilution, displacement, etc.).\n   \n   \n\nAn Equal Opportunity Employer including Disability/Vets\n\nAbout Us\n\nWith more than 225 locations worldwide, Signature Aviation is the largest global network of private aviation terminals, delivering safe, convenient, and elevated experiences to those we serve. As a premier hospitality organization and a certified Great Place to Work™, we are committed to redefining private air travel. Our nearly 6,000-strong team of aviation experts and enthusiasts is dedicated to delivering excellence to our guests and communities, and it starts with taking care of our team. Signature provides a variety of benefits, programs, and resources to support our team members’ overall well-being and professional development. We proudly volunteer and give back, focusing on elevating the neighborhoods where we operate, empowering the next generation of aviation professionals, and supporting our veterans.\n\nFrom your health to your financial wellness, there are several benefits for you and your family when joining Signature Aviation.\n\nOur Benefits\n\n\n * Medical/prescription drug, dental, and vision Insurance\n * Health Savings Account\n * Flexible Spending Accounts\n * Life Insurance\n * Disability Insurance\n * 401(k)\n * Critical Illness, Hospital Indemnity and Accident Insurance\n * Identity Theft and Legal Services\n * Paid time off\n * Paid Maternity Leave\n * Tuition reimbursement\n * Training and Development\n * Employee Assistance Program (EAP) & Perks\n   \n   \n\nQualified applicants will receive consideration for employment without regard to age, race, color, religion, sex, sexual orientation, gender identity, national origin, or other protected characteristics."
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      },
+      {
+        "json": {
+          "title": "Palantir Forward Deployed Engineer",
+          "companyName": "Deloitte",
+          "location": "Lake Mary, FL",
+          "postedTime": "3 hours ago",
+          "contractType": "Full-time",
+          "experienceLevel": "Not Applicable",
+          "applyUrl": "https://ars2.equest.com/?response_id=e39b2509876cce3185cb6deec3f23f57",
+          "jobUrl": "https://www.linkedin.com/jobs/view/palantir-forward-deployed-engineer-at-deloitte-4362810120?trk=public_jobs_topcard-title",
+          "description": "Our Deloitte AI & Engineering team to transform technology platforms, drive innovation, and help make a significant impact on our clients' success. You'll work alongside talented professionals reimagining and reengineering operations and processes that are critical to businesses. Your contributions can help clients improve financial performance, accelerate new digital ventures, and fuel growth through innovation.\n\nWork You'll Do\n\nThe Senior Palantir Data Scientist will design future-state, modern data architecture, pipelining, and analysis for transformation at the enterprise level using advanced cloud architectural principles. Using tools such as Palantir Foundry, they will also work with cutting-edge DevOps technologies, develop advanced analytics products, and apply\n\ndata pipelining and statistical programming tools to enterprise data to advance and enable key mission outcomes.\n\nThe team\n\nDeloitte's Government and Public Services (GPS) practice - our people, ideas, technology and outcomes-is designed for impact. Serving federal, state, & local government clients as well as public higher education institutions, our team of professionals brings fresh perspective to help clients anticipate disruption, reimagine the possible, and fulfill their mission promise.\n\nOur AI & Data offering provides a full spectrum of solutions for designing, developing, and operating cutting-edge Data and AI platforms, products, insights, and services. Our offerings help clients innovate, enhance and operate their data, AI, and analytics capabilities, ensuring they can mature and scale effectively.\n\nQualifications\n\nRequired:\n\n\n * Bachelor's degree required.\n * Must be legally authorized to work in the United States without the need for employer sponsorship, now or at any time in the future\n * Must be able to obtain and maintain the required clearance for this role.\n * 5+ years of data science and/or data manipulation and analysis\n * 3+ years experience working with Palantir Foundry\n * Ability to travel 10%, on average, based on the work you do and the clients and industries/sectors you serve. This may include overnight travel.\n * Expected to co-locate in your designed office/USDC location up to 30% of the time.\n * Must live in a commutable distance to or be willing to relocate to one of the following delivery locations: Gilbert, AZ; Lake Mary, FL; Mechanicsburg, PA.\n   \n   \n\nPreferred:\n\n\n * 5+ years of experience with pipeline and application development within Palantir Foundry\n * 5+ years of prior professional services or federal consulting experience\n * Proven leadership experience with the ability to translate technical concepts to nontechnical audiences\n * Creativity and innovation - desire to learn and apply new technologies, products, and libraries\n * Strong written and verbal communication skills\n * Strong organizational skills\n   \n   \n\nInformation for applicants with a need for accommodation: https://www2.deloitte.com/us/en/pages/careers/articles/join-deloitte-assistance-for-disabled-applicants.html\n\n"
+        },
+        "pairedItem": {
+          "item": 1
+        }
+      },
+      {
+        "json": {
+          "title": "Senior SOC Analyst",
+          "companyName": "Deloitte",
+          "location": "Lake Mary, FL",
+          "postedTime": "4 hours ago",
+          "contractType": "Full-time",
+          "experienceLevel": "Not Applicable",
+          "applyUrl": "https://ars2.equest.com/?response_id=c4cea1a0853038c29266cc9732a01c82",
+          "jobUrl": "https://www.linkedin.com/jobs/view/senior-soc-analyst-at-deloitte-4362752739?trk=public_jobs_topcard-title",
+          "description": "Are you an experienced, passionate pioneer in technology who wants to work in a collaborative environment? As an experienced Senior SOC Analyst you will have the ability to share new ideas and collaborate on projects as a consultant without the extensive demands of travel. If so, consider an opportunity with Deloitte under our Project Delivery Talent Model. Project Delivery Model (PDM) is a talent model that is tailored specifically for long-term, onsite client service delivery.\n\nRecruiting for this role ends on 03/13/2026\n\nWork You'll Do/Responsibilities\n\n\n * Responsible for handling security events/alerts and providing rapid response with the understanding of network infrastructure and security tools.\n * Execute a cyber threat hunting program to identify, detect, mitigate, respond to cyber threats and advanced threat actors.\n * Schedule SOC analyst shifts and serve as an escalation point for issues and performance.\n * Develop plans and remediate gaps found by the Offensive Security/Red team.\n * Resolve network incidents, plan and implement requests and changes, troubleshoot and implement resolutions for problems.\n * Communicate regularly with Engagement Managers (Directors), project team members, and representatives from various functional and / or technical teams, including escalating any matters that require additional attention and consideration from engagement management\n * Independently and collaboratively lead client engagement workstreams focused on improvement, optimization, and transformation of processes including implementing leading practice workflows, addressing deficits in quality, and driving operational outcomes\n   \n   \n\nThe Team\n\nOur Cyber Operate offering develops and transforms cyber programs in line with a client's strategic objectives, regulatory requirements, and risk appetite. It keeps the enterprise a step ahead of the evolving threat landscape and gives stakeholders confidence in the organization's cyber posture. Includes design of the cyber organization, governance, and risk assessments.\n\nQualifications\n\nRequired\n\n\n * Bachelor's degree, preferably in Computer Science, Information Technology, Computer Engineering, or related IT discipline; or equivalent experience\n * 5+ years of proven SOC experience\n * Experience evaluating vulnerabilities and patch management.\n * Experience with overall security operations\n * Experience with incidence response\n * Limited immigration sponsorship may be available\n * Ability to travel 10%, on average, based on the work you do and the clients and industries/sectors you serve\n   \n   \n\nPreferred\n\n\n * Experience with threat hunting\n   \n   \n\nThe wage range for this role takes into account the wide range of factors that are considered in making compensation decisions including but not limited to skill sets; experience and training; licensure and certifications; and other business and organizational needs. The disclosed range estimate has not been adjusted for the applicable geographic differential associated with the location at which the position may be filled. At Deloitte, it is not typical for an individual to be hired at or near the top of the range for their role and compensation decisions are dependent on the facts and circumstances of each case. A reasonable estimate of the current range is $90,000 to $150,000.\n\nYou may also be eligible to participate in a discretionary annual incentive program, subject to the rules governing the program, whereby an award, if any, depends on various factors, including, without limitation, individual and organizational performance.\n\nAdditional Requirements\n\nInformation for applicants with a need for accommodation: https://www2.deloitte.com/us/en/pages/careers/articles/join-deloitte-assistance-for-disabled-applicants.html"
+        },
+        "pairedItem": {
+          "item": 2
+        }
+      },
+      {
+        "json": {
+          "title": "Sr. Data Quality Analyst",
+          "companyName": "Darden",
+          "location": "Orlando, FL",
+          "postedTime": "5 hours ago",
+          "contractType": "Full-time",
+          "experienceLevel": "Mid-Senior level",
+          "applyUrl": "https://www.linkedin.com/jobs/view/sr-data-quality-analyst-at-darden-4297302364?trk=public_jobs_topcard-title",
+          "jobUrl": "https://www.linkedin.com/jobs/view/sr-data-quality-analyst-at-darden-4297302364?trk=public_jobs_topcard-title",
+          "description": "Job Overview\n\nThe responsibilities of the Sr. Data Quality Analyst include implementation and support of business rules within the data quality framework. This role will participate in the full data quality lifecycle from requirement elicitation through ongoing support. The candidate selected for this role will develop technical components that meet the business/functional requirements or from logged data incidents. The position plays a pivotal role in the definition of our data quality program, which includes policy, process, standards, and tools. The role demands an ability to understand the data semantics, business use and relationships.\n\nRoles And Responsibilities\n\n\n * Ability to translate business concerns into technical requirements/specifications\n * Ability to elicit requirements both from business users as well as Data Incident Management. Ensure data issues detected in the past are not repeated in the future.\n * Develop technical specifications that demonstrate how data quality will be preserved/enforced. Maintain as built documentation for the current as-built rules register.\n * Build quality rules code base to monitor data flows and ensure acceptable levels of trust.\n * Participate in Data Profiling POC evaluating product capabilities and make recommendations.\n * Oversee the execution of data profiling both for the purpose of ensuring acceptable quality as part of ingestion but also to understand data shift over time. Adjust these two profiling processes as necessary to meet business objectives.\n * Analyze Profiling and Rule results to ensure business requirements are being met. Fine tune configurations and rules to optimize both results and performance. Make design/process recommendations as needed.\n * Triage data anomalies to determine root cause. Participate in solutioning sessions to determine anomaly resolution and address any data purity issues.\n * Work with the BA team to generate data to power quality dashboards, which allow both data providers and data consumers to monitor data quality.\n * Contribute to business/technical definitions of data objects within the data catalogue.\n * Assist in the creation and maintenance of Data Lineage documentation.\n * Serve as an SME for multiple data domains. Assist business users in the selection, understanding and use of data.\n * Perform UAT on data sets as part of data ingestion, egress, transformation and rule execution.\n * Ensure that all solutions, technical configurations and other work products are thoroughly unit-tested prior to delivery. Participate in system/integration testing as appropriate. Perform reviews and other QA steps as requested.\n * Adhere to Darden SDLC, coding and data standards.\n * Proactively identify data issues or process issues impacting data.\n * Effectively communicate with stakeholders. Ensure issues are analyzed discussed and resolved in a timely manner.\n * Consistently enhance skills and job knowledge by researching techniques, technologies and software products; reading professional publications.\n * Provide for thorough and accurate Data Quality Tool administration to ensure the platform is properly managed.\n   \n   \n\nRequired Technical Skills\n\n\n * Strong understanding of data structures, data types, and data transformation.\n * Ability to perform complex data mappings, workflows and sessions.\n * Experience with SQL, and other data transformation/analytics tools such as Informatica, Talend, or Alteryx.\n * Expertise in reading, analyzing and debugging SQL.\n * Ability to troubleshoot data processing performance issue.\n * Experience or willingness to learn data profiling/quality tools such as Collibra, Ataccama, Informatica or OEDQ.\n * Experience or willingness to learn SparkSQL and Databricks.\n * Good analytical, problem solving and debugging skills, with strong ability to quickly learn and comprehend business processes and problems in order to effectively analyze result set and triage quality issues.\n * Work in multiple stages of the SDLC from development through production support.\n * Expertise in working with spreadsheets, strong understanding of financial concepts and data.\n * Ability to work independently, take ownership of tasks and follow through to implementation/resolution.\n * Resolve end user data problems through collaboration with both technical and functional personnel in a team environment.\n * Demonstrated competency in developing and testing complex rule sets.\n * Exceptional verbal and written communications skills, with an ability to express complex technical concepts in business terms.\n * Solid teamwork and interpersonal skills.\n * Strong analytical, problem-solving and conceptual skills.\n   \n   \n\nRequired Education\n\n\n * Bachelor's degree in IT related discipline or equivalent experience (BS / BA in MIS, Computer Science, Business, Mathematics or Engineering)\n   \n   \n\nOther Key Qualifications\n\n\n * Data modeling Experience\n * Experience with Cloud Data Warehouse products such as Snowflake or Azure Synapse\n * Experience using reporting tools like Power BI for Data quality visualizations\n * Experience with Python, Scala or Java\n * Knowledge of restaurant or retail business\n   \n   \n\nPreferred Skills And Experience\n\n\n * 5+ years’ experience across Business Intelligence/Data Warehouse/Data Lake projects\n * 1+ years’ experience on Data Quality and Governance initiatives, with at least one successful implementation\n * Experience programming in SQL with ability to develop complex queries against large disparate data sets\n * Experience with data integration patterns, data pipelines and tools such as Azure Data Factory\n * Knowledge of Data and Delta Lake Structures\n   \n   "
+        },
+        "pairedItem": {
+          "item": 3
+        }
+      }
+    ],
+    "AI Agent": [
+      {
+        "json": {
+          "output": {
+            "job_fit": "No"
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "job_fit": "No"
+          }
+        },
+        "pairedItem": {
+          "item": 1
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "job_fit": "No"
+          }
+        },
+        "pairedItem": {
+          "item": 2
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "job_fit": "Yes"
+          }
+        },
+        "pairedItem": {
+          "item": 3
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run an Actor and get dataset",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run an Actor and get dataset": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Compare Datasets",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Compare Datasets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare Datasets": {
+      "main": [
+        [],
+        [],
+        [],
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        []
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "d9d4f7f7-9346-4d5f-bdf8-95242881ba22",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "814a2cb8ce8336c3ed2018f47d9857281f8cab10297c7acb9df3b448f0c9a145"
+  },
+  "id": "nkY_fRp7qjQGcWuOjj3TR",
+  "tags": []
+}
