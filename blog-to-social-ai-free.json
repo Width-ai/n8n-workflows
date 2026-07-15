@@ -1,0 +1,302 @@
+{
+  "name": "Blog \u2192 Social Posts (AI) \u2014 Twitter + LinkedIn \u2192 Slack (Free Version)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Setup Instructions\n\n### 1. OpenAI API Key\n- Go to https://platform.openai.com/api-keys\n- Create a new API key\n- In n8n: Click the \"Generate Social Posts\" node \u2192 Create New Credential \u2192 Paste your API key\n- Model: GPT-4o-mini (recommended for free tier)\n\n### 2. RSS Feed URL\n- Open the \"RSS Feed Trigger\" node\n- Replace the example URL with your blog's RSS feed\n- Common formats: `yourblog.com/feed`, `yourblog.com/rss.xml`, `yourblog.com/blog/rss`\n\n### 3. Slack Credentials\n- Create a Slack App at https://api.slack.com/apps with `chat:write` permission\n- Install to your workspace and copy the **Bot Token** (starts with xoxb)\n- In n8n: Click the Slack node \u2192 Create New Credential \u2192 Paste token\n- Create a channel: `#content`\n\n### 4. Test\n- Activate the workflow and publish a blog post to trigger via RSS\n- Or temporarily lower the RSS poll interval to test faster\n- Verify: Slack message appears in #content with Twitter + LinkedIn posts\n\n**Estimated setup time: 5 minutes**\n\n### Required Credentials\n- **OpenAI**: API Key \u2192 platform.openai.com/api-keys\n- **Slack**: Bot Token \u2192 api.slack.com/apps",
+        "height": 620,
+        "width": 480,
+        "color": 4
+      },
+      "id": "f2a1b3c4-0001-4e00-a001-000000000001",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Get the Full Version\n\nThis free template generates posts for **2 platforms only** (Twitter + LinkedIn).\n\nThe full version includes:\n- 5 platforms: Twitter, LinkedIn, Instagram, Facebook, Newsletter\n- Manual trigger for on-demand processing\n- Duplicate detection (won't reprocess same URL)\n- AI fallback (never breaks, even if OpenAI fails)\n- Google Sheets content calendar logging\n- Buffer integration for scheduled posting\n- Centralized error handling with Slack alerts\n- Retry logic on all external API calls\n\nGet it at: https://flowyantra.gumroad.com/l/blog-to-social-ai",
+        "height": 360,
+        "width": 380,
+        "color": 6
+      },
+      "id": "f2a1b3c4-0002-4e00-a002-000000000002",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1900,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## How It Works\nRSS Trigger detects new blog posts \u2192 Fetches full page \u2192 Extracts article text \u2192 OpenAI generates Twitter thread + LinkedIn post \u2192 Sends to Slack for review.\n\nSimple, linear flow. No error handling \u2014 upgrade to the full version for production use.",
+        "height": 140,
+        "width": 500,
+        "color": 3
+      },
+      "id": "f2a1b3c4-0003-4e00-a003-000000000003",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        520,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "feedUrl": "https://yourblog.com/feed",
+        "options": {}
+      },
+      "id": "f2a1b3c4-1001-4e00-b001-000000000004",
+      "name": "RSS Feed Trigger",
+      "type": "n8n-nodes-base.rssFeedReadTrigger",
+      "typeVersion": 1,
+      "position": [
+        280,
+        450
+      ],
+      "polling": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Basic input validation\nconst item = $input.item.json;\nconst title = item.title || '';\nconst link = item.link || item.url || item.guid || '';\n\nif (!title || !link) {\n  throw new Error('Missing title or link from RSS feed');\n}\n\nreturn {\n  json: {\n    title: title.trim(),\n    link: link.trim(),\n    description: (item.description || item.summary || '').substring(0, 500)\n  }\n};"
+      },
+      "id": "f2a1b3c4-1002-4e00-b002-000000000005",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.link }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false,
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "f2a1b3c4-1003-4e00-b003-000000000006",
+      "name": "Fetch Blog Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        840,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Extract article text from HTML\nconst html = $input.item.json.data || $input.item.json.body || '';\nconst title = $items('Validate Input')[0].json.title;\nconst link = $items('Validate Input')[0].json.link;\n\nlet content = html;\nconst articleMatch = html.match(/<article[^>]*>([\\s\\S]*?)<\\/article>/i);\nconst mainMatch = html.match(/<main[^>]*>([\\s\\S]*?)<\\/main>/i);\n\nif (articleMatch) content = articleMatch[1];\nelse if (mainMatch) content = mainMatch[1];\n\n// Strip HTML\ncontent = content.replace(/<script[\\s\\S]*?<\\/script>/gi, '');\ncontent = content.replace(/<style[\\s\\S]*?<\\/style>/gi, '');\ncontent = content.replace(/<[^>]+>/g, ' ');\ncontent = content.replace(/&nbsp;/g, ' ');\ncontent = content.replace(/&amp;/g, '&');\ncontent = content.replace(/\\s+/g, ' ').trim();\n\nconst fullText = content.substring(0, 3000);\n\nreturn {\n  json: {\n    title,\n    url: link,\n    full_text: fullText\n  }\n};"
+      },
+      "id": "f2a1b3c4-1004-4e00-b004-000000000007",
+      "name": "Extract Article Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a social media content strategist. Your job is to repurpose blog posts into platform-optimized social media content.\n\nRules:\n1. Match the tone and voice of the original blog post\n2. Each platform post must feel native to that platform\n3. Twitter: concise, max 280 chars per tweet. Create a thread of 3-5 tweets.\n4. LinkedIn: professional, insight-driven, 150-300 words. Use line breaks.\n5. Include relevant hashtags (5-8 per platform)\n6. Include an engagement hook at the start\n7. Include the blog post URL naturally\n\nRespond ONLY with valid JSON. No markdown, no code fences.",
+              "role": "system"
+            },
+            {
+              "content": "=Repurpose this blog post into social media content for Twitter and LinkedIn.\n\n**Title**: {{ $json.title }}\n**URL**: {{ $json.url }}\n**Content**:\n{{ $json.full_text }}\n\nGenerate JSON:\n{\"twitter_thread\":[\"tweet1\",\"tweet2\",\"tweet3\"],\"linkedin_post\":\"text\",\"hashtags\":{\"twitter\":[],\"linkedin\":[]}}",
+              "role": "user"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 1500
+        }
+      },
+      "id": "f2a1b3c4-2001-4e00-c001-000000000008",
+      "name": "Generate Social Posts",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        1400,
+        450
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "1",
+          "name": "OpenAI Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse OpenAI JSON response\nconst raw = $input.item.json.message?.content || $input.item.json.text || '';\nlet parsed;\ntry {\n  const cleaned = raw.replace(/```json?\\n?/g, '').replace(/```/g, '').trim();\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  throw new Error('Failed to parse OpenAI response: ' + e.message);\n}\n\nconst title = $items('Extract Article Text')[0].json.title;\nconst url = $items('Extract Article Text')[0].json.url;\n\nif (!parsed.twitter_thread) parsed.twitter_thread = ['Check out: ' + title + ' ' + url];\nif (!parsed.linkedin_post) parsed.linkedin_post = title + '\\n\\nRead more: ' + url;\n\nreturn {\n  json: {\n    ...parsed,\n    title,\n    url\n  }\n};"
+      },
+      "id": "f2a1b3c4-2002-4e00-c002-000000000009",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Format Slack message with Twitter + LinkedIn posts\nconst data = $input.item.json;\nconst tweets = Array.isArray(data.twitter_thread) ? data.twitter_thread.join('\\n---\\n') : data.twitter_thread;\nconst hashtags = data.hashtags || {};\n\nconst msg = `:memo: *New Social Posts Generated*\\n\\n`\n  + `*Blog:* <${data.url}|${data.title}>\\n\\n`\n  + `---\\n`\n  + `*Twitter Thread:*\\n${tweets}\\n`\n  + (hashtags.twitter?.length ? `_Hashtags: ${hashtags.twitter.join(' ')}_\\n` : '')\n  + `\\n---\\n`\n  + `*LinkedIn:*\\n${data.linkedin_post}\\n`\n  + (hashtags.linkedin?.length ? `_Hashtags: ${hashtags.linkedin.join(' ')}_\\n` : '')\n  + `\\n---\\n`\n  + `_Generated by Blog to Social Posts (Free) \u2014 Upgrade for 5 platforms + scheduling_`;\n\nreturn { json: { slack_message: msg } };"
+      },
+      "id": "f2a1b3c4-3001-4e00-d001-000000000010",
+      "name": "Format Slack Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "#content"
+        },
+        "text": "={{ $json.slack_message }}",
+        "otherOptions": {}
+      },
+      "id": "f2a1b3c4-3002-4e00-d002-000000000011",
+      "name": "Slack: Social Posts Ready",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        2240,
+        450
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "2",
+          "name": "Slack Account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "RSS Feed Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Fetch Blog Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Blog Content": {
+      "main": [
+        [
+          {
+            "node": "Extract Article Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Article Text": {
+      "main": [
+        [
+          {
+            "node": "Generate Social Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Social Posts": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Format Slack Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Slack Message": {
+      "main": [
+        [
+          {
+            "node": "Slack: Social Posts Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "free-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "free-template"
+  },
+  "tags": []
+}
