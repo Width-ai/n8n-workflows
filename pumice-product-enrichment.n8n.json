@@ -1,0 +1,361 @@
+{
+  "name": "Pumice Product Content Enrichment",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "title",
+              "value": "Widget",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "mpn",
+              "value": "WB-100",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "brand",
+              "value": "Acme",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "query",
+              "value": "Acme Widget WB-100 specifications",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sample-product",
+      "name": "Sample Product",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/scraper/universal",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": {{ JSON.stringify($json.query) }}\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "universal-search",
+      "name": "Universal Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Universal Search response shape can vary, so probe common containers.\nconst product = $('Sample Product').first().json;\nconst res = $input.first().json;\n\nlet list = res.results || res.data || res.items || res.pages || res.urls || [];\nif (!Array.isArray(list) && Array.isArray(res)) list = res;\n\nlet sourceUrl = '';\nif (Array.isArray(list) && list.length > 0) {\n  const top = list[0];\n  sourceUrl = (typeof top === 'string')\n    ? top\n    : (top.url || top.link || top.source_url || top.page_url || '');\n}\n\nreturn [{\n  json: {\n    ...product,\n    source_url: sourceUrl,\n    search_results: list\n  }\n}];"
+      },
+      "id": "pick-url",
+      "name": "Pick Best Source URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/scraper/smart-scrape",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": \"Extract the product title, full description, key specifications, SKU or MPN, brand, and all image URLs.\",\n  \"source_url\": {{ JSON.stringify($json.source_url) }}\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "smart-scrape",
+      "name": "Smart Scrape",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize scraped output and build the shared request payload\n// (product + customer_rules + examples) used by every generation call.\nconst base = $('Pick Best Source URL').first().json;\nconst scraped = $input.first().json || {};\nconst s = scraped.data || scraped.result || scraped;\n\nconst title = s.title || base.title || '';\nconst description = s.description || '';\nlet image_url = '';\nif (Array.isArray(s.image_urls)) image_url = s.image_urls[0] || '';\nelse if (s.image_url) image_url = s.image_url;\nelse if (Array.isArray(s.images)) image_url = s.images[0] || '';\n\nreturn [{\n  json: {\n    product: { title, description, image_url },\n    customer_rules: [\n      \"Keep the title under 80 characters\",\n      \"Use a friendly, professional tone\",\n      \"Do not invent specifications that are not present in the source data\"\n    ],\n    examples: [],\n    mpn: base.mpn || '',\n    brand: base.brand || '',\n    source_url: base.source_url || ''\n  }\n}];"
+      },
+      "id": "assemble",
+      "name": "Assemble Product",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/generate_title",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product\": {{ JSON.stringify($('Assemble Product').item.json.product) }},\n  \"customer_rules\": {{ JSON.stringify($('Assemble Product').item.json.customer_rules) }},\n  \"examples\": []\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "gen-title",
+      "name": "Generate Title",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/generate_description",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product\": {{ JSON.stringify($('Assemble Product').item.json.product) }},\n  \"customer_rules\": {{ JSON.stringify($('Assemble Product').item.json.customer_rules) }},\n  \"examples\": []\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "gen-desc",
+      "name": "Generate Description",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/generate_bullet",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product\": {{ JSON.stringify($('Assemble Product').item.json.product) }},\n  \"customer_rules\": {{ JSON.stringify($('Assemble Product').item.json.customer_rules) }},\n  \"examples\": []\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "gen-bullets",
+      "name": "Generate Bullets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect the original product data plus each generated field\n// into a single enriched record.\nconst a = $('Assemble Product').first().json;\nconst title = $('Generate Title').first().json;\nconst desc = $('Generate Description').first().json;\nconst bullets = $('Generate Bullets').first().json;\n\nreturn [{\n  json: {\n    mpn: a.mpn,\n    brand: a.brand,\n    source_url: a.source_url,\n    original_title: a.product.title,\n    image_url: a.product.image_url,\n    generated_title: title.product_title ?? title,\n    generated_description: desc.product_description ?? desc,\n    generated_bullets: bullets.product_bullets ?? bullets\n  }\n}];"
+      },
+      "id": "enriched",
+      "name": "Enriched Product",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Pumice Product Enrichment\n\n**Setup**\n1. Create an **HTTP Header Auth** credential named `Pumice API`.\n   - Name: `x-api-key`\n   - Value: your Pumice API key\n2. All HTTP nodes already reference it.\n\n**Flow**\nSample Product -> Universal Search -> pick top URL -> Smart Scrape -> assemble -> generate title / description / bullets -> Enriched Product.\n\nSwap the *Sample Product* node for your real source (Webhook, Sheets, DB) when ready.",
+        "height": 320,
+        "width": 420,
+        "color": 4
+      },
+      "id": "sticky-note",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        480
+      ]
+    }
+  ],
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Sample Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sample Product": {
+      "main": [
+        [
+          {
+            "node": "Universal Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Universal Search": {
+      "main": [
+        [
+          {
+            "node": "Pick Best Source URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Best Source URL": {
+      "main": [
+        [
+          {
+            "node": "Smart Scrape",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smart Scrape": {
+      "main": [
+        [
+          {
+            "node": "Assemble Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Product": {
+      "main": [
+        [
+          {
+            "node": "Generate Title",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Title": {
+      "main": [
+        [
+          {
+            "node": "Generate Description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Description": {
+      "main": [
+        [
+          {
+            "node": "Generate Bullets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Bullets": {
+      "main": [
+        [
+          {
+            "node": "Enriched Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
