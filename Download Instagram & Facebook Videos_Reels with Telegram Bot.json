@@ -1,0 +1,867 @@
+{
+  "name": "Download Instagram & Facebook Videos/Reels with Telegram Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Instagram & Facebook Video Downloader Bot\n\nSend a public Instagram Reel or Facebook video link to your Telegram bot. It replies with the video and the creator, caption, and hashtags, saves the file to Google Drive, and logs it to a content library sheet.\n\n### How it works\n1. **Telegram Trigger** receives each message sent to the bot.\n2. **Extract Link** finds the first Instagram or Facebook link in the message text or caption.\n3. Messages without a supported link get a help reply. Supported links get a \"Downloading…\" reply.\n4. **Get Post Details** reads the post's creator, caption, and hashtags from its link preview.\n5. **Route by Platform** looks up the video file through a downloader service for that platform.\n6. **Download Video** downloads the file. It's uploaded to Google Drive and logged to the content library, then **Send Video** replies with it.\n7. If a step fails, the bot replies with an error. Videos Telegram won't accept (bots can upload up to 50 MB) are sent as a Drive link instead.\n\n### Setup\n- [ ] Create a bot with @BotFather and add its token as a Telegram credential on the trigger and every Telegram node\n- [ ] **Upload to Google Drive**: connect Google Drive and choose the folder for downloads\n- [ ] **Log to Content Library**: connect Google Sheets and select an empty sheet. Columns are created automatically.\n- [ ] Activate the workflow and send the bot a link\n\n### Download services\nVideo links come from third-party downloader sites: snapdownloader.com for Instagram and fbdownloader.to for Facebook. These sites can change or go offline without notice. If one platform stops working, replace its **Fetch** and **Find** nodes.",
+        "height": 1040,
+        "width": 640,
+        "color": 5
+      },
+      "id": "57177adf-1f58-4bcf-8063-3a554d4e8121",
+      "name": "Sticky Note6",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -256,
+        240
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Receive the link\nFinds a supported link in the message.",
+        "height": 336,
+        "width": 640,
+        "color": 3
+      },
+      "id": "438f2deb-64d9-4e63-8fac-43c31088f603",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        416,
+        432
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Reply and get post details\nAcknowledges the link (or explains how to use the bot) and reads the post's creator, caption, and hashtags.",
+        "height": 560,
+        "width": 896,
+        "color": 7
+      },
+      "id": "a3c4d451-ec17-473f-8c27-14f3129ef114",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1072,
+        432
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Instagram\nLooks up the Reel's video file.",
+        "height": 288,
+        "width": 464,
+        "color": 6
+      },
+      "id": "1501a1c7-537a-4dbf-b998-98d1e756e5f3",
+      "name": "Sticky Note3",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1984,
+        256
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Facebook\nLooks up the video's download link.",
+        "height": 288,
+        "width": 464,
+        "color": 4
+      },
+      "id": "d9f31402-cd1f-49b6-9a60-e3dcf67531f4",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1984,
+        592
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Download, save, and send\nDownloads the video, saves it to Google Drive, logs it to the content library sheet, and replies with the video and its details.",
+        "height": 880,
+        "width": 1392,
+        "color": 7
+      },
+      "id": "db4effe7-e559-444f-aa6e-c83029165eda",
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2464,
+        176
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "c8eada7d-335b-4861-aae7-5d39f2cf1301",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "position": [
+        448,
+        560
+      ],
+      "typeVersion": 1.5,
+      "webhookId": "563e04dc-8c54-40d7-89cc-a5aa60950a78"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Find the first Instagram or Facebook link in the message text or media caption\nconst message = $input.first().json.message ?? {};\nconst text = message.text ?? message.caption ?? '';\n\nconst patterns = {\n  instagram: /https?:\\/\\/(?:[\\w-]+\\.)?(?:instagram\\.com|instagr\\.am)\\/[^\\s<>\"]+/i,\n  facebook: /https?:\\/\\/(?:[\\w-]+\\.)?(?:facebook\\.com|fb\\.watch|fb\\.com)\\/[^\\s<>\"]+/i,\n};\n\nconst first = Object.entries(patterns)\n  .map(([platform, pattern]) => ({ platform, match: text.match(pattern) }))\n  .filter(({ match }) => match)\n  .sort((a, b) => a.match.index - b.match.index)[0];\n\nconst url = first\n  ? first.match[0]\n    .replace(/[).,!?]+$/, '') // punctuation that often follows a pasted link\n    .replace(/^(https?:\\/\\/)(?:[\\w-]+\\.)?fb\\.com\\//i, '$1www.facebook.com/') // the Facebook downloader only accepts facebook.com and fb.watch\n  : '';\n\nreturn [{\n  json: {\n    chatId: message.chat?.id,\n    messageId: message.message_id,\n    platform: first?.platform ?? 'none',\n    url,\n    requestedBy: message.from?.username\n      ? `@${message.from.username}`\n      : [message.from?.first_name, message.from?.last_name].filter(Boolean).join(' '),\n  },\n}];"
+      },
+      "id": "c603ccb2-7812-4d8f-b4dd-ec0db9fdbd72",
+      "name": "Extract Link",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        672,
+        560
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "dd7ae38a-78f0-40fc-8f90-34110dcc22dd",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              },
+              "leftValue": "={{ $json.platform }}",
+              "rightValue": "none"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cddc9f65-7935-4126-99ca-a3a6967907a2",
+      "name": "Is Supported Link?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        896,
+        560
+      ],
+      "typeVersion": 2.3
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Extract Link').first().json.chatId }}",
+        "text": "=⏬ Downloading your {{ $('Extract Link').first().json.platform === 'instagram' ? 'Instagram' : 'Facebook' }} video… please wait ⌛",
+        "additionalFields": {
+          "appendAttribution": false,
+          "reply_to_message_id": "={{ $('Extract Link').first().json.messageId }}"
+        }
+      },
+      "id": "d9487499-bf52-4954-91cc-546ad723a15f",
+      "name": "Send Downloading Message",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        1120,
+        480
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Extract Link').first().json.chatId }}",
+        "text": "Send me a link to a public Instagram Reel or Facebook video and I'll send the video back 🎬",
+        "additionalFields": {
+          "appendAttribution": false,
+          "reply_to_message_id": "={{ $('Extract Link').first().json.messageId }}"
+        }
+      },
+      "id": "2b13d770-8da9-4435-a251-a50a5e0993cd",
+      "name": "Send Help Message",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        1120,
+        800
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "b1f85a42-669d-4f86-9fc8-3be795a68fd0",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('Extract Link').first().json.platform }}",
+                    "rightValue": "instagram"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "instagram"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "51e81e28-2d69-4a8c-9297-9912ce1831b7",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('Extract Link').first().json.platform }}",
+                    "rightValue": "facebook"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "facebook"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "230b0026-fbf1-405c-a96c-a6c5fce519d8",
+      "name": "Route by Platform",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        1792,
+        480
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "url": "=https://snapdownloader.com/tools/instagram-downloader/download?url={{ encodeURIComponent($('Extract Link').first().json.url) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "c4b39d39-8923-4205-9ae1-3fb58b41a5f8",
+      "name": "Fetch Instagram Video Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        2016,
+        384
+      ],
+      "typeVersion": 4.5,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Take the first .mp4 link from the downloader page\nconst html = String($input.first().json.data ?? '');\nconst match = html.match(/https?:\\/\\/[^\\s\"'<>]+\\.mp4[^\\s\"'<>]*/i);\n\nreturn [{ json: { videoUrl: match ? match[0].replaceAll('&amp;', '&') : '' } }];"
+      },
+      "id": "c4fc0f16-fa4b-4594-bab7-8dcc09e46baf",
+      "name": "Find Instagram Video URL",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2240,
+        384
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fbdownloader.to/api/ajaxSearch",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $('Extract Link').first().json.url }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3ef62436-4c2f-49a5-a19c-4113666cbb82",
+      "name": "Fetch Facebook Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        2016,
+        720
+      ],
+      "typeVersion": 4.5,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// fbdownloader.to returns its results as HTML in `data`; take the first download link\nconst html = String($input.first().json.data ?? '');\nconst match = html.match(/https:\\/\\/dl\\.snapcdn\\.app\\/download\\?token=[^\\s\"'<>]+/);\n\nreturn [{ json: { videoUrl: match ? match[0].replaceAll('&amp;', '&') : '' } }];"
+      },
+      "id": "8fcc67ba-589a-4fd0-8a81-bc4b8f28632e",
+      "name": "Find Facebook Download URL",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2240,
+        720
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "d305bb15-3f44-4bd9-82df-9c0680c9559d",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.videoUrl }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "494958fc-9f89-44fd-a1f1-423dcf283a0a",
+      "name": "Has Video URL?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        2512,
+        560
+      ],
+      "typeVersion": 2.3
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.videoUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "d3ef124d-61c4-46d1-98aa-c411e9d88117",
+      "name": "Download Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        2736,
+        560
+      ],
+      "typeVersion": 4.5,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "sendVideo",
+        "chatId": "={{ $('Extract Link').first().json.chatId }}",
+        "binaryData": true,
+        "binaryPropertyName": "data",
+        "additionalFields": {
+          "caption": "={{ [$('Extract Post Details').first().json.summary, ($('Build Library Entry').isExecuted ? $('Build Library Entry').first().json.drive_link : '') && '📁 Saved to Drive: ' + ($('Build Library Entry').isExecuted ? $('Build Library Entry').first().json.drive_link : '')].filter(Boolean).join('\\n\\n') }}",
+          "reply_to_message_id": "={{ $('Extract Link').first().json.messageId }}"
+        }
+      },
+      "id": "16dfda54-ea22-4c09-904d-8ca4ea937b09",
+      "name": "Send Video",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        2960,
+        640
+      ],
+      "typeVersion": 1.2,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Extract Link').first().json.chatId }}",
+        "text": "=I couldn't upload the video here (Telegram bots can send files up to 50 MB). Download it directly instead:\n{{ ($('Build Library Entry').isExecuted ? $('Build Library Entry').first().json.drive_link : '') || $('Has Video URL?').first().json.videoUrl }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "reply_to_message_id": "={{ $('Extract Link').first().json.messageId }}"
+        }
+      },
+      "id": "d781ba41-6168-414a-a5e4-7444de71f9e4",
+      "name": "Send Video Link",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        3184,
+        800
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Extract Link').first().json.chatId }}",
+        "text": "Sorry, I couldn't download that video 😕 Make sure the post is public and the link is correct, then try again.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "reply_to_message_id": "={{ $('Extract Link').first().json.messageId }}"
+        }
+      },
+      "id": "f30aea16-7135-485b-8054-fb760d6ff58e",
+      "name": "Send Error Message",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        2960,
+        880
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Extract Link').first().json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "4aa462be-75d2-48ae-82b0-3771b98690d9",
+      "name": "Get Post Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1344,
+        480
+      ],
+      "typeVersion": 4.5,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Read the post's link-preview tags: the title and description Instagram and Facebook\n// provide when a link is shared. Fields stay empty when a post doesn't expose them.\nconst html = String($input.first().json.data ?? '');\nconst platform = $('Extract Link').first().json.platform;\n\nconst decode = (value) => value\n  .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))\n  .replace(/&#(\\d+);/g, (_, code) => String.fromCodePoint(Number(code)))\n  .replace(/&quot;/g, '\"')\n  .replace(/&#39;|&apos;/g, \"'\")\n  .replace(/&lt;/g, '<')\n  .replace(/&gt;/g, '>')\n  .replace(/&amp;/g, '&');\n\nconst meta = (property) => {\n  const tag = html.match(new RegExp(`<meta[^>]+(?:property|name)=\"${property}\"[^>]*>`, 'i'))?.[0] ?? '';\n  return decode(tag.match(/content=\"([^\"]*)\"/i)?.[1] ?? '').trim();\n};\n\n// Generic page titles mean the post details weren't available (e.g. a login page)\nconst GENERIC = /^(instagram|facebook|log in|log into facebook|facebook - log in or sign up)$/i;\nconst title = GENERIC.test(meta('og:title')) ? '' : meta('og:title');\nconst description = GENERIC.test(meta('og:description')) ? '' : meta('og:description');\n\nlet creator = '';\nlet caption = '';\n\nif (platform === 'instagram') {\n  // Typical formats:\n  //   og:description  12K likes, 345 comments - handle on September 1, 2026: \"Caption #tag\".\n  //   og:title        Name (@handle) • Instagram reel   or   handle on Instagram: \"Caption\"\n  const quoted = /:\\s*\"([\\s\\S]*)\"\\s*\\.?\\s*$/;\n  caption = description.match(quoted)?.[1] ?? title.match(quoted)?.[1] ?? '';\n  creator = description.match(/ - ([\\w.]+) on [A-Z][a-z]+ \\d{1,2}, \\d{4}/)?.[1]\n    ?? title.match(/\\(@([\\w.]+)\\)/)?.[1]\n    ?? title.match(/^([\\w.]+) on Instagram/)?.[1]\n    ?? '';\n} else {\n  caption = description || title;\n}\n\nconst MAX_CAPTION = 700; // Telegram captions are limited to 1,024 characters\nconst hashtags = [...new Set(caption.match(/#[\\p{L}\\p{N}_]+/gu) ?? [])];\nconst shortCaption = caption.length > MAX_CAPTION ? `${caption.slice(0, MAX_CAPTION).trimEnd()}…` : caption;\n\nreturn [{\n  json: {\n    creator: creator ? `@${creator}` : '',\n    caption,\n    hashtags: hashtags.join(' '),\n    // Shown with the video in Telegram\n    summary: [creator && `👤 @${creator}`, shortCaption].filter(Boolean).join('\\n\\n') || \"Here's your video 🎬\",\n  },\n}];"
+      },
+      "id": "48ae35fd-6921-4db6-8730-22a72e6a8f60",
+      "name": "Extract Post Details",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1568,
+        480
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "name": "={{ [$('Extract Link').first().json.platform, $('Extract Post Details').first().json.creator.replace(/[^\\w.-]+/g, '') || 'video', $now.toFormat('yyyyMMdd-HHmmss')].join('_') }}.mp4",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "c915b3bd-2c01-4b1d-92d4-49530631393f",
+      "name": "Upload to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "position": [
+        2960,
+        400
+      ],
+      "typeVersion": 3,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4935d073-bb90-403b-9dcc-8060bcdb7e7a",
+              "name": "saved_at",
+              "type": "string",
+              "value": "={{ $now.toFormat('yyyy-MM-dd HH:mm:ss') }}"
+            },
+            {
+              "id": "0a3b6010-5484-4e29-a71c-3d0926f596c6",
+              "name": "platform",
+              "type": "string",
+              "value": "={{ $('Extract Link').first().json.platform }}"
+            },
+            {
+              "id": "5c6d485f-c842-44b7-8cab-3d275644ac1b",
+              "name": "source_url",
+              "type": "string",
+              "value": "={{ $('Extract Link').first().json.url }}"
+            },
+            {
+              "id": "a557f681-0e50-4118-a2a3-a29ce034626b",
+              "name": "creator",
+              "type": "string",
+              "value": "={{ $('Extract Post Details').first().json.creator }}"
+            },
+            {
+              "id": "44ba5f02-842c-4ed3-b83e-6f66d9e92c51",
+              "name": "caption",
+              "type": "string",
+              "value": "={{ $('Extract Post Details').first().json.caption }}"
+            },
+            {
+              "id": "ef90a9c0-ecac-45b8-a3e5-84ff72d61158",
+              "name": "hashtags",
+              "type": "string",
+              "value": "={{ $('Extract Post Details').first().json.hashtags }}"
+            },
+            {
+              "id": "e5b566f1-f199-46e3-a032-ac90dd77bc5f",
+              "name": "drive_file",
+              "type": "string",
+              "value": "={{ $json.name ?? '' }}"
+            },
+            {
+              "id": "ab27ea88-82f0-49eb-a234-1fd72acd5955",
+              "name": "drive_link",
+              "type": "string",
+              "value": "={{ $json.id ? 'https://drive.google.com/file/d/' + $json.id + '/view' : '' }}"
+            },
+            {
+              "id": "71148bac-72dc-478a-a181-179358555642",
+              "name": "requested_by",
+              "type": "string",
+              "value": "={{ $('Extract Link').first().json.requestedBy }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "db09ab93-4d16-42a8-aa15-aa6b4ea9e04b",
+      "name": "Build Library Entry",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        3184,
+        400
+      ],
+      "typeVersion": 3.5
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "9cce1e4c-f036-4f01-bb94-b79f8c8fe041",
+      "name": "Log to Content Library",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        3408,
+        400
+      ],
+      "typeVersion": 4.7,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Link": {
+      "main": [
+        [
+          {
+            "node": "Is Supported Link?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Supported Link?": {
+      "main": [
+        [
+          {
+            "node": "Send Downloading Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Help Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Downloading Message": {
+      "main": [
+        [
+          {
+            "node": "Get Post Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Platform": {
+      "main": [
+        [
+          {
+            "node": "Fetch Instagram Video Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Facebook Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Instagram Video Page": {
+      "main": [
+        [
+          {
+            "node": "Find Instagram Video URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Error Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Instagram Video URL": {
+      "main": [
+        [
+          {
+            "node": "Has Video URL?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Facebook Video": {
+      "main": [
+        [
+          {
+            "node": "Find Facebook Download URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Error Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Facebook Download URL": {
+      "main": [
+        [
+          {
+            "node": "Has Video URL?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Video URL?": {
+      "main": [
+        [
+          {
+            "node": "Download Video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Error Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Video": {
+      "main": [
+        [
+          {
+            "node": "Upload to Google Drive",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Error Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Video": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Send Video Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Post Details": {
+      "main": [
+        [
+          {
+            "node": "Extract Post Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Post Details": {
+      "main": [
+        [
+          {
+            "node": "Route by Platform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Google Drive": {
+      "main": [
+        [
+          {
+            "node": "Build Library Entry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Library Entry": {
+      "main": [
+        [
+          {
+            "node": "Log to Content Library",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "",
+  "meta": {
+    "templateId": "9352",
+    "instanceId": "ccade946b718cd869f9a5da665687bc36d26450aa2457f0efcf92199a73505fe"
+  },
+  "nodeGroups": [],
+  "id": "ctlR1n2fJTCVIaKF",
+  "tags": []
+}
