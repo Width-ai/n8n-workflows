@@ -1,0 +1,618 @@
+{
+  "name": "Validate QR tickets in real time with n8n Forms and Google Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Automated QR Ticket Scanner & Validator\n\nDoor staff scan tickets into an n8n form on their phone and see the result immediately. Every scan is checked against your participant database, logged to a Scan Results sheet, and bad scans trigger an email alert.\n\n### Results staff see\n- ✅ **VALID**: admit the attendee\n- ⚠️ **ALREADY USED**: this ticket was already admitted at this checkpoint today\n- ❌ **INVALID**: the code isn't in the participant database\n- ⛔ **NOT ALLOWED**: the ticket exists but a rule blocks it (cancelled, wrong day, or wrong area)\n\n### Setup\n- [ ] Connect Google Sheets credentials to **Read Participant Database**, **Read Scan Results**, and **Log Scan**\n- [ ] **Read Participant Database**: select your master participant sheet\n- [ ] **Read Scan Results** and **Log Scan**: select the same Scan Results sheet. An empty tab is fine; columns are created on the first scan.\n- [ ] **Validate Ticket**: check the settings at the top (ticket column, name column, and rule columns)\n- [ ] **Send Alert**: connect Gmail and set the recipient\n- [ ] Activate the workflow and open the **Ticket Scanner** production URL on each phone\n\n### Checkpoints\nAdd `?checkpoint=VIP%20Area` to the form URL to scan at a specific area. Without it, scans are logged as `Main Entrance`. Duplicate checks and area rules are per checkpoint.\n\n### Field scanning\nOpen the form on an Android phone, tap the field, and scan with a keyboard scanner app such as **Scan to Web**. Tap **Scan next ticket** on the result page to scan again.",
+        "height": 1056,
+        "width": 560
+      },
+      "id": "93c914d6-1eb4-4848-ae52-733775baf12e",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        304,
+        160
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Receive scans\n\nStaff submit a scanned code through the n8n form. The code is cleaned and the scan time and checkpoint are recorded.",
+        "height": 304,
+        "width": 480,
+        "color": 7
+      },
+      "id": "eecee609-ad41-4e58-921e-04aedd597f36",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        928,
+        432
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Validate ticket\n\nLooks up the code, applies the ticket rules, and checks for an earlier scan today at the same checkpoint.",
+        "height": 304,
+        "width": 704,
+        "color": 7
+      },
+      "id": "9abcd7af-f668-4aef-a086-4ad8b7620cab",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1440,
+        432
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Log and route\n\nLogs every scan to Scan Results, then routes it by status.",
+        "height": 304,
+        "width": 480,
+        "color": 7
+      },
+      "id": "dad7b561-2af3-480f-9a8f-eb7b237aee52",
+      "name": "Sticky Note3",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2176,
+        432
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Show result and alert\n\nShows staff a colored result page. Already used, invalid, and not allowed scans also send an email alert.",
+        "height": 944,
+        "width": 512,
+        "color": 7
+      },
+      "id": "89532f40-aebe-497b-a166-4d6db4a53ec9",
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2688,
+        176
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "formTitle": "Ticket Scanner",
+        "formDescription": "Tap the field and scan the attendee's QR code.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "QR code",
+              "fieldName": "qr_code",
+              "fieldType": "text",
+              "placeholder": "Scan or type the ticket code",
+              "requiredField": true
+            },
+            {
+              "fieldType": "hiddenField",
+              "fieldName": "checkpoint"
+            }
+          ]
+        },
+        "options": {
+          "path": "ticket-scanner",
+          "buttonLabel": "Check Ticket"
+        }
+      },
+      "id": "53f3565a-9c09-466d-92ee-91e23b67e05a",
+      "name": "Ticket Scanner",
+      "type": "n8n-nodes-base.formTrigger",
+      "position": [
+        976,
+        560
+      ],
+      "typeVersion": 2.6,
+      "webhookId": "c7c8e314-480f-40d2-af8c-5cb733d5059a"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a01cbbcd-3b94-445a-89be-9310798d9019",
+              "name": "ticket_code",
+              "type": "string",
+              "value": "={{ String($json.qr_code ?? '').trim() }}"
+            },
+            {
+              "id": "b7008f85-433c-47d5-bfbb-4d15e78c6834",
+              "name": "checkpoint",
+              "type": "string",
+              "value": "={{ String($json.checkpoint ?? '').trim() || 'Main Entrance' }}"
+            },
+            {
+              "id": "0b4d27ab-c3c8-4e72-aa09-63bcde42c45a",
+              "name": "scanned_at",
+              "type": "string",
+              "value": "={{ $now.toFormat('yyyy-MM-dd HH:mm:ss') }}"
+            },
+            {
+              "id": "adb4ef84-a9e4-4e7d-ab24-addb75e2099f",
+              "name": "scan_date",
+              "type": "string",
+              "value": "={{ $now.toFormat('yyyy-MM-dd') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "949136d9-3896-4a96-bf18-f02f49eb1080",
+      "name": "Clean Scan",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1200,
+        560
+      ],
+      "typeVersion": 3.5
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {
+          "outputFormatting": {
+            "values": {
+              "general": "UNFORMATTED_VALUE",
+              "date": "SERIAL_NUMBER"
+            }
+          }
+        }
+      },
+      "id": "5708359e-e981-41d0-9b16-086144253331",
+      "name": "Read Participant Database",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        1488,
+        560
+      ],
+      "typeVersion": 4.7,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1AtP9BHvGMp3x1Pc",
+          "name": "Final Creds"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "742707b8-a7bc-4caf-b9c3-b3e1d3c31772",
+      "name": "Read Scan Results",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        1712,
+        560
+      ],
+      "typeVersion": 4.7,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1AtP9BHvGMp3x1Pc",
+          "name": "Final Creds"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Settings ---------------------------------------------------------------\n// Column in the participant sheet that holds each ticket code\nconst TICKET_COLUMN = 'TIKET';\n\n// Columns that may hold the attendee's name (the first one found is shown to staff)\nconst NAME_COLUMNS = ['NAME', 'NAMA', 'Name', 'Full Name'];\n\n// Ticket rules. Each rule is skipped when its column isn't in the participant sheet.\n// Status: reject tickets with one of these statuses (not case-sensitive)\nconst STATUS_COLUMN = 'STATUS';\nconst BLOCKED_STATUSES = ['cancelled', 'canceled', 'refunded', 'void'];\n\n// Valid dates: the day(s) a ticket can be used, e.g. 2026-09-14 or 2026-09-14, 2026-09-15\nconst VALID_DATES_COLUMN = 'VALID_DATES';\n\n// Area access: the ticket types each checkpoint admits. Checkpoints not listed admit every ticket.\nconst TICKET_TYPE_COLUMN = 'TICKET_TYPE';\nconst CHECKPOINT_ACCESS = {\n  'VIP Area': ['VIP'],\n};\n// -----------------------------------------------------------------------------\n\nconst scan = $('Clean Scan').first().json;\nconst text = (value) => String(value ?? '').trim();\nconst lower = (value) => text(value).toLowerCase();\n\n// Google Sheets returns date cells as serial numbers (days since 1899-12-30)\nconst toIsoDate = (value) => typeof value === 'number'\n  ? new Date(Date.UTC(1899, 11, 30) + Math.floor(value) * 86400000).toISOString().slice(0, 10)\n  : text(value).slice(0, 10);\n\nconst participant = scan.ticket_code\n  ? $('Read Participant Database').all()\n    .map((item) => item.json)\n    .find((row) => text(row[TICKET_COLUMN]) === scan.ticket_code)\n  : undefined;\n\nfunction findRuleViolation(row) {\n  if (STATUS_COLUMN in row && BLOCKED_STATUSES.includes(lower(row[STATUS_COLUMN]))) {\n    return `Ticket is ${lower(row[STATUS_COLUMN])}`;\n  }\n\n  if (VALID_DATES_COLUMN in row && text(row[VALID_DATES_COLUMN])) {\n    const raw = row[VALID_DATES_COLUMN];\n    const dates = typeof raw === 'number' ? [toIsoDate(raw)] : String(raw).split(',').map(toIsoDate);\n    if (!dates.includes(scan.scan_date)) {\n      return `Ticket is only valid on ${dates.join(', ')}`;\n    }\n  }\n\n  const allowedTypes = CHECKPOINT_ACCESS[scan.checkpoint];\n  if (allowedTypes && TICKET_TYPE_COLUMN in row) {\n    const ticketType = text(row[TICKET_TYPE_COLUMN]);\n    if (!allowedTypes.map(lower).includes(ticketType.toLowerCase())) {\n      return `${ticketType || 'This'} ticket isn't allowed in ${scan.checkpoint}`;\n    }\n  }\n\n  return '';\n}\n\n// A ticket counts as used once it has a VALID scan at this checkpoint on the same day\nconst firstScan = participant && $('Read Scan Results').all()\n  .map((item) => item.json)\n  .find((row) => text(row.ticket_code) === scan.ticket_code\n    && row.scan_status === 'VALID'\n    && text(row.checkpoint) === scan.checkpoint\n    && text(row.scan_date) === scan.scan_date);\n\nlet scanStatus = 'VALID';\nlet reason = '';\nif (!participant) {\n  scanStatus = 'INVALID';\n  reason = scan.ticket_code ? 'Ticket code not found' : 'No code was scanned';\n} else if ((reason = findRuleViolation(participant))) {\n  scanStatus = 'REJECTED';\n} else if (firstScan) {\n  scanStatus = 'ALREADY_USED';\n  reason = `First scanned at ${firstScan.scanned_at}`;\n}\n\nconst record = {\n  scanned_at: scan.scanned_at,\n  scan_date: scan.scan_date,\n  checkpoint: scan.checkpoint,\n  ticket_code: scan.ticket_code,\n  scan_status: scanStatus,\n  reason,\n  attendee_name: participant ? text(NAME_COLUMNS.map((column) => participant[column]).find((name) => text(name))) : '',\n};\n\n// Add the participant's details without overwriting the scan fields\nconst { row_number, ...details } = participant ?? {};\nfor (const [key, value] of Object.entries(details)) {\n  if (!(key in record)) record[key] = value;\n}\n\nreturn [{ json: record }];"
+      },
+      "id": "09bc0f93-2a57-4a2b-bc6d-ef94ce6ed07e",
+      "name": "Validate Ticket",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1936,
+        560
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "5856b6da-5738-402b-bd6c-d10081a0d149",
+      "name": "Log Scan",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        2224,
+        560
+      ],
+      "typeVersion": 4.7,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1AtP9BHvGMp3x1Pc",
+          "name": "Final Creds"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "2cac3e66-18cd-4e7b-8df8-f3f39dae556a",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.scan_status }}",
+                    "rightValue": "VALID"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "VALID"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "370a96c4-164d-421a-95f8-79bc314de463",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.scan_status }}",
+                    "rightValue": "ALREADY_USED"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "ALREADY_USED"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "911851e6-72cd-4c95-abce-138a501dbaf8",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.scan_status }}",
+                    "rightValue": "INVALID"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "INVALID"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "a611de57-168e-4874-b6fa-982fdb0cd3c8",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.scan_status }}",
+                    "rightValue": "REJECTED"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "REJECTED"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dc5de5de-9f6e-488b-84ca-67b96aabcbb0",
+      "name": "Route by Status",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        2448,
+        560
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "sendTo": "security@example.com",
+        "subject": "=⚠️ Ticket {{ $json.scan_status.replace('_', ' ').toLowerCase() }} at {{ $json.checkpoint }}",
+        "message": "=<p>A ticket scan needs attention.</p>\n<table cellpadding=\"6\" style=\"border-collapse: collapse; font-family: Arial, sans-serif;\">\n  <tr><td><b>Result</b></td><td>{{ $json.scan_status.replace('_', ' ') }}</td></tr>\n  <tr><td><b>Reason</b></td><td>{{ $json.reason }}</td></tr>\n  <tr><td><b>Ticket code</b></td><td>{{ $json.ticket_code || '(empty)' }}</td></tr>\n  <tr><td><b>Attendee</b></td><td>{{ $json.attendee_name || 'Unknown' }}</td></tr>\n  <tr><td><b>Checkpoint</b></td><td>{{ $json.checkpoint }}</td></tr>\n  <tr><td><b>Scanned at</b></td><td>{{ $json.scanned_at }}</td></tr>\n</table>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "3be7ca61-7328-4521-ac77-67f3cee46a8b",
+      "name": "Send Alert",
+      "type": "n8n-nodes-base.gmail",
+      "position": [
+        3008,
+        288
+      ],
+      "typeVersion": 2.2,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "✅ VALID",
+        "completionMessage": "=<h2>{{ $json.attendee_name || $json.ticket_code }}</h2><p>{{ $json.checkpoint }}</p><p><a href=\"../form/{{ $('Ticket Scanner').params.options.path }}?checkpoint={{ encodeURIComponent($json.checkpoint) }}\">Scan next ticket</a></p>",
+        "options": {
+          "customCss": ":root {\n\t--color-background: #dcfce7;\n\t--color-header: #166534;\n\t--font-size-header: 32px;\n\t--font-size-paragraph: 18px;\n}"
+        }
+      },
+      "id": "e29cf4f9-bf94-4cb5-97f4-55778c223895",
+      "name": "Show Valid",
+      "type": "n8n-nodes-base.form",
+      "position": [
+        2752,
+        400
+      ],
+      "typeVersion": 2.5
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "⚠️ ALREADY USED",
+        "completionMessage": "=<h2>{{ $json.attendee_name || $json.ticket_code }}</h2><p>{{ $json.reason }}</p><p><a href=\"../form/{{ $('Ticket Scanner').params.options.path }}?checkpoint={{ encodeURIComponent($json.checkpoint) }}\">Scan next ticket</a></p>",
+        "options": {
+          "customCss": ":root {\n\t--color-background: #fef3c7;\n\t--color-header: #92400e;\n\t--font-size-header: 32px;\n\t--font-size-paragraph: 18px;\n}"
+        }
+      },
+      "id": "5c141966-7a54-42a7-925c-1166b84a49e8",
+      "name": "Show Already Used",
+      "type": "n8n-nodes-base.form",
+      "position": [
+        2752,
+        592
+      ],
+      "typeVersion": 2.5
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "❌ INVALID TICKET",
+        "completionMessage": "=<h2>{{ $json.ticket_code || 'No code scanned' }}</h2><p>{{ $json.reason }}</p><p><a href=\"../form/{{ $('Ticket Scanner').params.options.path }}?checkpoint={{ encodeURIComponent($json.checkpoint) }}\">Scan next ticket</a></p>",
+        "options": {
+          "customCss": ":root {\n\t--color-background: #fee2e2;\n\t--color-header: #991b1b;\n\t--font-size-header: 32px;\n\t--font-size-paragraph: 18px;\n}"
+        }
+      },
+      "id": "ef1e5487-842c-4f3d-bae3-3325b9d57858",
+      "name": "Show Invalid",
+      "type": "n8n-nodes-base.form",
+      "position": [
+        2752,
+        784
+      ],
+      "typeVersion": 2.5
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "⛔ NOT ALLOWED",
+        "completionMessage": "=<h2>{{ $json.attendee_name || $json.ticket_code }}</h2><p>{{ $json.reason }}</p><p><a href=\"../form/{{ $('Ticket Scanner').params.options.path }}?checkpoint={{ encodeURIComponent($json.checkpoint) }}\">Scan next ticket</a></p>",
+        "options": {
+          "customCss": ":root {\n\t--color-background: #fee2e2;\n\t--color-header: #991b1b;\n\t--font-size-header: 32px;\n\t--font-size-paragraph: 18px;\n}"
+        }
+      },
+      "id": "8944666f-5c9f-448c-8101-aabe15dc5e04",
+      "name": "Show Not Allowed",
+      "type": "n8n-nodes-base.form",
+      "position": [
+        2752,
+        976
+      ],
+      "typeVersion": 2.5
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Ticket Scanner": {
+      "main": [
+        [
+          {
+            "node": "Clean Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Scan": {
+      "main": [
+        [
+          {
+            "node": "Read Participant Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Participant Database": {
+      "main": [
+        [
+          {
+            "node": "Read Scan Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Scan Results": {
+      "main": [
+        [
+          {
+            "node": "Validate Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Ticket": {
+      "main": [
+        [
+          {
+            "node": "Log Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Scan": {
+      "main": [
+        [
+          {
+            "node": "Route by Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Status": {
+      "main": [
+        [
+          {
+            "node": "Show Valid",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Alert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Show Already Used",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Alert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Show Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Alert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Show Not Allowed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c5a2cf71-b7b8-4d4e-bb95-6ea200336ac9",
+  "meta": {
+    "templateId": "14431",
+    "instanceId": "ccade946b718cd869f9a5da665687bc36d26450aa2457f0efcf92199a73505fe"
+  },
+  "nodeGroups": [],
+  "id": "tCU1Y2oPAe0kIWOI",
+  "tags": []
+}
