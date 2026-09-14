@@ -1,4 +1,4 @@
-# QR Ticket Scanner and Validator
+# Real-Time QR Ticket Scanner and Validator for Event Check-In with n8n and Google Sheets
 
 **Workflow file:** [`Validate QR tickets in real time with n8n Forms and Google Sheets.json`](../Validate%20QR%20tickets%20in%20real%20time%20with%20n8n%20Forms%20and%20Google%20Sheets.json)
 

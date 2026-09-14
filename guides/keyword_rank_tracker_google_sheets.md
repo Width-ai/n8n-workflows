@@ -1,4 +1,4 @@
-# Keyword Rank Tracker with Google Sheets
+# n8n SEO Keyword Rank Tracker with Google Search Console, BigQuery, and Google Sheets
 
 **Workflow file:** [`keyword_rank_tracker_google_sheets.json`](../keyword_rank_tracker_google_sheets.json)
 

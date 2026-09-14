@@ -1,4 +1,4 @@
-# Multi-Platform Social Media Content Creation
+# n8n Multi-Platform Social Media Content Creation and Publishing with AI for LinkedIn, Instagram, Facebook, and X
 
 **Workflow file:** [`n8n-social-media-content-creation.json`](../n8n-social-media-content-creation.json)
 
