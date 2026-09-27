@@ -13,6 +13,8 @@ Product data enrichment for PDP creation via Pumice, with product matching to ve
 
 AI product title optimization via Pumice, with title rules, examples, length validation, and product matching to verify source pages: https://github.com/Width-ai/n8n-workflows/blob/main/pumice-ai-product-title-optimization-workflow-n8n.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/pumice-ai-product-title-optimization-workflow-n8n.md)
 
+AI product description generation via Pumice, with description rules, examples, word count validation, and product matching to verify source pages: https://github.com/Width-ai/n8n-workflows/blob/main/pumice-ai-product-description-generation-workflow-n8n.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/pumice-ai-product-description-generation-workflow-n8n.md)
+
 Blog post to social media posts: https://github.com/Width-ai/n8n-workflows/blob/main/blog-to-social-ai-free.json
 
 Multi-platform social media content creation with context documents, blog summaries, and Instagram performance rules: https://github.com/Width-ai/n8n-workflows/blob/main/n8n-social-media-content-creation.json

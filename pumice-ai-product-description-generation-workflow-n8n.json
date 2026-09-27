@@ -1,0 +1,592 @@
+{
+  "name": "Pumice AI Product Description Generation",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "title",
+              "value": "Widget",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "mpn",
+              "value": "WB-100",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "brand",
+              "value": "Acme",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "query",
+              "value": "Acme Widget WB-100 specifications",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sample-product",
+      "name": "Sample Product",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Edit these to control the generated descriptions.\n// min_words / max_words are word counts.\nconst settings = {\n  min_words: 100,\n  max_words: 250,\n  max_attempts: 3,\n  rules: [\n    \"Open with one sentence that names the product, including the brand, and says what it does for the customer\",\n    \"Follow with the key benefits, then how and when to use it, using only information from the source data\",\n    \"Write two or three short plain-text paragraphs. Do not use headings, bullet points, or HTML\",\n    \"Write to the customer using you and your\",\n    \"Use the product type and the words shoppers search for naturally. Do not stuff keywords or list them at the end\",\n    \"Include size, coverage, and other specifications when they appear in the source data\",\n    \"Do not include the MPN or SKU\",\n    \"Do not use promotional words such as best, sale, new, free shipping, or guaranteed\",\n    \"Do not use all caps, emojis, or symbols such as ! * $ ® ™\",\n    \"Only include attributes and claims that appear in the source data. Do not invent specifications or results\"\n  ],\n  // Example descriptions that show the style you want. Each is a plain string.\n  examples: [\n    \"{brand} Tall Fescue Grass Sun or Shade Fertilizer/Seed/Soil Improver gives you a thicker, greener lawn in full sun or partial shade. Each bag combines tall fescue grass seed with a starter fertilizer and a soil improver, so you can seed, feed, and condition your soil in one application.\\n\\nTall fescue grows deep roots that help it handle heat, dry spells, and heavy foot traffic, which makes it a good fit for busy family lawns. The soil improver helps the seed hold moisture while it germinates, and the fertilizer supports quick, even growth. Each {size} bag covers up to {coverage} sq. ft.\\n\\nUse it to start a new lawn, overseed thin areas, or repair bare patches. Spread it evenly with a broadcast or drop spreader, rake it lightly into the soil, and keep the area moist until the new grass is established.\"\n  ]\n};\n\nreturn [{ json: { ...$input.first().json, ...settings } }];"
+      },
+      "id": "description-settings",
+      "name": "Description Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/scraper/universal",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": {{ JSON.stringify($json.query) }}\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "universal-search",
+      "name": "Universal Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Universal Search response shape can vary, so probe common containers.\n// Emit one item per candidate URL (top 3) so each can be scraped and checked\n// with product matching in turn.\nconst product = $('Sample Product').first().json;\nconst res = $input.first().json;\n\nlet list = res.results || res.data || res.items || res.pages || res.urls || [];\nif (!Array.isArray(list) && Array.isArray(res)) list = res;\nif (!Array.isArray(list)) list = [];\n\nconst urls = list\n  .map(r => (typeof r === 'string') ? r : (r.url || r.link || r.source_url || r.page_url || ''))\n  .filter(Boolean)\n  .slice(0, 3);\n\nreturn urls.map((source_url, i) => ({\n  json: {\n    ...product,\n    source_url,\n    candidate_rank: i + 1\n  }\n}));"
+      },
+      "id": "top-candidates",
+      "name": "Top 3 Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "loop-candidates",
+      "name": "Loop Over Candidates",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/scraper/smart-scrape",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": \"Extract the product title, full description, key specifications, SKU or MPN, brand, and all image URLs.\",\n  \"source_url\": {{ JSON.stringify($json.source_url) }}\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "smart-scrape",
+      "name": "Smart Scrape",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/v1/merchandising-api/product_matching",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product_1\": {{ JSON.stringify(JSON.stringify({ title: $('Loop Over Candidates').item.json.title, brand: $('Loop Over Candidates').item.json.brand, mpn: $('Loop Over Candidates').item.json.mpn })) }},\n  \"product_2\": {{ (() => { const s = $json.data || $json.result || $json; return JSON.stringify(JSON.stringify({ title: s.title || '', description: s.description || '', mpn: s.mpn || s.sku || '', brand: s.brand || '' })); })() }},\n  \"customer_rules\": [],\n  \"fields\": \"\",\n  \"examples\": \"\"\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "match-product",
+      "name": "Match Product",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-match",
+              "leftValue": "={{ String($json.answer ?? '').trim().toLowerCase() }}",
+              "rightValue": "yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-match",
+      "name": "Is Match?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ 'None of the top 3 search results matched ' + $('Sample Product').first().json.title + ' (' + $('Sample Product').first().json.mpn + ')' }}"
+      },
+      "id": "no-match",
+      "name": "No Match Found",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the description request from the matched page's scrape, the rules,\n// and the examples in Description Settings.\nconst settings = $('Description Settings').first().json;\nconst candidate = $('Loop Over Candidates').item.json;\nconst scraped = $('Smart Scrape').item.json || {};\nconst s = scraped.data || scraped.result || scraped;\n\n// Scraped title goes in `title`. Everything else scraped from the page\n// (description, specs, brand, MPN, etc.) goes in `description`.\nconst toText = v => (v == null || v === '') ? '' : (typeof v === 'string' ? v : JSON.stringify(v));\nconst imageKeys = ['image_urls', 'image_url', 'images'];\nconst details = Object.entries(s)\n  .filter(([k, v]) => k !== 'title' && k !== 'description' && !imageKeys.includes(k) && toText(v))\n  .map(([k, v]) => `${k}: ${toText(v)}`);\nconst description = [toText(s.description), ...details].filter(Boolean).join('\\n');\n\nlet image_url = '';\nif (Array.isArray(s.image_urls)) image_url = s.image_urls[0] || '';\nelse if (s.image_url) image_url = s.image_url;\nelse if (Array.isArray(s.images)) image_url = s.images[0] || '';\n\nreturn [{\n  json: {\n    product: {\n      title: s.title || candidate.title || '',\n      description,\n      image_url\n    },\n    customer_rules: [\n      ...settings.rules,\n      `Keep the description between ${settings.min_words} and ${settings.max_words} words`,\n      `The brand is \"${candidate.brand}\"`\n    ],\n    examples: settings.examples,\n    candidate: {\n      title: candidate.title,\n      brand: candidate.brand,\n      mpn: candidate.mpn,\n      source_url: candidate.source_url\n    }\n  }\n}];"
+      },
+      "id": "build-description-request",
+      "name": "Build Description Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2220,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/generate_description",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product\": {{ JSON.stringify($json.product) }},\n  \"customer_rules\": {{ JSON.stringify($json.customer_rules) }},\n  \"examples\": {{ JSON.stringify($json.examples) }}\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "gen-description",
+      "name": "Generate Description",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2440,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check the generated description against the word limits.\n// Each run of this node is one attempt.\nconst settings = $('Description Settings').first().json;\nconst res = $input.first().json;\nconst raw = res.product_description ?? res.description ?? res;\nconst description = (typeof raw === 'string' ? raw : '').trim();\nconst words = description.replace(/<[^>]*>/g, ' ').split(/\\s+/).filter(Boolean).length;\nconst attempt = $runIndex + 1;\n\nlet issue = '';\nif (!description) issue = 'empty';\nelse if (words < settings.min_words) issue = 'too_short';\nelse if (words > settings.max_words) issue = 'too_long';\n\nreturn [{\n  json: {\n    description,\n    words,\n    min_words: settings.min_words,\n    max_words: settings.max_words,\n    attempt,\n    valid: issue === '',\n    issue,\n    can_retry: attempt < settings.max_attempts\n  }\n}];"
+      },
+      "id": "validate-description",
+      "name": "Validate Description Length",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2660,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "length-ok",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "length-ok",
+      "name": "Length OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "retries-left",
+              "leftValue": "={{ $json.can_retry }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "retries-left",
+      "name": "Retries Left?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3100,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Resend the original request with an extra rule telling the model\n// how far off the last description was.\nconst base = $('Build Description Request').first().json;\nconst v = $input.first().json;\n\nconst feedback = v.issue === 'empty'\n  ? `The previous attempt returned no description. Write a description between ${v.min_words} and ${v.max_words} words`\n  : `The previous description was ${v.words} words, which is too ${v.issue === 'too_long' ? 'long' : 'short'}. Rewrite it to be between ${v.min_words} and ${v.max_words} words`;\n\nreturn [{\n  json: {\n    ...base,\n    customer_rules: [...base.customer_rules, feedback]\n  }\n}];"
+      },
+      "id": "length-feedback",
+      "name": "Add Length Feedback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3320,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Final record. Descriptions that never passed the length check are\n// returned with status \"needs_review\" instead of being dropped.\nconst v = $input.first().json;\nconst request = $('Build Description Request').first().json;\nconst candidate = request.candidate;\n\nreturn [{\n  json: {\n    mpn: candidate.mpn,\n    brand: candidate.brand,\n    source_url: candidate.source_url,\n    original_title: candidate.title,\n    scraped_title: request.product.title,\n    image_url: request.product.image_url,\n    generated_description: v.description,\n    word_count: v.words,\n    attempts: v.attempt,\n    status: v.valid ? 'valid' : 'needs_review',\n    issue: v.issue\n  }\n}];"
+      },
+      "id": "generated-description",
+      "name": "Generated Description",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3320,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Pumice AI Product Description Generation\n\n**Setup**\n1. Create an **HTTP Header Auth** credential named `Pumice API`.\n   - Name: `x-api-key`\n   - Value: your Pumice API key\n2. All HTTP nodes already reference it.\n3. Edit rules, examples, and word limits in **Description Settings**.\n\n**Flow**\nSample Product -> Description Settings -> Universal Search -> top 3 URLs -> for each: Smart Scrape -> Product Matching. The first candidate that matches is used to generate a description with your rules and examples. The description is word-count checked and regenerated with feedback (up to `max_attempts`). Descriptions that never pass come out with status `needs_review`.\n\nSwap the *Sample Product* node for your real source (Webhook, Sheets, DB) when ready.",
+        "height": 380,
+        "width": 440,
+        "color": 4
+      },
+      "id": "sticky-note",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        560
+      ]
+    }
+  ],
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Sample Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sample Product": {
+      "main": [
+        [
+          {
+            "node": "Description Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Description Settings": {
+      "main": [
+        [
+          {
+            "node": "Universal Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Universal Search": {
+      "main": [
+        [
+          {
+            "node": "Top 3 Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Top 3 Candidates": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Candidates": {
+      "main": [
+        [
+          {
+            "node": "No Match Found",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Smart Scrape",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smart Scrape": {
+      "main": [
+        [
+          {
+            "node": "Match Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Product": {
+      "main": [
+        [
+          {
+            "node": "Is Match?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Match?": {
+      "main": [
+        [
+          {
+            "node": "Build Description Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Description Request": {
+      "main": [
+        [
+          {
+            "node": "Generate Description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Description": {
+      "main": [
+        [
+          {
+            "node": "Validate Description Length",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Description Length": {
+      "main": [
+        [
+          {
+            "node": "Length OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Length OK?": {
+      "main": [
+        [
+          {
+            "node": "Generated Description",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retries Left?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retries Left?": {
+      "main": [
+        [
+          {
+            "node": "Add Length Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generated Description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Length Feedback": {
+      "main": [
+        [
+          {
+            "node": "Generate Description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
