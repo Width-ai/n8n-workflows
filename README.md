@@ -9,7 +9,9 @@ keyword rank tracker: https://github.com/Width-ai/n8n-workflows/blob/main/keywor
 
 google search console ai seo optimization: https://github.com/Width-ai/n8n-workflows/blob/main/gsc_ai_seo_writer.json
 
-Product content enrichment via Pumice: https://github.com/Width-ai/n8n-workflows/blob/main/pumice-product-data-enrichment-workflow-n8n.json
+Product data enrichment for PDP creation via Pumice, with product matching to verify source pages: https://github.com/Width-ai/n8n-workflows/blob/main/pumice-product-data-enrichment-workflow-n8n.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/pumice-product-data-enrichment-workflow-n8n.md)
+
+AI product title optimization via Pumice, with title rules, examples, length validation, and product matching to verify source pages: https://github.com/Width-ai/n8n-workflows/blob/main/pumice-ai-product-title-optimization-workflow-n8n.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/pumice-ai-product-title-optimization-workflow-n8n.md)
 
 Blog post to social media posts: https://github.com/Width-ai/n8n-workflows/blob/main/blog-to-social-ai-free.json
 

@@ -1,5 +1,5 @@
 {
-  "name": "Pumice Product Content Enrichment",
+  "name": "Pumice AI Product Title Optimization",
   "nodes": [
     {
       "parameters": {},
@@ -55,6 +55,19 @@
     },
     {
       "parameters": {
+        "jsCode": "// Edit these to control the generated titles.\n// min_length / max_length are character counts, including spaces.\nconst settings = {\n  min_length: 50,\n  max_length: 120,\n  max_attempts: 3,\n  rules: [\n    \"Start the title with the brand name\",\n    \"Follow this order: brand, product line or variety, growing conditions or use, product type, then search keywords\",\n    \"Use title case\",\n    \"Separate related product types with a slash and no spaces, for example Fertilizer/Seed/Soil Improver\",\n    \"Do not use commas or hyphens as separators\",\n    \"End the title with keywords shoppers search for, without repeating words already in the title\",\n    \"Do not include the MPN or SKU\",\n    \"Do not use promotional words such as best, sale, new, free shipping, or guaranteed\",\n    \"Do not use all caps, emojis, or symbols such as ! * $ ® ™\",\n    \"Only include attributes that appear in the source data. Do not invent specifications\"\n  ],\n  // Example titles that show the style you want. Each is a plain string.\n  examples: [\n    \"{brand} Tall Fescue Grass Sun or Shade Fertilizer/Seed/Soil Improver {keywords}\"\n  ]\n};\n\nreturn [{ json: { ...$input.first().json, ...settings } }];"
+      },
+      "id": "title-settings",
+      "name": "Title Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "https://app.pumice.ai/api/scraper/universal",
         "authentication": "genericCredentialType",
@@ -71,7 +84,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        680,
+        900,
         300
       ],
       "credentials": {
@@ -90,7 +103,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        900,
+        1120,
         300
       ]
     },
@@ -103,7 +116,7 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        1120,
+        1340,
         300
       ]
     },
@@ -125,7 +138,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1340,
+        1560,
         200
       ],
       "credentials": {
@@ -154,7 +167,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1560,
+        1780,
         200
       ],
       "credentials": {
@@ -193,7 +206,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1780,
+        2000,
         200
       ]
     },
@@ -206,20 +219,20 @@
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
       "position": [
-        1340,
+        1560,
         460
       ]
     },
     {
       "parameters": {
-        "jsCode": "// Normalize scraped output and build the shared request payload\n// (product + customer_rules + examples) used by every generation call.\n// Uses the candidate that product matching confirmed.\nconst base = $('Loop Over Candidates').item.json;\nconst scraped = $('Smart Scrape').item.json || {};\nconst s = scraped.data || scraped.result || scraped;\n\nconst title = s.title || base.title || '';\nconst description = s.description || '';\nlet image_url = '';\nif (Array.isArray(s.image_urls)) image_url = s.image_urls[0] || '';\nelse if (s.image_url) image_url = s.image_url;\nelse if (Array.isArray(s.images)) image_url = s.images[0] || '';\n\nreturn [{\n  json: {\n    product: { title, description, image_url },\n    customer_rules: [\n      \"Keep the title under 80 characters\",\n      \"Use a friendly, professional tone\",\n      \"Do not invent specifications that are not present in the source data\"\n    ],\n    examples: [],\n    mpn: base.mpn || '',\n    brand: base.brand || '',\n    source_url: base.source_url || ''\n  }\n}];"
+        "jsCode": "// Build the title request from the matched page's scrape, the rules,\n// and the examples in Title Settings.\nconst settings = $('Title Settings').first().json;\nconst candidate = $('Loop Over Candidates').item.json;\nconst scraped = $('Smart Scrape').item.json || {};\nconst s = scraped.data || scraped.result || scraped;\n\n// Scraped title goes in `title`. Everything else scraped from the page\n// (description, specs, brand, MPN, etc.) goes in `description`.\nconst toText = v => (v == null || v === '') ? '' : (typeof v === 'string' ? v : JSON.stringify(v));\nconst imageKeys = ['image_urls', 'image_url', 'images'];\nconst details = Object.entries(s)\n  .filter(([k, v]) => k !== 'title' && k !== 'description' && !imageKeys.includes(k) && toText(v))\n  .map(([k, v]) => `${k}: ${toText(v)}`);\nconst description = [toText(s.description), ...details].filter(Boolean).join('\\n');\n\nlet image_url = '';\nif (Array.isArray(s.image_urls)) image_url = s.image_urls[0] || '';\nelse if (s.image_url) image_url = s.image_url;\nelse if (Array.isArray(s.images)) image_url = s.images[0] || '';\n\nreturn [{\n  json: {\n    product: {\n      title: s.title || candidate.title || '',\n      description,\n      image_url\n    },\n    customer_rules: [\n      ...settings.rules,\n      `Keep the title between ${settings.min_length} and ${settings.max_length} characters, including spaces`,\n      `The brand is \"${candidate.brand}\"`\n    ],\n    examples: settings.examples,\n    candidate: {\n      title: candidate.title,\n      brand: candidate.brand,\n      mpn: candidate.mpn,\n      source_url: candidate.source_url\n    }\n  }\n}];"
       },
-      "id": "assemble",
-      "name": "Assemble Product",
+      "id": "build-title-request",
+      "name": "Build Title Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2000,
+        2220,
         100
       ]
     },
@@ -231,41 +244,13 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"product\": {{ JSON.stringify($('Assemble Product').item.json.product) }},\n  \"customer_rules\": {{ JSON.stringify($('Assemble Product').item.json.customer_rules) }},\n  \"examples\": []\n}",
+        "jsonBody": "={\n  \"product\": {{ JSON.stringify($json.product) }},\n  \"customer_rules\": {{ JSON.stringify($json.customer_rules) }},\n  \"examples\": {{ JSON.stringify($json.examples) }}\n}",
         "options": {
           "timeout": 120000
         }
       },
       "id": "gen-title",
       "name": "Generate Title",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2220,
-        100
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "pumice-api-key",
-          "name": "Pumice API"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://app.pumice.ai/api/generate_description",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"product\": {{ JSON.stringify($('Assemble Product').item.json.product) }},\n  \"customer_rules\": {{ JSON.stringify($('Assemble Product').item.json.customer_rules) }},\n  \"examples\": []\n}",
-        "options": {
-          "timeout": 120000
-        }
-      },
-      "id": "gen-desc",
-      "name": "Generate Description",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -281,39 +266,44 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://app.pumice.ai/api/generate_bullet",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"product\": {{ JSON.stringify($('Assemble Product').item.json.product) }},\n  \"customer_rules\": {{ JSON.stringify($('Assemble Product').item.json.customer_rules) }},\n  \"examples\": []\n}",
-        "options": {
-          "timeout": 120000
-        }
+        "jsCode": "// Check the generated title against the length limits.\n// Each run of this node is one attempt.\nconst settings = $('Title Settings').first().json;\nconst res = $input.first().json;\nconst raw = res.product_title ?? res.title ?? res;\nconst title = (typeof raw === 'string' ? raw : '').trim();\nconst length = title.length;\nconst attempt = $runIndex + 1;\n\nlet issue = '';\nif (!title) issue = 'empty';\nelse if (length < settings.min_length) issue = 'too_short';\nelse if (length > settings.max_length) issue = 'too_long';\n\nreturn [{\n  json: {\n    title,\n    length,\n    min_length: settings.min_length,\n    max_length: settings.max_length,\n    attempt,\n    valid: issue === '',\n    issue,\n    can_retry: attempt < settings.max_attempts\n  }\n}];"
       },
-      "id": "gen-bullets",
-      "name": "Generate Bullets",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "id": "validate-title",
+      "name": "Validate Title Length",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         2660,
         100
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "pumice-api-key",
-          "name": "Pumice API"
-        }
-      }
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Collect the original product data plus each generated field\n// into a single enriched record.\nconst a = $('Assemble Product').first().json;\nconst title = $('Generate Title').first().json;\nconst desc = $('Generate Description').first().json;\nconst bullets = $('Generate Bullets').first().json;\n\nreturn [{\n  json: {\n    mpn: a.mpn,\n    brand: a.brand,\n    source_url: a.source_url,\n    original_title: a.product.title,\n    image_url: a.product.image_url,\n    generated_title: title.product_title ?? title,\n    generated_description: desc.product_description ?? desc,\n    generated_bullets: bullets.product_bullets ?? bullets\n  }\n}];"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "length-ok",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
-      "id": "enriched",
-      "name": "Enriched Product",
-      "type": "n8n-nodes-base.code",
+      "id": "length-ok",
+      "name": "Length OK?",
+      "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
         2880,
@@ -322,9 +312,68 @@
     },
     {
       "parameters": {
-        "content": "## Pumice Product Enrichment\n\n**Setup**\n1. Create an **HTTP Header Auth** credential named `Pumice API`.\n   - Name: `x-api-key`\n   - Value: your Pumice API key\n2. All HTTP nodes already reference it.\n\n**Flow**\nSample Product -> Universal Search -> top 3 URLs -> for each: Smart Scrape -> Product Matching. The first candidate that matches is assembled -> generate title / description / bullets -> Enriched Product. If none of the 3 match, the run stops with an error.\n\nSwap the *Sample Product* node for your real source (Webhook, Sheets, DB) when ready.",
-        "height": 320,
-        "width": 420,
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "retries-left",
+              "leftValue": "={{ $json.can_retry }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "retries-left",
+      "name": "Retries Left?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3100,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Resend the original request with an extra rule telling the model\n// how far off the last title was.\nconst base = $('Build Title Request').first().json;\nconst v = $input.first().json;\n\nconst feedback = v.issue === 'empty'\n  ? `The previous attempt returned no title. Write a title between ${v.min_length} and ${v.max_length} characters`\n  : `The previous title \"${v.title}\" was ${v.length} characters, which is too ${v.issue === 'too_long' ? 'long' : 'short'}. Rewrite it to be between ${v.min_length} and ${v.max_length} characters, including spaces`;\n\nreturn [{\n  json: {\n    ...base,\n    customer_rules: [...base.customer_rules, feedback]\n  }\n}];"
+      },
+      "id": "length-feedback",
+      "name": "Add Length Feedback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3320,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Final record. Titles that never passed the length check are\n// returned with status \"needs_review\" instead of being dropped.\nconst v = $input.first().json;\nconst request = $('Build Title Request').first().json;\nconst candidate = request.candidate;\n\nreturn [{\n  json: {\n    mpn: candidate.mpn,\n    brand: candidate.brand,\n    source_url: candidate.source_url,\n    original_title: candidate.title,\n    scraped_title: request.product.title,\n    optimized_title: v.title,\n    title_length: v.length,\n    attempts: v.attempt,\n    status: v.valid ? 'valid' : 'needs_review',\n    issue: v.issue\n  }\n}];"
+      },
+      "id": "optimized-title",
+      "name": "Optimized Title",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3320,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Pumice AI Product Title Optimization\n\n**Setup**\n1. Create an **HTTP Header Auth** credential named `Pumice API`.\n   - Name: `x-api-key`\n   - Value: your Pumice API key\n2. All HTTP nodes already reference it.\n3. Edit rules, examples, and length limits in **Title Settings**.\n\n**Flow**\nSample Product -> Title Settings -> Universal Search -> top 3 URLs -> for each: Smart Scrape -> Product Matching. The first candidate that matches is used to generate a title with your rules and examples. The title is length-checked and regenerated with feedback (up to `max_attempts`). Titles that never pass come out with status `needs_review`.\n\nSwap the *Sample Product* node for your real source (Webhook, Sheets, DB) when ready.",
+        "height": 380,
+        "width": 440,
         "color": 4
       },
       "id": "sticky-note",
@@ -350,6 +399,17 @@
       ]
     },
     "Sample Product": {
+      "main": [
+        [
+          {
+            "node": "Title Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Title Settings": {
       "main": [
         [
           {
@@ -426,7 +486,7 @@
       "main": [
         [
           {
-            "node": "Assemble Product",
+            "node": "Build Title Request",
             "type": "main",
             "index": 0
           }
@@ -440,7 +500,7 @@
         ]
       ]
     },
-    "Assemble Product": {
+    "Build Title Request": {
       "main": [
         [
           {
@@ -455,29 +515,65 @@
       "main": [
         [
           {
-            "node": "Generate Description",
+            "node": "Validate Title Length",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Generate Description": {
+    "Validate Title Length": {
       "main": [
         [
           {
-            "node": "Generate Bullets",
+            "node": "Length OK?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Generate Bullets": {
+    "Length OK?": {
       "main": [
         [
           {
-            "node": "Enriched Product",
+            "node": "Optimized Title",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retries Left?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retries Left?": {
+      "main": [
+        [
+          {
+            "node": "Add Length Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Optimized Title",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Length Feedback": {
+      "main": [
+        [
+          {
+            "node": "Generate Title",
             "type": "main",
             "index": 0
           }
