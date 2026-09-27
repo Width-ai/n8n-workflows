@@ -9,7 +9,7 @@ keyword rank tracker: https://github.com/Width-ai/n8n-workflows/blob/main/keywor
 
 google search console ai seo optimization: https://github.com/Width-ai/n8n-workflows/blob/main/gsc_ai_seo_writer.json
 
-Product content enrichment via Pumice: https://github.com/Width-ai/n8n-workflows/blob/main/pumice-product-enrichment.n8n.json
+Product content enrichment via Pumice: https://github.com/Width-ai/n8n-workflows/blob/main/pumice-product-data-enrichment-workflow-n8n.json
 
 Blog post to social media posts: https://github.com/Width-ai/n8n-workflows/blob/main/blog-to-social-ai-free.json
 
