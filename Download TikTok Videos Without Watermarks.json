@@ -1,0 +1,1281 @@
+{
+  "name": "Download TikTok Videos Without Watermarks",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Download TikTok Videos Without Watermarks",
+        "formDescription": "Paste a TikTok link to download the video without a watermark, in the best quality TikTok offers. Photo slideshows download as a .zip of the photos.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "TikTok link",
+              "fieldName": "tiktok_url",
+              "placeholder": "https://www.tiktok.com/@username/video/1234567890123456789",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "buttonLabel": "Download without watermark"
+        }
+      },
+      "id": "0bee7ce5-797f-4760-ad68-69f3f6daef7d",
+      "name": "Paste a TikTok Link",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        -200,
+        -40
+      ],
+      "webhookId": "f596b994-4da7-4768-95db-c7ea55b23b27"
+    },
+    {
+      "parameters": {},
+      "id": "ae6924bc-aa87-4d56-a10e-e2f60ee37e21",
+      "name": "Run Bulk Download",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "ab4f33e1-90ad-4b11-a8ec-813f593d7165",
+      "name": "Get Links from Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -420,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "56f0e476-af78-4c4a-97e9-04eac281582b",
+              "leftValue": "={{ String($json.tiktok_url ?? '').trim() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "da8797d7-9b04-450c-ae1e-73cf2fa50d7a",
+              "leftValue": "={{ String($json.status ?? '').trim().toLowerCase() }}",
+              "rightValue": "downloaded",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "408ea624-6990-4198-bf2d-c3d98ccfeff4",
+      "name": "Only New or Failed Links",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        -200,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b5eb9aaa-f7a3-4504-accf-467211cfbf6a",
+              "name": "tiktokUrl",
+              "value": "={{ (String($json.tiktok_url ?? '').match(/https?:\\/\\/(?:[\\w-]+\\.)*tiktok\\.com\\/[^\\s\"'<>]+/i) ?? [''])[0].replace(/[).,!?]+$/, '') }}",
+              "type": "string"
+            },
+            {
+              "id": "eee53ec7-695e-4558-abdf-635852e67717",
+              "name": "source",
+              "value": "={{ $json.formMode ? 'form' : 'sheet' }}",
+              "type": "string"
+            },
+            {
+              "id": "bdf1f1cb-3106-4a88-baef-09c9cca2983b",
+              "name": "row_number",
+              "value": "={{ $json.row_number ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "e79bd42c-4e3d-45e3-ae79-fdaa27b19325",
+              "name": "userAgent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a665268b-40bf-4c9c-9f11-fe0e4fb36e6b",
+      "name": "Read TikTok Link",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        40,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "26791065-56ae-405e-8bc9-3c95feb7784e",
+              "leftValue": "={{ $json.tiktokUrl }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e8950576-487f-415d-aa96-6c9b12c5c075",
+      "name": "Is It a TikTok Link?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        260,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.tiktokUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "={{ $json.userAgent }}"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1500
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "90da0677-2acd-4c38-84cc-5b9ae825d894",
+      "name": "Load TikTok Video Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        540,
+        -40
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Finds the watermark-free video (or slideshow photos) in the TikTok page data.\n// TikTok's web player streams the clean file. The watermark is only added to the\n// separate \"download\" file (downloadAddr), which this workflow never uses.\nconst input = $('Read TikTok Link').item.json;\nconst page = $input.item.json;\n\nconst fail = (error) => ({ json: { ...input, mediaType: 'error', error } });\n\nif (!input.tiktokUrl) {\n  return fail(\"That doesn't look like a TikTok link. Paste a link like https://www.tiktok.com/@user/video/123 or https://vm.tiktok.com/abc123/\");\n}\n\nconst html = typeof page.data === 'string' ? page.data : '';\nif (!html) {\n  const reason = typeof page.error === 'string' ? page.error : page.error?.message;\n  return fail(`Couldn't load the TikTok page${reason ? ` (${reason})` : ''}. Check the link and try again.`);\n}\n\nconst script = html.match(/<script[^>]*id=\"__UNIVERSAL_DATA_FOR_REHYDRATION__\"[^>]*>([\\s\\S]*?)<\\/script>/);\nif (!script) {\n  return fail('TikTok sent back a page without the video data, usually a bot check. Wait a minute and try again.');\n}\n\nlet detail;\ntry {\n  detail = JSON.parse(script[1])?.__DEFAULT_SCOPE__?.['webapp.video-detail'];\n} catch (e) {\n  return fail(\"Couldn't read the video data on the TikTok page.\");\n}\n\nconst post = detail?.itemInfo?.itemStruct;\nif (!post?.id) {\n  const reason = detail?.statusMsg || (detail?.statusCode ? `status ${detail.statusCode}` : 'no post data');\n  return fail(`TikTok didn't return this post (${reason}). It may be private, deleted, or not available in your region.`);\n}\n\n// TikTok only lets the file be downloaded with the cookies it set on the page, so keep them (name=value pairs only)\nconst setCookie = page.headers?.['set-cookie'] ?? [];\nconst cookies = (Array.isArray(setCookie) ? setCookie : [setCookie])\n  .map((cookie) => String(cookie).split(';')[0].trim())\n  .filter(Boolean)\n  .join('; ');\n\n// Take the ID and creator from the page data, so app share links (vm.tiktok.com/...) work too\nconst videoId = String(post.id);\nconst handle = post.author?.uniqueId ?? '';\nconst fileBaseName = `tiktok_${handle.replace(/[^\\w.-]+/g, '') || 'video'}_${videoId}`;\n\nconst details = {\n  ...input,\n  videoId,\n  creator: handle ? `@${handle}` : '',\n  caption: post.desc ?? '',\n  postUrl: handle ? `https://www.tiktok.com/@${handle}/video/${videoId}` : input.tiktokUrl,\n  cookies,\n  fileBaseName,\n};\n\n// Photo slideshows have no video file; download their photos instead\nconst imageUrls = (post.imagePost?.images ?? [])\n  .map((image) => image?.imageURL?.urlList?.[0])\n  .filter(Boolean);\n\nif (imageUrls.length) {\n  return {\n    json: {\n      ...details,\n      mediaType: 'slideshow',\n      imageUrls,\n      quality: `${imageUrls.length} photos`,\n      fileName: `${fileBaseName}.zip`,\n    },\n  };\n}\n\n// Pick the highest-quality watermark-free stream. H.264 plays everywhere,\n// while TikTok's H.265 streams don't open in many players, so prefer H.264.\nconst video = post.video ?? {};\nconst streams = (video.bitrateInfo ?? [])\n  .map((stream) => ({\n    url: stream?.PlayAddr?.UrlList?.[0] ?? '',\n    codec: String(stream?.CodecType ?? '').toLowerCase(),\n    bitrate: Number(stream?.Bitrate) || 0,\n    width: Number(stream?.PlayAddr?.Width) || 0,\n    height: Number(stream?.PlayAddr?.Height) || 0,\n  }))\n  .filter((stream) => stream.url);\n\nconst h264 = streams.filter((stream) => stream.codec.includes('h264'));\nconst best = (h264.length ? h264 : streams)\n  .sort((a, b) => b.width * b.height - a.width * a.height || b.bitrate - a.bitrate)[0];\n\nconst videoUrl = best?.url || video.playAddr || '';\nif (!videoUrl) {\n  return fail('This post has no video file TikTok will share. It may be a live replay or a restricted video.');\n}\n\nconst shortSide = best ? Math.min(best.width, best.height) : 0;\n\nreturn {\n  json: {\n    ...details,\n    mediaType: 'video',\n    videoUrl,\n    quality: shortSide ? `${shortSide}p` : 'standard',\n    fileName: `${fileBaseName}.mp4`,\n  },\n};\n"
+      },
+      "id": "f5a9c6fa-5efc-4e32-810e-87bd4692658e",
+      "name": "Find Watermark-Free Video",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "7646f02a-3acd-43a3-82d6-7b64a183dc22",
+                    "leftValue": "={{ $json.mediaType }}",
+                    "rightValue": "video",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Video"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "73c44040-8973-410e-b94c-0477b825c669",
+                    "leftValue": "={{ $json.mediaType }}",
+                    "rightValue": "slideshow",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Slideshow"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "bcc65680-d0e4-430d-a7a5-75309a1e7841",
+                    "leftValue": "={{ $json.mediaType }}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Not found"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4a3268da-2d17-43b3-b0b0-698a46a2cd80",
+      "name": "Video or Slideshow?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        980,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.videoUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "={{ $json.userAgent }}"
+            },
+            {
+              "name": "Referer",
+              "value": "https://www.tiktok.com/"
+            },
+            {
+              "name": "Accept",
+              "value": "video/mp4,video/*;q=0.9,*/*;q=0.8"
+            },
+            {
+              "name": "Cookie",
+              "value": "={{ $json.cookies }}"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "6d5173d1-8e0a-410c-964d-486473fed308",
+      "name": "Download Watermark-Free Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1260,
+        -40
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Names the downloaded file tiktok_<creator>_<video ID>.mp4 and carries the post details forward\nconst { cookies, imageUrls, ...details } = $('Find Watermark-Free Video').item.json;\nconst file = $input.item.binary?.data;\n\nif (!file) {\n  return {\n    json: {\n      ...details,\n      mediaType: 'error',\n      error: \"Found the video but couldn't download it from TikTok's servers. Try again in a minute.\",\n    },\n  };\n}\n\nfile.fileName = details.fileName;\nfile.fileExtension = 'mp4';\nfile.mimeType = 'video/mp4';\n\n// The finished file is kept in its own field, tiktokFile, so later steps can't pick up an earlier download by mistake\nreturn { json: details, binary: { tiktokFile: file } };\n"
+      },
+      "id": "9488573f-b021-4053-8d68-510c959ca3ee",
+      "name": "Name Video File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1480,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "imageUrls",
+        "include": "allOtherFields",
+        "options": {
+          "destinationFieldName": "imageUrl"
+        }
+      },
+      "id": "c85a9140-b616-45e0-928b-03783f8f6e4f",
+      "name": "Split Slideshow Photos",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1260,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.imageUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "={{ $json.userAgent }}"
+            },
+            {
+              "name": "Referer",
+              "value": "https://www.tiktok.com/"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 300
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "8cf9d419-1764-47eb-83ed-246e40b00bd4",
+      "name": "Download Slideshow Photos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1480,
+        220
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Groups each slideshow's photos into one item so they can be zipped together.\n// Photos are named tiktok_<creator>_<post ID>_01.jpg, _02.jpg, and so on.\nconst posts = new Map();\n\n$input.all().forEach((item, index) => {\n  const { cookies, imageUrls, imageUrl, ...details } = $('Split Slideshow Photos').itemMatching(index).json;\n\n  if (!posts.has(details.videoId)) {\n    posts.set(details.videoId, { json: details, binary: {}, pairedItem: [], count: 0 });\n  }\n  const post = posts.get(details.videoId);\n  post.count += 1;\n  post.pairedItem.push({ item: index });\n\n  const file = item.binary?.data;\n  if (!file) return; // this photo failed to download\n\n  const number = String(post.count).padStart(2, '0');\n  const extension = (file.fileExtension || 'jpg').replace('jpeg', 'jpg');\n  file.fileName = `${details.fileBaseName}_${number}.${extension}`;\n  post.binary[`photo_${number}`] = file;\n});\n\nreturn [...posts.values()].map(({ json, binary, pairedItem }) => {\n  const photoFields = Object.keys(binary);\n  return {\n    json: photoFields.length\n      ? { ...json, photoFields: photoFields.join(',') }\n      : { ...json, mediaType: 'error', error: \"Found the slideshow but couldn't download its photos. Try again in a minute.\" },\n    binary,\n    pairedItem,\n  };\n});\n"
+      },
+      "id": "7736c63b-d264-4fd5-91f9-ee7a0b2caca5",
+      "name": "Combine Slideshow Photos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1700,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b682980d-6459-4dea-80cb-ad2fc8fc532f",
+              "leftValue": "={{ $json.mediaType }}",
+              "rightValue": "slideshow",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4d92681f-21fc-4c42-a301-6124510f10b7",
+      "name": "Photos Downloaded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1920,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "compress",
+        "binaryPropertyName": "={{ $json.photoFields }}",
+        "outputFormat": "zip",
+        "fileName": "={{ $json.fileName }}",
+        "binaryPropertyOutput": "tiktokFile"
+      },
+      "id": "db097111-6e32-446a-8a32-c462538f6e92",
+      "name": "Zip Slideshow Photos",
+      "type": "n8n-nodes-base.compression",
+      "typeVersion": 1.1,
+      "position": [
+        2140,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "582f6b38-9a4f-404f-863c-6e89dc00b192",
+                    "leftValue": "={{ $json.source }}",
+                    "rightValue": "form",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "d42ff271-3e30-4548-ba9f-e3281402b51d",
+                    "leftValue": "={{ $json.mediaType }}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Form: send file"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "012992a4-66af-4f7b-aaf5-eeca81434250",
+                    "leftValue": "={{ $json.source }}",
+                    "rightValue": "form",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "53da2148-310d-488d-af42-ba0e49226a4c",
+                    "leftValue": "={{ $json.mediaType }}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Form: show error"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "585d3d74-2270-433d-9bb2-e9e470d7e566",
+                    "leftValue": "={{ $json.source }}",
+                    "rightValue": "sheet",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "0c7b9f8f-98f0-46cf-8d6a-c653c656ec64",
+                    "leftValue": "={{ $json.mediaType }}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Sheet: save to Drive"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a315ec8a-41a5-4c32-9195-4128b29cf29d",
+                    "leftValue": "={{ $json.source }}",
+                    "rightValue": "sheet",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "df878cd8-9c8e-432b-aea7-7d0170938bac",
+                    "leftValue": "={{ $json.mediaType }}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Sheet: log error"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a823624c-e460-44c9-95f2-1d82f243c2ca",
+      "name": "Send Result",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2420,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "returnBinary",
+        "completionTitle": "Your TikTok download is ready",
+        "completionMessage": "The watermark-free file is downloading now. Videos save as MP4. Photo slideshows save as a .zip of the photos.",
+        "inputDataFieldName": "tiktokFile",
+        "options": {}
+      },
+      "id": "12c4c727-ab65-415f-b771-d59f931f17f7",
+      "name": "Return Watermark-Free File",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        2700,
+        -100
+      ],
+      "webhookId": "0a03a144-a8ef-4080-aaee-2afaa50f7b87"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Couldn't download that TikTok",
+        "completionMessage": "={{ $json.error }}",
+        "options": {}
+      },
+      "id": "c5472413-2363-4139-9158-78fe384307aa",
+      "name": "Show Error",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        2700,
+        60
+      ],
+      "webhookId": "7453b745-b62d-4f08-ac1d-430782978508"
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "inputDataFieldName": "tiktokFile",
+        "options": {}
+      },
+      "id": "133f1559-54b3-493c-a49b-8d7b706bd222",
+      "name": "Upload to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2700,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "share",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.id }}"
+        },
+        "permissionsUi": {
+          "permissionsValues": {
+            "role": "reader",
+            "type": "anyone",
+            "allowFileDiscovery": false
+          }
+        },
+        "options": {}
+      },
+      "id": "b7abef9e-3334-4b0c-bb80-453b464d16fb",
+      "name": "Share Link (View Only)",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2920,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "99d62efb-0875-4d48-b712-6c32d10dfc50",
+              "name": "row_number",
+              "value": "={{ $('Send Result').item.json.row_number }}",
+              "type": "number"
+            },
+            {
+              "id": "71bb2f17-8e56-4276-a410-9632f840eda9",
+              "name": "status",
+              "value": "downloaded",
+              "type": "string"
+            },
+            {
+              "id": "03574d7b-ec81-49ca-9a96-e0fdb98b19cf",
+              "name": "file_name",
+              "value": "={{ $('Send Result').item.json.fileName }}",
+              "type": "string"
+            },
+            {
+              "id": "59cab16d-05b3-4e5b-a892-01f32565f335",
+              "name": "drive_link",
+              "value": "=https://drive.google.com/file/d/{{ $('Upload to Google Drive').item.json.id }}/view",
+              "type": "string"
+            },
+            {
+              "id": "919f6fd0-9444-466d-a16c-04ba8f55ffae",
+              "name": "creator",
+              "value": "={{ $('Send Result').item.json.creator }}",
+              "type": "string"
+            },
+            {
+              "id": "3454f515-9876-4dd2-85f6-45d2e5056cf8",
+              "name": "caption",
+              "value": "={{ $('Send Result').item.json.caption }}",
+              "type": "string"
+            },
+            {
+              "id": "f98e90bb-4ac7-4549-b1ba-fbc4da0c186d",
+              "name": "quality",
+              "value": "={{ $('Send Result').item.json.quality }}",
+              "type": "string"
+            },
+            {
+              "id": "2b7794c4-1084-4792-b841-2ac9cceef214",
+              "name": "error",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "f7fc3153-7ace-41db-8e5b-03ac8d4aeed2",
+              "name": "updated_at",
+              "value": "={{ $now.toFormat('yyyy-MM-dd HH:mm:ss') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "66759bc2-4c69-4daf-920a-672b3964d589",
+      "name": "Build Downloaded Row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3140,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b4516852-effd-47fa-848c-b53154c93bf7",
+              "name": "row_number",
+              "value": "={{ $json.row_number }}",
+              "type": "number"
+            },
+            {
+              "id": "5222ad14-7f87-4424-95cf-126798a54346",
+              "name": "status",
+              "value": "error",
+              "type": "string"
+            },
+            {
+              "id": "06f1ca31-c301-4c87-9029-0ba8f1fcc730",
+              "name": "error",
+              "value": "={{ $json.error }}",
+              "type": "string"
+            },
+            {
+              "id": "d9adccd7-ccf2-47aa-93d3-d5433ee4de51",
+              "name": "updated_at",
+              "value": "={{ $now.toFormat('yyyy-MM-dd HH:mm:ss') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f2d656a5-3506-4620-96f9-47cc87630ca2",
+      "name": "Build Error Row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3140,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Links from Sheet').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ ((s) => (s.match(/gid=(\\d+)/) ?? s.match(/^(\\d+)$/) ?? [])[1] ?? '')(String($('Get Links from Sheet').params.sheetName.value ?? '')) }}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "df00c3a9-60a9-47ab-badb-97980a627615",
+      "name": "Update Sheet Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3360,
+        330
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Download TikTok Videos Without Watermarks\n\nPaste a TikTok link into a form and get the original video back without the TikTok watermark, in the best quality TikTok serves. Or list links in a Google Sheet and download them all to Google Drive in one run.\n\n### How it works\n1. **Paste a TikTok Link** (a form) or **Run Bulk Download** (a Google Sheet) supplies the links. Full links and app share links (`vm.tiktok.com/...`) both work.\n2. **Load TikTok Video Page** opens the post the way a browser does.\n3. **Find Watermark-Free Video** reads the page data and picks the highest-quality H.264 stream. That's the clean file TikTok's web player uses. The watermarked \"download\" file is never used.\n4. The video downloads as `tiktok_<creator>_<video ID>.mp4`. Photo slideshows download as a `.zip` of the photos.\n5. Form users get the file in their browser. Bulk runs save each file to Google Drive with a view-only link and write the result back to the sheet.\n\n### Setup\n**Form:** nothing to connect. Open **Paste a TikTok Link** and use the test URL, or publish the workflow and use the production URL.\n\n**Bulk download (optional):**\n1. Create a Google Sheet with a `tiktok_url` column and paste one link per row.\n2. Connect Google Sheets in **Get Links from Sheet** and **Update Sheet Row**, and pick your sheet from the list in **Get Links from Sheet**. Results are written back to the same sheet.\n3. Connect Google Drive in **Upload to Google Drive** and **Share Link (View Only)**, and pick a folder.\n4. Click **Execute workflow** on **Run Bulk Download**. Status, file name, Drive link, creator, caption and quality columns are added automatically. Rows marked `downloaded` are skipped, so run it again to retry any errors.\n\nOnly download videos you own or have permission to reuse.",
+        "height": 1060,
+        "width": 520,
+        "color": 5
+      },
+      "id": "5eba36b0-7704-48f2-80b8-9618efb13784",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1240,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Paste a TikTok link or run a bulk list\nThe form takes one link at a time. Bulk mode reads every row in your sheet that isn't marked `downloaded` yet.\n\n**Read TikTok Link** pulls the TikTok URL out of whatever was pasted. Update the browser ID (User-Agent) here if TikTok starts rejecting requests.",
+        "height": 1060,
+        "width": 1140,
+        "color": 7
+      },
+      "id": "14de950e-5ff8-4941-84ec-0310b84952b6",
+      "name": "Section 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -700,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Find the watermark-free video\nLoads the TikTok page and reads the video data embedded in it.\n\nTikTok lists several versions of each video. This picks the highest-resolution H.264 version, which plays in any app. It never uses `downloadAddr`, the version with the watermark burned in.\n\nPrivate, deleted, region-locked and bot-checked posts get a clear error message instead.",
+        "height": 1060,
+        "width": 680,
+        "color": 6
+      },
+      "id": "21d29062-1019-42fd-ab3a-c5752f8822b1",
+      "name": "Section 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        460,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Download TikTok videos without watermarks\n**Video:** downloads the clean MP4 using the cookies TikTok set when the page loaded, then names it `tiktok_<creator>_<video ID>.mp4`.\n\n**Photo slideshow:** downloads each photo and zips them into `tiktok_<creator>_<post ID>.zip`.\n\nThe finished file is stored in the `tiktokFile` field.",
+        "height": 1060,
+        "width": 1140,
+        "color": 4
+      },
+      "id": "741f8c3d-3990-48fc-a7b4-8ffafa5628c5",
+      "name": "Section 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1160,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Send the file\n**Form:** returns the watermark-free file straight to the browser, or shows what went wrong.\n\n**Bulk:** uploads the file to Google Drive, creates a view-only link (anyone with the link can watch it, nobody can edit it), and writes the result to the sheet. Failed links are marked `error` with the reason.",
+        "height": 1060,
+        "width": 1240,
+        "color": 3
+      },
+      "id": "3ff5934f-b562-4095-829d-94d8edd25e5d",
+      "name": "Section 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2320,
+        -420
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Paste a TikTok Link": {
+      "main": [
+        [
+          {
+            "node": "Read TikTok Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Bulk Download": {
+      "main": [
+        [
+          {
+            "node": "Get Links from Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Links from Sheet": {
+      "main": [
+        [
+          {
+            "node": "Only New or Failed Links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only New or Failed Links": {
+      "main": [
+        [
+          {
+            "node": "Read TikTok Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read TikTok Link": {
+      "main": [
+        [
+          {
+            "node": "Is It a TikTok Link?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is It a TikTok Link?": {
+      "main": [
+        [
+          {
+            "node": "Load TikTok Video Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Watermark-Free Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load TikTok Video Page": {
+      "main": [
+        [
+          {
+            "node": "Find Watermark-Free Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Watermark-Free Video": {
+      "main": [
+        [
+          {
+            "node": "Video or Slideshow?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Video or Slideshow?": {
+      "main": [
+        [
+          {
+            "node": "Download Watermark-Free Video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split Slideshow Photos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Watermark-Free Video": {
+      "main": [
+        [
+          {
+            "node": "Name Video File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Name Video File": {
+      "main": [
+        [
+          {
+            "node": "Send Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Slideshow Photos": {
+      "main": [
+        [
+          {
+            "node": "Download Slideshow Photos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Slideshow Photos": {
+      "main": [
+        [
+          {
+            "node": "Combine Slideshow Photos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Slideshow Photos": {
+      "main": [
+        [
+          {
+            "node": "Photos Downloaded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Photos Downloaded?": {
+      "main": [
+        [
+          {
+            "node": "Zip Slideshow Photos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zip Slideshow Photos": {
+      "main": [
+        [
+          {
+            "node": "Send Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Result": {
+      "main": [
+        [
+          {
+            "node": "Return Watermark-Free File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Show Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upload to Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Google Drive": {
+      "main": [
+        [
+          {
+            "node": "Share Link (View Only)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Share Link (View Only)": {
+      "main": [
+        [
+          {
+            "node": "Build Downloaded Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Downloaded Row": {
+      "main": [
+        [
+          {
+            "node": "Update Sheet Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Error Row": {
+      "main": [
+        [
+          {
+            "node": "Update Sheet Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
