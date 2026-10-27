@@ -1,0 +1,1206 @@
+{
+  "name": "Amazon Price Tracker API with Pumice AI",
+  "nodes": [
+    {
+      "parameters": {
+        "multipleMethods": true,
+        "httpMethod": [
+          "GET",
+          "POST"
+        ],
+        "path": "amazon-price-tracker",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0e49d96c-c0a0-4c21-943d-4d678af437ea",
+      "name": "Price Check API",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -460,
+        -60
+      ],
+      "webhookId": "8c2910fc-699a-4ac8-bc06-d2f2e491bbff"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "b0d5a0cd-16e6-4816-920d-65ba3560bd7b",
+      "name": "Check Prices Daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -680,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "af7ebe41-ccfe-4642-ba6d-f3f8bda22faf",
+      "name": "Get Watchlist",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -460,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6cd20396-687e-4752-9b36-f8463187f708",
+              "leftValue": "={{ String($json.product ?? '').trim() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c23a19e0-4d1f-4fe6-8d58-c5ebaf2224c6",
+      "name": "Only Rows With a Product",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        -240,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Works out which Amazon product to price, from an API call or a watchlist row.\n// Accepts an ASIN (B0BXYCS74H), an Amazon product URL, or a product name to search for.\nconst item = $input.item.json;\nconst fromApi = item.headers !== undefined && (item.body !== undefined || item.query !== undefined);\nconst req = fromApi ? { ...(item.query ?? {}), ...(typeof item.body === 'object' ? item.body : {}) } : item;\n\n// \"$1,299.99\", \"1.299,99 €\" and 1299.99 all become 1299.99\nconst parsePrice = (value) => {\n  if (typeof value === 'number') return Number.isFinite(value) ? value : null;\n  let s = String(value ?? '').match(/\\d[\\d.,]*/)?.[0] ?? '';\n  if (!s) return null;\n  const lastComma = s.lastIndexOf(',');\n  const lastDot = s.lastIndexOf('.');\n  if (lastComma > lastDot) {\n    s = /,\\d{1,2}$/.test(s) ? s.replace(/\\./g, '').replace(',', '.') : s.replace(/,/g, '');\n  } else if (/^\\d{1,3}(\\.\\d{3})+$/.test(s)) {\n    s = s.replace(/\\./g, '');\n  } else {\n    s = s.replace(/,/g, '');\n  }\n  const n = parseFloat(s);\n  return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;\n};\n\nconst raw = String(req.asin ?? req.url ?? req.product ?? req.query ?? '').trim();\nlet marketplace = String(req.marketplace ?? '').trim().toLowerCase()\n  .replace(/^https?:\\/\\//, '').replace(/^www\\./, '').replace(/\\/.*$/, '') || 'amazon.com';\n\nconst base = {\n  source: fromApi ? 'api' : 'sheet',\n  input: raw,\n  row_number: item.row_number ?? 0,\n  target_price: parsePrice(req.target_price),\n  previous_price: fromApi ? null : parsePrice(item.last_price),\n  lowest_price: fromApi ? null : parsePrice(item.lowest_price),\n};\n\nconst fail = (code, error) => ({ json: { ...base, marketplace, lookup: 'error', ok: false, code, error } });\n\nif (!raw) {\n  return fail('invalid_request', 'No product given. Send an ASIN (like B0BXYCS74H), an Amazon product URL, or a product name.');\n}\n\nconst ASIN_IN_URL = /\\/(?:dp|gp\\/product|gp\\/aw\\/d|product)\\/([A-Z0-9]{10})(?=[/?#]|$)/i;\nconst link = raw.match(/https?:\\/\\/\\S+/i)?.[0].replace(/[).,!?]+$/, '');\n\nif (link) {\n  // (URL() isn't available in n8n's Code node, so read the host with a pattern)\n  const host = (link.match(/^https?:\\/\\/([^/?#:\\s]+)/i)?.[1] ?? '').toLowerCase().replace(/^www\\./, '');\n  const isAmazon = /^(smile\\.)?amazon\\.[a-z.]+$/.test(host);\n  const isShortLink = /^(amzn\\.(to|eu|asia)|a\\.co)$/.test(host);\n  if (!isAmazon && !isShortLink) {\n    return fail('invalid_request', `Only Amazon links are supported, but this link is on ${host || 'an unknown site'}.`);\n  }\n  if (isAmazon) marketplace = host.replace(/^smile\\./, '');\n  const asin = link.match(ASIN_IN_URL)?.[1]?.toUpperCase() ?? '';\n  return {\n    json: {\n      ...base,\n      marketplace,\n      asin,\n      // A clean /dp/ URL avoids tracking parameters; short links are passed on for Pumice to follow\n      amazonUrl: asin ? `https://www.${marketplace}/dp/${asin}` : link,\n      lookup: 'url',\n    },\n  };\n}\n\n// ASINs are 10 letters and digits with at least one digit\nif (/^(?=.*\\d)[A-Z0-9]{10}$/i.test(raw)) {\n  const asin = raw.toUpperCase();\n  return { json: { ...base, marketplace, asin, amazonUrl: `https://www.${marketplace}/dp/${asin}`, lookup: 'url' } };\n}\n\nreturn { json: { ...base, marketplace, asin: '', amazonUrl: '', searchQuery: raw, lookup: 'search' } };\n"
+      },
+      "id": "35f33e68-66dd-4bd1-b3e8-3b12c335bc5c",
+      "name": "Read Product Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "4d6d927b-add5-4555-bd99-422f67df370d",
+                    "leftValue": "={{ $json.lookup }}",
+                    "rightValue": "url",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ASIN or Amazon link"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "bdaa93e3-e19f-4c51-b6a0-78146a43d64b",
+                    "leftValue": "={{ $json.lookup }}",
+                    "rightValue": "search",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Product name"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "aab82e00-d3c9-4989-96b1-a84b959657be",
+                    "leftValue": "={{ $json.lookup }}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Invalid request"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "389ec87e-2c2f-46b3-8b87-5508950b5d7d",
+      "name": "How to Find the Product?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/scraper/universal",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": {{ JSON.stringify($json.searchQuery + ' ' + $json.marketplace) }}\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "a36e2a36-152b-4f1b-8dd9-224da7237f35",
+      "name": "Find on Amazon",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        500,
+        220
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Picks the first Amazon product page from Pumice Universal Search results,\n// preferring the requested marketplace (amazon.com by default).\nconst request = $('Read Product Request').item.json;\nconst res = $input.item.json;\n\n// The response shape can vary, so check the common containers\nlet list = res.results ?? res.data ?? res.items ?? res.pages ?? res.urls ?? res.organic ?? [];\nif (list && !Array.isArray(list) && Array.isArray(list.results)) list = list.results;\nif (!Array.isArray(list)) list = [];\n\nconst ASIN_IN_URL = /\\/(?:dp|gp\\/product|gp\\/aw\\/d)\\/([A-Z0-9]{10})(?=[/?#]|$)/i;\nconst pages = list\n  .map((r) => (typeof r === 'string' ? r : (r.url || r.link || r.source_url || r.page_url || '')))\n  .map((url) => {\n    // (URL() isn't available in n8n's Code node, so read the host with a pattern)\n    const host = (String(url).match(/^https?:\\/\\/([^/?#:\\s]+)/i)?.[1] ?? '').toLowerCase().replace(/^www\\./, '');\n    const asin = String(url).match(ASIN_IN_URL)?.[1]?.toUpperCase();\n    return /^amazon\\.[a-z.]+$/.test(host) && asin ? { host, asin } : null;\n  })\n  .filter(Boolean);\n\nconst page = pages.find((p) => p.host === request.marketplace) ?? pages[0];\n\nif (!page) {\n  const reason = typeof res.error === 'string' ? res.error : res.error?.message;\n  return {\n    json: {\n      ...request,\n      ok: false,\n      code: reason ? 'scrape_failed' : 'not_found',\n      error: reason\n        ? `Pumice Universal Search failed (${reason}). Try again in a few minutes.`\n        : `Couldn't find \"${request.searchQuery}\" on Amazon. Try the ASIN or the Amazon product URL instead.`,\n    },\n  };\n}\n\nreturn {\n  json: {\n    ...request,\n    marketplace: page.host,\n    asin: page.asin,\n    amazonUrl: `https://www.${page.host}/dp/${page.asin}`,\n  },\n};\n"
+      },
+      "id": "c660b8f0-d459-4854-afa6-be056407c98f",
+      "name": "Pick Amazon Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2f3033b4-dadd-4daf-b88f-67645fd11f3a",
+              "leftValue": "={{ $json.amazonUrl }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "345a2db2-ef0c-4d7b-bc6a-9b20f90e8c61",
+      "name": "Found on Amazon?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        940,
+        220
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "5e122ba1-f44b-4f6f-bb35-031b489e98fb",
+      "name": "Amazon Page Ready",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/scraper/smart-scrape",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": \"This is an Amazon product page. Extract these fields and use null for anything that isn't shown on the page: title (the product title); asin; price (the current Buy Box price a customer pays now, as a number without the currency symbol); currency (3-letter code such as USD); list_price (the crossed-out List Price or Typical Price, as a number); availability (the availability text, such as In Stock); in_stock (true or false); seller (the Buy Box seller name); rating (the average star rating out of 5, as a number); review_count (the number of ratings, as a number); image_url (the main product image URL).\",\n  \"source_url\": {{ JSON.stringify($json.amazonUrl) }}\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "bf37e75c-4926-44fe-a965-0c5af1491b0d",
+      "name": "Scrape Amazon Price",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1420,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Turns Pumice Smart Scrape's output into a clean price record, and compares it\n// with the watchlist's previous and lowest prices to decide whether to send an alert.\nconst request = $('Amazon Page Ready').item.json;\nconst res = $input.item.json;\n\nconst fail = (code, error, extra = {}) => ({ json: { ...request, ...extra, ok: false, code, error } });\n\nif (res.error && res.data === undefined && res.result === undefined) {\n  const reason = typeof res.error === 'string' ? res.error : res.error?.message;\n  return fail('scrape_failed', `Pumice Smart Scrape failed${reason ? ` (${reason})` : ''}. Try again in a few minutes.`);\n}\n\n// The extracted fields can arrive at the top level or nested, as an object or a JSON string\nlet d = res.data ?? res.result ?? res.output ?? res.extracted ?? res;\nif (typeof d === 'string') {\n  try { d = JSON.parse(d); } catch (e) { d = {}; }\n}\nif (Array.isArray(d)) d = d[0] ?? {};\nif (d && typeof d === 'object' && d.price === undefined && d.product && typeof d.product === 'object') d = d.product;\nd = d ?? {};\n\nconst pick = (...keys) => keys.map((k) => d[k]).find((v) => v !== undefined && v !== null && v !== '');\n\n// \"$1,299.99\", \"1.299,99 €\" and 1299.99 all become 1299.99\nconst parsePrice = (value) => {\n  if (typeof value === 'number') return Number.isFinite(value) ? value : null;\n  let s = String(value ?? '').match(/\\d[\\d.,]*/)?.[0] ?? '';\n  if (!s) return null;\n  const lastComma = s.lastIndexOf(',');\n  const lastDot = s.lastIndexOf('.');\n  if (lastComma > lastDot) {\n    s = /,\\d{1,2}$/.test(s) ? s.replace(/\\./g, '').replace(',', '.') : s.replace(/,/g, '');\n  } else if (/^\\d{1,3}(\\.\\d{3})+$/.test(s)) {\n    s = s.replace(/\\./g, '');\n  } else {\n    s = s.replace(/,/g, '');\n  }\n  const n = parseFloat(s);\n  return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;\n};\nconst parseNumber = (value) => {\n  const n = parseFloat(String(value ?? '').replace(/,/g, '').match(/\\d+(\\.\\d+)?/)?.[0] ?? '');\n  return Number.isFinite(n) ? n : null;\n};\n\nconst CURRENCY_BY_MARKETPLACE = {\n  'amazon.com': 'USD', 'amazon.ca': 'CAD', 'amazon.com.mx': 'MXN', 'amazon.com.br': 'BRL',\n  'amazon.co.uk': 'GBP', 'amazon.de': 'EUR', 'amazon.fr': 'EUR', 'amazon.it': 'EUR', 'amazon.es': 'EUR',\n  'amazon.nl': 'EUR', 'amazon.com.be': 'EUR', 'amazon.ie': 'EUR', 'amazon.se': 'SEK', 'amazon.pl': 'PLN',\n  'amazon.com.tr': 'TRY', 'amazon.ae': 'AED', 'amazon.sa': 'SAR', 'amazon.eg': 'EGP', 'amazon.in': 'INR',\n  'amazon.co.jp': 'JPY', 'amazon.sg': 'SGD', 'amazon.com.au': 'AUD',\n};\n\nconst rawPrice = pick('price', 'current_price', 'buy_box_price', 'sale_price', 'deal_price');\nconst price = parsePrice(rawPrice);\nconst title = String(pick('title', 'product_title', 'name') ?? '').trim();\nconst availability = String(pick('availability', 'availability_text', 'stock') ?? '').trim();\n\nif (price === null) {\n  return fail(\n    'no_price',\n    'Pumice read the Amazon page but found no price. The product may be unavailable, or have no Buy Box price.',\n    { title, availability },\n  );\n}\n\nconst scrapedCurrency = String(pick('currency', 'currency_code') ?? '').trim().toUpperCase();\nconst currency = /^[A-Z]{3}$/.test(scrapedCurrency)\n  ? scrapedCurrency\n  : (CURRENCY_BY_MARKETPLACE[request.marketplace] ?? 'USD');\n\nconst listPrice = parsePrice(pick('list_price', 'was_price', 'typical_price', 'original_price'));\nconst inStockField = pick('in_stock', 'is_in_stock');\nconst inStock = typeof inStockField === 'boolean'\n  ? inStockField\n  : /unavailable|out of stock|no disponible|nicht verfügbar/i.test(availability) ? false\n  : /in stock|only \\d+ left|available|auf lager|en stock|disponible/i.test(availability) ? true\n  : null;\n\nconst scrapedAsin = String(pick('asin') ?? '').trim().toUpperCase();\nconst asin = /^[A-Z0-9]{10}$/.test(scrapedAsin) ? scrapedAsin : request.asin;\n\nconst money = (n) => {\n  try {\n    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(n);\n  } catch (e) {\n    return `${currency} ${n.toFixed(2)}`;\n  }\n};\n\n// Watchlist comparisons. An alert fires when the price first drops to or below\n// the target price, or when it drops below the lowest price seen so far.\nconst target = request.target_price;\nconst previous = request.previous_price;\nconst lowestBefore = request.lowest_price;\nconst reachedTarget = target !== null && price <= target && !(previous !== null && previous <= target);\nconst newLow = lowestBefore !== null && price < lowestBefore;\nconst alerts = [];\nif (reachedTarget) alerts.push(`At or below your target price of ${money(target)}`);\nif (newLow) alerts.push(`Lowest price so far (previous low ${money(lowestBefore)})`);\n\nreturn {\n  json: {\n    ...request,\n    ok: true,\n    asin,\n    title,\n    url: asin ? `https://www.${request.marketplace}/dp/${asin}` : request.amazonUrl,\n    price,\n    price_display: money(price),\n    currency,\n    list_price: listPrice,\n    discount_percent: listPrice && listPrice > price ? Math.round((1 - price / listPrice) * 100) : null,\n    in_stock: inStock,\n    availability,\n    seller: String(pick('seller', 'buy_box_seller', 'sold_by', 'merchant') ?? '').trim(),\n    rating: parseNumber(pick('rating', 'stars', 'average_rating')),\n    review_count: parseNumber(pick('review_count', 'reviews', 'ratings_count', 'rating_count')),\n    image_url: String([pick('image_url', 'main_image', 'image', 'image_urls', 'images')].flat()[0] ?? ''),\n    target_display: target !== null ? money(target) : '',\n    previous_display: previous !== null ? money(previous) : '',\n    lowest_display: money(lowestBefore !== null ? Math.min(lowestBefore, price) : price),\n    below_target: target !== null ? price <= target : null,\n    price_change: previous !== null ? Math.round((price - previous) * 100) / 100 : null,\n    lowest_price: lowestBefore !== null ? Math.min(lowestBefore, price) : price,\n    alert: alerts.join('; '),\n    checked_at: new Date().toISOString(),\n  },\n};\n"
+      },
+      "id": "5f288d55-4d83-49e9-b9b7-b66c3d544dd5",
+      "name": "Read Price",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "87987ded-0e8a-4dc4-ad40-5a7fc3fd2d6e",
+                    "leftValue": "={{ $json.source }}",
+                    "rightValue": "api",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "API response"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b0af1ba7-46cb-4d12-8899-d1ef2c50c280",
+                    "leftValue": "={{ $json.source }}",
+                    "rightValue": "sheet",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "1ab32ad1-e636-46ea-bdf2-ae769a34ea1d",
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Watchlist: price found"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "1af6f692-e2cb-4a72-a18a-a691f8d7f9fd",
+                    "leftValue": "={{ $json.source }}",
+                    "rightValue": "sheet",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "5f7effd7-5dd4-4b9f-981b-56417da16cbf",
+                    "leftValue": "={{ $json.ok }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "false",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Watchlist: error"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "707c6acf-da03-4992-a7f9-a7b3bf440fc3",
+      "name": "Send Result",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1920,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Shapes the API response and picks the HTTP status code\nconst r = $input.item.json;\nconst STATUS = { invalid_request: 400, not_found: 404, no_price: 422, scrape_failed: 502 };\n\nif (!r.ok) {\n  return { json: { status: STATUS[r.code] ?? 500, body: { ok: false, code: r.code, error: r.error, input: r.input } } };\n}\n\nconst body = {\n  ok: true,\n  asin: r.asin,\n  title: r.title,\n  url: r.url,\n  price: r.price,\n  currency: r.currency,\n  list_price: r.list_price,\n  discount_percent: r.discount_percent,\n  in_stock: r.in_stock,\n  availability: r.availability,\n  seller: r.seller,\n  rating: r.rating,\n  review_count: r.review_count,\n  image_url: r.image_url,\n  checked_at: r.checked_at,\n};\nif (r.target_price !== null) {\n  body.target_price = r.target_price;\n  body.below_target = r.below_target;\n}\n\nreturn { json: { status: 200, body } };\n"
+      },
+      "id": "5ec5b711-a8df-4045-85a5-75c300e28f2c",
+      "name": "Build API Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body }}",
+        "options": {
+          "responseCode": "={{ $json.status }}"
+        }
+      },
+      "id": "2e2f03fa-2061-4ad1-8022-b0e71239e043",
+      "name": "Return Price JSON",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2420,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a05e45e0-694a-42e5-9e82-d4afda2c3898",
+              "name": "checked_at",
+              "value": "={{ $now.toFormat('yyyy-MM-dd HH:mm') }}",
+              "type": "string"
+            },
+            {
+              "id": "b4bd5b8e-a6b0-441d-bc7b-aa5d31ce1ec2",
+              "name": "product",
+              "value": "={{ $json.input }}",
+              "type": "string"
+            },
+            {
+              "id": "0b9a6fb7-ab8c-4392-8aa4-6bfc62c1e97b",
+              "name": "asin",
+              "value": "={{ $json.asin }}",
+              "type": "string"
+            },
+            {
+              "id": "07ea0f71-6962-4945-953f-4c296451e77e",
+              "name": "title",
+              "value": "={{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "c2759f37-2c06-499e-9c05-f6090b7b9a06",
+              "name": "price",
+              "value": "={{ $json.price }}",
+              "type": "number"
+            },
+            {
+              "id": "163f2530-c4ac-4470-ae0c-329b03174c6d",
+              "name": "currency",
+              "value": "={{ $json.currency }}",
+              "type": "string"
+            },
+            {
+              "id": "e446f90d-85bc-43da-955a-6746815066f9",
+              "name": "list_price",
+              "value": "={{ $json.list_price ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "49818a5e-bc5a-4b41-958d-74e7b5b4b8b3",
+              "name": "in_stock",
+              "value": "={{ $json.in_stock === null ? '' : ($json.in_stock ? 'yes' : 'no') }}",
+              "type": "string"
+            },
+            {
+              "id": "6078d588-9296-460b-9676-feed28432dc8",
+              "name": "seller",
+              "value": "={{ $json.seller }}",
+              "type": "string"
+            },
+            {
+              "id": "2a72d2f8-4cea-4380-9e34-2a604faa4053",
+              "name": "rating",
+              "value": "={{ $json.rating ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "45177bca-f360-4286-b2bb-ead5f8f43e27",
+              "name": "review_count",
+              "value": "={{ $json.review_count ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "096968b6-72ec-4e1c-b455-5a2a133b8ce7",
+              "name": "url",
+              "value": "={{ $json.url }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "602e477d-4cf3-477f-8c00-1374fb091c2e",
+      "name": "Build History Row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2200,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Watchlist').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Price History"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "bf5b1cb8-b505-428a-bff2-93d65113bdd7",
+      "name": "Log Price History",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2420,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "77405dec-c449-45de-b90f-e4e887744a4c",
+              "name": "row_number",
+              "value": "={{ $('Read Price').item.json.row_number }}",
+              "type": "number"
+            },
+            {
+              "id": "074b38b4-9b33-4675-99a5-5fc122cf61a9",
+              "name": "title",
+              "value": "={{ $('Read Price').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "2c9ac014-7a60-4f45-9e58-c585e6ada3ab",
+              "name": "asin",
+              "value": "={{ $('Read Price').item.json.asin }}",
+              "type": "string"
+            },
+            {
+              "id": "bef3c1ca-cb3d-4e1e-be06-7eddc4fc3b0a",
+              "name": "url",
+              "value": "={{ $('Read Price').item.json.url }}",
+              "type": "string"
+            },
+            {
+              "id": "5abad883-d96c-4b17-8ea7-c93446df5d15",
+              "name": "last_price",
+              "value": "={{ $('Read Price').item.json.price }}",
+              "type": "number"
+            },
+            {
+              "id": "85ba8aae-4e9d-4de5-9581-52b6f8bb622a",
+              "name": "currency",
+              "value": "={{ $('Read Price').item.json.currency }}",
+              "type": "string"
+            },
+            {
+              "id": "709e1ce9-3e09-471a-869d-d82ccacbd9cf",
+              "name": "lowest_price",
+              "value": "={{ $('Read Price').item.json.lowest_price }}",
+              "type": "number"
+            },
+            {
+              "id": "c4152425-70be-4e01-a4b6-431c2a4a803f",
+              "name": "price_change",
+              "value": "={{ $('Read Price').item.json.price_change ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "345f129f-9f61-4d0b-8640-0e846296a25c",
+              "name": "in_stock",
+              "value": "={{ $('Read Price').item.json.in_stock === null ? '' : ($('Read Price').item.json.in_stock ? 'yes' : 'no') }}",
+              "type": "string"
+            },
+            {
+              "id": "06b0fcce-f920-4fa9-a685-b9f25157a6da",
+              "name": "seller",
+              "value": "={{ $('Read Price').item.json.seller }}",
+              "type": "string"
+            },
+            {
+              "id": "f56d5f51-0024-46a8-8d58-df9e4f1f983b",
+              "name": "alert",
+              "value": "={{ $('Read Price').item.json.alert }}",
+              "type": "string"
+            },
+            {
+              "id": "b6ac0b0d-6646-4344-87d3-0af12398053f",
+              "name": "status",
+              "value": "ok",
+              "type": "string"
+            },
+            {
+              "id": "db89c6b5-41e7-4de3-b7ed-d171b5fa98da",
+              "name": "error",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "cf1b1455-c7be-4db6-ac8e-a91768cf03dc",
+              "name": "last_checked",
+              "value": "={{ $now.toFormat('yyyy-MM-dd HH:mm') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "965abc3b-0016-413b-9350-a01feeee463a",
+      "name": "Build Watchlist Row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2640,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "329550ae-3eef-469a-bc1b-099bbcaf38f4",
+              "name": "row_number",
+              "value": "={{ $json.row_number }}",
+              "type": "number"
+            },
+            {
+              "id": "dcdcb7b7-04fc-4ae7-9a72-c5e3fa133e41",
+              "name": "status",
+              "value": "error",
+              "type": "string"
+            },
+            {
+              "id": "df7347fa-b63d-4994-8a7e-7d6c2a376d73",
+              "name": "error",
+              "value": "={{ $json.error }}",
+              "type": "string"
+            },
+            {
+              "id": "a659b6ea-9f93-4553-850a-621869106535",
+              "name": "alert",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "b624beca-65d2-4353-a413-1231aad01248",
+              "name": "last_checked",
+              "value": "={{ $now.toFormat('yyyy-MM-dd HH:mm') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b654441e-78d0-4b98-8991-ced70f6d4980",
+      "name": "Build Error Row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2640,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Watchlist').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ ((s) => (s.match(/gid=(\\d+)/) ?? s.match(/^(\\d+)$/) ?? [])[1] ?? '')(String($('Get Watchlist').params.sheetName.value ?? '')) }}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "200504e3-3ac1-4602-a40b-8b00a0f2c380",
+      "name": "Update Watchlist Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2860,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ce6c8b04-0cfb-44b2-9a3f-22bf2a398158",
+              "leftValue": "={{ $json.alert }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ea4ca163-0c85-421a-b7e8-c43833b5feb9",
+      "name": "Price Alert?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3080,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "you@example.com",
+        "emailType": "html",
+        "subject": "=Price drop: {{ ($('Read Price').item.json.title || $('Read Price').item.json.asin).slice(0, 60) }} is now {{ $('Read Price').item.json.price_display }}",
+        "message": "=<h2 style=\"margin:0 0 8px\">{{ $('Read Price').item.json.title || $('Read Price').item.json.asin }}</h2>\n<p style=\"font-size:16px\"><b>{{ $('Read Price').item.json.alert }}</b></p>\n<p style=\"font-size:22px;margin:8px 0\"><b>{{ $('Read Price').item.json.price_display }}</b>{{ $('Read Price').item.json.discount_percent ? ' (' + $('Read Price').item.json.discount_percent + '% off list price)' : '' }}</p>\n<table cellpadding=\"4\">\n<tr><td>Previous check</td><td>{{ $('Read Price').item.json.previous_display || 'First check' }}</td></tr>\n<tr><td>Lowest so far</td><td>{{ $('Read Price').item.json.lowest_display }}</td></tr>\n<tr><td>Your target</td><td>{{ $('Read Price').item.json.target_display || 'Not set' }}</td></tr>\n<tr><td>Seller</td><td>{{ $('Read Price').item.json.seller || 'Unknown' }}</td></tr>\n</table>\n<p><a href=\"{{ $('Read Price').item.json.url }}\">View on Amazon</a></p>\n{{ $('Read Price').item.json.image_url ? '<img src=\"' + $('Read Price').item.json.image_url + '\" width=\"200\">' : '' }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "84c4af5a-3444-4aed-b16b-5be51fdb5f06",
+      "name": "Send Price Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3300,
+        140
+      ],
+      "webhookId": "20a15f78-1c85-4c9d-84e1-5824c4d2cabb"
+    },
+    {
+      "parameters": {
+        "content": "## Amazon Price Tracker API with Pumice AI\n\nGet the live price of any Amazon product from an API call, or track a watchlist of products every day with price history and email alerts when prices drop. Pumice AI finds the product page and reads the price, so there are no proxies, CAPTCHAs, or HTML selectors to maintain.\n\n### Price check API\nLook up a product by ASIN, Amazon URL, or name:\n```\nGET  /webhook/amazon-price-tracker?asin=B0BXYCS74H\nPOST /webhook/amazon-price-tracker\n{\"product\": \"Sonos Era 100\", \"marketplace\": \"amazon.co.uk\"}\n```\nReturns JSON with `price`, `currency`, `list_price`, `discount_percent`, `in_stock`, `availability`, `seller`, `rating`, `review_count`, `title`, `url`, and `checked_at`.\n\n### Daily watchlist\nEvery morning, each row of your Google Sheet is priced. Results are written back to the row, every check is logged to a **Price History** tab, and you get an email when a price reaches your `target_price` or drops below its lowest price so far.\n\n### Setup\n1. Create an **HTTP Header Auth** credential named `Pumice API` with **Name** `x-api-key` and your Pumice API key as the **Value**.\n2. **API:** publish the workflow and call the **Price Check API** production URL.\n3. **Watchlist (optional):** create a Google Sheet with a `product` column (ASIN, Amazon URL, or product name) and an optional `target_price` column, plus an empty tab named `Price History`. Connect Google Sheets in the three Sheets nodes, pick the watchlist sheet in **Get Watchlist**, connect Gmail in **Send Price Alert**, and replace `you@example.com`.",
+        "height": 980,
+        "width": 600,
+        "color": 5
+      },
+      "id": "0f702da5-ff66-48ea-a0b4-bb91daa53e2a",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1340,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Get the product: API call or daily watchlist\n**Price Check API** accepts `asin`, `url`, or `product` (a name), plus optional `marketplace` (default `amazon.com`) and `target_price`, as query parameters or a JSON body.\n\n**Check Prices Daily** reads every watchlist row with a `product` at 8:00.\n\n**Read Product Request** works out whether it was given an ASIN, an Amazon link, or a product name to search for.",
+        "height": 980,
+        "width": 1160,
+        "color": 7
+      },
+      "id": "defa1e6a-f917-4a76-9a7c-b1544fdb4715",
+      "name": "Section 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Find the Amazon product page\nASINs and Amazon links go straight to the product page.\n\nProduct names are searched with **Pumice Universal Search**, and the first Amazon product page in the results is used, preferring the requested marketplace.",
+        "height": 980,
+        "width": 680,
+        "color": 6
+      },
+      "id": "716e1de2-0276-4781-8421-1d94c65c7a53",
+      "name": "Section 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        460,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Scrape the live Amazon price with Pumice\n**Pumice Smart Scrape** reads the product page and returns the Buy Box price, list price, availability, seller, rating, and review count as JSON. Pumice handles proxies, CAPTCHAs, and page changes.\n\n**Read Price** cleans up the values and compares the price with the watchlist's previous and lowest prices.",
+        "height": 980,
+        "width": 700,
+        "color": 4
+      },
+      "id": "38945f2f-d2e3-4f4d-93c5-290b735110c8",
+      "name": "Section 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1160,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Return the price or update the watchlist\n**API:** returns the price as JSON (status `200`), or an error with status `400` (bad request), `404` (product not found), `422` (no price on the page), or `502` (Pumice request failed).\n\n**Watchlist:** logs the check to the `Price History` tab, writes the latest price, lowest price, and status back to the row, and emails you when a price reaches your target or hits a new low.",
+        "height": 980,
+        "width": 1640,
+        "color": 3
+      },
+      "id": "64a09e10-d2d6-4353-a00e-8666b7662b19",
+      "name": "Section 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1880,
+        -420
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Price Check API": {
+      "main": [
+        [
+          {
+            "node": "Read Product Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Product Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Prices Daily": {
+      "main": [
+        [
+          {
+            "node": "Get Watchlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Watchlist": {
+      "main": [
+        [
+          {
+            "node": "Only Rows With a Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only Rows With a Product": {
+      "main": [
+        [
+          {
+            "node": "Read Product Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Product Request": {
+      "main": [
+        [
+          {
+            "node": "How to Find the Product?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "How to Find the Product?": {
+      "main": [
+        [
+          {
+            "node": "Amazon Page Ready",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find on Amazon",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find on Amazon": {
+      "main": [
+        [
+          {
+            "node": "Pick Amazon Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Amazon Result": {
+      "main": [
+        [
+          {
+            "node": "Found on Amazon?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Found on Amazon?": {
+      "main": [
+        [
+          {
+            "node": "Amazon Page Ready",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amazon Page Ready": {
+      "main": [
+        [
+          {
+            "node": "Scrape Amazon Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Amazon Price": {
+      "main": [
+        [
+          {
+            "node": "Read Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Price": {
+      "main": [
+        [
+          {
+            "node": "Send Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Result": {
+      "main": [
+        [
+          {
+            "node": "Build API Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build History Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build API Response": {
+      "main": [
+        [
+          {
+            "node": "Return Price JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build History Row": {
+      "main": [
+        [
+          {
+            "node": "Log Price History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Price History": {
+      "main": [
+        [
+          {
+            "node": "Build Watchlist Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Watchlist Row": {
+      "main": [
+        [
+          {
+            "node": "Update Watchlist Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Error Row": {
+      "main": [
+        [
+          {
+            "node": "Update Watchlist Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Watchlist Row": {
+      "main": [
+        [
+          {
+            "node": "Price Alert?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Price Alert?": {
+      "main": [
+        [
+          {
+            "node": "Send Price Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

@@ -15,6 +15,8 @@ AI product title optimization via Pumice, with title rules, examples, length val
 
 AI product description generation via Pumice, with description rules, examples, word count validation, and product matching to verify source pages: https://github.com/Width-ai/n8n-workflows/blob/main/pumice-ai-product-description-generation-workflow-n8n.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/pumice-ai-product-description-generation-workflow-n8n.md)
 
+Amazon price tracker API via Pumice, with a live price lookup endpoint, a daily Google Sheets watchlist, price history, and Gmail price drop alerts: https://github.com/Width-ai/n8n-workflows/blob/main/pumice-amazon-price-tracker-api-workflow-n8n.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/pumice-amazon-price-tracker-api-workflow-n8n.md)
+
 Blog post to social media posts: https://github.com/Width-ai/n8n-workflows/blob/main/blog-to-social-ai-free.json
 
 Multi-platform social media content creation with context documents, blog summaries, and Instagram performance rules: https://github.com/Width-ai/n8n-workflows/blob/main/n8n-social-media-content-creation.json
@@ -25,3 +27,6 @@ Download TikTok videos without watermarks with an n8n form, plus bulk downloads 
 
 ## n8n event automation examples
 QR ticket scanner and validator with instant check-in results, duplicate detection, ticket rules, and alerts: https://github.com/Width-ai/n8n-workflows/blob/main/Validate%20QR%20tickets%20in%20real%20time%20with%20n8n%20Forms%20and%20Google%20Sheets.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/Validate%20QR%20tickets%20in%20real%20time%20with%20n8n%20Forms%20and%20Google%20Sheets.md)
+
+## n8n AI chatbot examples
+AI WhatsApp chatbot that answers text, voice notes, images, and PDFs with OpenAI, with spoken replies to voice notes and per-user memory: https://github.com/Width-ai/n8n-workflows/blob/main/AI-Powered%20WhatsApp%20Chatbot%20for%20Text%2C%20Voice%2C%20Images%20%26%20PDFs.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/AI-Powered%20WhatsApp%20Chatbot%20for%20Text%2C%20Voice%2C%20Images%20%26%20PDFs.md)
