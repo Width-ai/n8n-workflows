@@ -1,0 +1,1350 @@
+{
+  "name": "HubSpot to NetSuite Sales Order and Invoice Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "hubspot-netsuite-deals",
+        "options": {}
+      },
+      "id": "80454eec-f917-4c97-845b-47a69961e953",
+      "name": "HubSpot Deal Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -660,
+        -40
+      ],
+      "webhookId": "d155f6a3-2095-4949-86ac-38c8b283ebcd"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "8993ef2a-0619-4dc7-ba9b-ec4b25a8d883",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -660,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "13117f0b-bb79-41ad-ada7-3766f4e1ebd7",
+              "name": "netsuiteAccountId",
+              "value": "YOUR_ACCOUNT_ID",
+              "type": "string"
+            },
+            {
+              "id": "81cf0ef9-3656-4652-9326-1d29f6d339a8",
+              "name": "netsuiteTimeZone",
+              "value": "America/Los_Angeles",
+              "type": "string"
+            },
+            {
+              "id": "915edcbf-59d0-4a50-b5ed-7d412971f7c4",
+              "name": "closedWonStages",
+              "value": "closedwon",
+              "type": "string"
+            },
+            {
+              "id": "e52ea073-aa0b-425d-b2e4-88f43a033006",
+              "name": "genericItemId",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "f80d530c-c321-46a3-b420-a192c14fa1fb",
+              "name": "subsidiaryId",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "40afaf00-f917-4f4f-9f12-a5d117c155e4",
+              "name": "currencyMap",
+              "value": "{\"USD\": \"1\"}",
+              "type": "object"
+            },
+            {
+              "id": "7a2b9114-c200-4a8b-99e8-6946ff9db10d",
+              "name": "invoiceLookbackMinutes",
+              "value": "60",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e0f26cfd-c50b-4d65-a8d6-1a9c9966907e",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -440,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "318edfad-6130-44d5-91de-749315618f98",
+                    "leftValue": "={{ $('HubSpot Deal Webhook').isExecuted }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Deal stage changed"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a51d6624-7f07-49fc-9cdb-1cb022eb2c0e",
+                    "leftValue": "={{ $('Every 15 Minutes').isExecuted }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Check invoices"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "33ab599a-f9ee-4c0b-9625-cad06b1e8570",
+      "name": "Which Sync?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -220,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// HubSpot sends webhook events in batches (a JSON array of up to 100 events).\n// Keep the latest dealstage change for each deal.\nconst body = $('HubSpot Deal Webhook').first().json.body;\nconst events = (Array.isArray(body) ? body : [body])\n  .filter((event) => event && typeof event === 'object')\n  .sort((a, b) => (a.occurredAt ?? 0) - (b.occurredAt ?? 0));\n\nconst deals = new Map();\nfor (const event of events) {\n  if (event.subscriptionType && event.subscriptionType !== 'deal.propertyChange') continue;\n  if (event.propertyName && event.propertyName !== 'dealstage') continue;\n  const dealId = String(event.objectId ?? '');\n  if (!dealId) continue;\n  deals.set(dealId, { dealId, stage: String(event.propertyValue ?? ''), portalId: String(event.portalId ?? '') });\n}\n\nreturn [...deals.values()].map((json) => ({ json }));\n"
+      },
+      "id": "1055e005-4c0a-4fc4-8759-d1c48affb4ba",
+      "name": "Read Deal Events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cbf25d5f-ff76-40c6-a99b-25f5c503cefe",
+              "leftValue": "={{ String($('Settings').first().json.closedWonStages).split(',').map(s => s.trim()).includes($json.stage) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4d7ec310-c285-4470-be0e-3771fc0a2080",
+      "name": "Deal Closed Won?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        220,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.hubapi.com/crm/v3/objects/deals/{{ $json.dealId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "properties",
+              "value": "dealname,amount,closedate,deal_currency_code,dealstage,pipeline"
+            },
+            {
+              "name": "associations",
+              "value": "contacts,line_items"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1000
+            }
+          }
+        }
+      },
+      "id": "b5782d94-fd79-463f-b1fe-22d3715ed31a",
+      "name": "Get Deal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        -40
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "hubspot-service-key",
+          "name": "HubSpot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Pulls what the sales order needs from the HubSpot deal\nconst event = $('Deal Closed Won?').item.json;\nconst deal = $input.item.json;\nconst p = deal.properties ?? {};\nconst associations = deal.associations ?? {};\nconst ids = (key) => (associations[key]?.results ?? []).map((r) => String(r.id));\n\nconst dealId = String(deal.id ?? event.dealId);\nconst lineItemIds = [...new Set([...ids('line items'), ...ids('line_items')])];\n\nreturn {\n  json: {\n    dealId,\n    dealName: p.dealname ?? '',\n    amount: Number(p.amount) || 0,\n    closeDate: String(p.closedate ?? '').slice(0, 10) || $now.toFormat('yyyy-MM-dd'),\n    currency: String(p.deal_currency_code ?? '').toUpperCase(),\n    contactId: ids('contacts')[0] ?? '',\n    lineItemIds,\n    lineItemsRequest: {\n      properties: ['name', 'quantity', 'price', 'amount', 'hs_sku', 'netsuite_item_id'],\n      inputs: lineItemIds.map((id) => ({ id })),\n    },\n    dealUrl: event.portalId\n      ? `https://app.hubspot.com/contacts/${event.portalId}/record/0-3/${dealId}`\n      : `HubSpot deal ${dealId}`,\n  },\n};\n"
+      },
+      "id": "3a0b75b8-2ac4-4b1f-83a0-a359d44c458c",
+      "name": "Read Deal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "5908bf72-9826-422a-9848-f5721f71a6c4",
+              "leftValue": "={{ $json.contactId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a127835c-3388-4af9-a1fe-3db8fbd52582",
+      "name": "Deal Has a Contact?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        880,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "=HubSpot deal {{ $json.dealId }} (\"{{ $json.dealName }}\") has no associated contact, so it can't be matched to a NetSuite customer. {{ $json.dealUrl }}"
+      },
+      "id": "1b8477db-0d1d-4733-956f-dc1fa301ad64",
+      "name": "Stop: No Contact on Deal",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        880,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.hubapi.com/crm/v3/objects/contacts/{{ $json.contactId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "properties",
+              "value": "email,firstname,lastname,company,phone"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1000
+            }
+          }
+        }
+      },
+      "id": "dadca846-781a-481d-adb6-6ffbc9e663c6",
+      "name": "Get Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1100,
+        -40
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "hubspot-service-key",
+          "name": "HubSpot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Gets the contact's email (the match key) and prepares the NetSuite customer record\nconst settings = $('Settings').first().json;\nconst deal = $('Read Deal').item.json;\nconst contact = $input.item.json;\nconst p = contact.properties ?? {};\n\nconst email = String(p.email ?? '').trim().toLowerCase();\nif (!email) {\n  throw new Error(`The contact on HubSpot deal ${deal.dealId} (\"${deal.dealName}\") has no email address, so it can't be matched to a NetSuite customer. ${deal.dealUrl}`);\n}\n\n// Companies become company customers; contacts without a company become individuals\nconst customerBody = p.company\n  ? { isPerson: false, companyName: p.company }\n  : { isPerson: true, firstName: p.firstname || email.split('@')[0], lastName: p.lastname || '-' };\ncustomerBody.email = email;\nif (p.phone) customerBody.phone = p.phone;\nif (String(settings.subsidiaryId ?? '').trim()) customerBody.subsidiary = { id: String(settings.subsidiaryId).trim() };\n\nreturn {\n  json: {\n    contactId: String(contact.id),\n    email,\n    customerQuery: `SELECT id, entityid, email FROM customer WHERE LOWER(email) = '${email.replace(/'/g, \"''\")}'`,\n    customerBody,\n  },\n};\n"
+      },
+      "id": "53a29528-8fdf-4606-9b6e-986cd9df24c1",
+      "name": "Read Contact",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ String($('Settings').first().json.netsuiteAccountId).toLowerCase().replace(/_/g, '-') }}.suitetalk.api.netsuite.com/services/rest/query/v1/suiteql?limit=1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "transient"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"q\": {{ JSON.stringify($json.customerQuery) }}\n}",
+        "options": {}
+      },
+      "id": "148a83bf-475a-4bda-bf7e-97dc56caec14",
+      "name": "Find NetSuite Customer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1540,
+        -40
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "netsuite-oauth2",
+          "name": "NetSuite OAuth2"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "08f91dae-1706-494b-8dff-6eb7a1ce83f2",
+              "leftValue": "={{ ($json.items ?? []).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0b0e3e84-bfb3-4eb3-ba00-a89619339387",
+      "name": "Customer Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1760,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ String($('Settings').first().json.netsuiteAccountId).toLowerCase().replace(/_/g, '-') }}.suitetalk.api.netsuite.com/services/rest/record/v1/customer",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Read Contact').item.json.customerBody) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "eb708e73-befa-4668-bb66-e191d8a9b5b8",
+      "name": "Create NetSuite Customer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1980,
+        160
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "netsuite-oauth2",
+          "name": "NetSuite OAuth2"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Takes the customer ID from the SuiteQL match, or from the Location header NetSuite returns after a create\nconst deal = $('Read Deal').item.json;\nconst res = $input.item.json;\n\nconst id = res.items?.[0]?.id ?? String(res.headers?.location ?? '').match(/\\/customer\\/(\\d+)/)?.[1];\nif (!id) {\n  throw new Error(`Couldn't read the NetSuite customer ID for HubSpot deal ${deal.dealId} (\"${deal.dealName}\"). ${deal.dealUrl}`);\n}\n\nreturn { json: { customerId: String(id), createdCustomer: !res.items } };\n"
+      },
+      "id": "bec0f047-72da-412d-b543-75f1203c94c1",
+      "name": "Read Customer ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/contacts/{{ $('Read Contact').item.json.contactId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"netsuite_customer_id\": {{ JSON.stringify($json.customerId) }}\n  }\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1000
+            }
+          }
+        }
+      },
+      "id": "460bffe7-91cc-4f35-9b37-912c445dc9fd",
+      "name": "Store NetSuite Customer ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2420,
+        -40
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "hubspot-service-key",
+          "name": "HubSpot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ccaaab88-4a20-4c12-bbaa-072a8df29417",
+              "leftValue": "={{ $('Read Deal').item.json.lineItemIds.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3f27af2f-096c-4ef7-8424-5fea3dabcc4f",
+      "name": "Has Line Items?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2660,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/line_items/batch/read",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Read Deal').item.json.lineItemsRequest) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1000
+            }
+          }
+        }
+      },
+      "id": "bcd63649-4a1f-40a8-ab02-e46ea6b05fa9",
+      "name": "Get Line Items",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2880,
+        160
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "hubspot-service-key",
+          "name": "HubSpot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Builds the NetSuite sales order from the deal and its line items.\n// Each line item uses its netsuite_item_id property, or the genericItemId from Settings.\nconst settings = $('Settings').first().json;\nconst deal = $('Read Deal').item.json;\nconst customerId = $('Read Customer ID').item.json.customerId;\nconst genericItemId = String(settings.genericItemId ?? '').trim();\nconst lineItems = $input.item.json.results ?? []; // empty when the deal has no line items\n\nconst items = lineItems.map((lineItem) => {\n  const p = lineItem.properties ?? {};\n  const itemId = String(p.netsuite_item_id ?? '').trim() || genericItemId;\n  if (!itemId) {\n    throw new Error(`Line item \"${p.name}\" on HubSpot deal ${deal.dealId} has no netsuite_item_id, and no genericItemId is set in Settings. ${deal.dealUrl}`);\n  }\n  const quantity = Number(p.quantity) || 1;\n  const rate = p.price !== undefined && p.price !== null && p.price !== ''\n    ? Number(p.price)\n    : (Number(p.amount) || 0) / quantity;\n  return { item: { id: itemId }, quantity, rate, description: p.name ?? '' };\n});\n\n// No products on the deal: bill the deal amount against the generic item\nif (!items.length) {\n  if (!genericItemId) {\n    throw new Error(`HubSpot deal ${deal.dealId} has no line items, and no genericItemId is set in Settings. ${deal.dealUrl}`);\n  }\n  items.push({ item: { id: genericItemId }, quantity: 1, rate: deal.amount, description: deal.dealName });\n}\n\nconst salesOrder = {\n  entity: { id: customerId },\n  tranDate: deal.closeDate,\n  memo: deal.dealName,\n  custbody_hubspot_deal_id: deal.dealId,\n  item: { items },\n};\nconst currencyId = (settings.currencyMap ?? {})[deal.currency];\nif (currencyId) salesOrder.currency = { id: String(currencyId) };\n\nreturn {\n  json: {\n    salesOrder,\n    orderQuery: `SELECT id FROM transaction WHERE type = 'SalesOrd' AND custbody_hubspot_deal_id = '${deal.dealId.replace(/'/g, \"''\")}'`,\n  },\n};\n"
+      },
+      "id": "3d567988-fabe-4cb0-989b-0622394555d3",
+      "name": "Build Sales Order",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3100,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ String($('Settings').first().json.netsuiteAccountId).toLowerCase().replace(/_/g, '-') }}.suitetalk.api.netsuite.com/services/rest/query/v1/suiteql?limit=1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "transient"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"q\": {{ JSON.stringify($json.orderQuery) }}\n}",
+        "options": {}
+      },
+      "id": "16579d17-2525-4615-b5f5-374ced2447e0",
+      "name": "Find Existing Sales Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3320,
+        -40
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "netsuite-oauth2",
+          "name": "NetSuite OAuth2"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "14c9c37c-7fc3-464d-bf59-56b9a1028e4b",
+              "leftValue": "={{ ($json.items ?? []).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5d5fee7f-6caa-44d1-87a0-62460eafe514",
+      "name": "Sales Order Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3540,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://{{ String($('Settings').first().json.netsuiteAccountId).toLowerCase().replace(/_/g, '-') }}.suitetalk.api.netsuite.com/services/rest/record/v1/salesOrder/{{ $json.items[0].id }}?replace=item",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Build Sales Order').item.json.salesOrder) }}",
+        "options": {}
+      },
+      "id": "52eb4ec2-8b6c-4e5d-a623-17908b816349",
+      "name": "Update Sales Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3780,
+        -40
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "netsuite-oauth2",
+          "name": "NetSuite OAuth2"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ String($('Settings').first().json.netsuiteAccountId).toLowerCase().replace(/_/g, '-') }}.suitetalk.api.netsuite.com/services/rest/record/v1/salesOrder",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Build Sales Order').item.json.salesOrder) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "f573a59f-69c8-46fa-8ebd-e6ee4f264326",
+      "name": "Create Sales Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3780,
+        160
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "netsuite-oauth2",
+          "name": "NetSuite OAuth2"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "errorMessage": "=NetSuite rejected a request for HubSpot deal {{ $('Read Deal').item.json.dealId }} (\"{{ $('Read Deal').item.json.dealName }}\"): {{ $json.error?.description || $json.error?.message || JSON.stringify($json.error ?? $json) }} Deal: {{ $('Read Deal').item.json.dealUrl }}"
+      },
+      "id": "e523aa0f-2860-4114-8dc9-bd5da0f5dbd5",
+      "name": "Report NetSuite Error",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        3100,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Finds invoices changed in the last few minutes that are linked to a HubSpot deal.\n// The cutoff is in NetSuite's time zone, and overlaps the schedule so nothing is missed.\nconst settings = $('Settings').first().json;\nconst since = $now\n  .setZone(settings.netsuiteTimeZone || 'America/Los_Angeles')\n  .minus((Number(settings.invoiceLookbackMinutes) || 60) * 60 * 1000)\n  .toFormat('yyyy-MM-dd HH:mm:ss');\n\nconst invoiceQuery = [\n  'SELECT t.id, t.tranid, BUILTIN.DF(t.status) AS status_name, t.foreigntotal, t.foreignamountunpaid, t.custbody_hubspot_deal_id',\n  'FROM transaction t',\n  \"WHERE t.type = 'CustInvc'\",\n  '  AND t.custbody_hubspot_deal_id IS NOT NULL',\n  `  AND t.lastmodifieddate >= TO_DATE('${since}', 'YYYY-MM-DD HH24:MI:SS')`,\n  'ORDER BY t.lastmodifieddate',\n].join('\\n');\n\nreturn [{ json: { invoiceQuery, since } }];\n"
+      },
+      "id": "2628e7ff-ddca-46d3-bca8-8374d36d639a",
+      "name": "Build Invoice Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ String($('Settings').first().json.netsuiteAccountId).toLowerCase().replace(/_/g, '-') }}.suitetalk.api.netsuite.com/services/rest/query/v1/suiteql?limit=1000",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "transient"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"q\": {{ JSON.stringify($json.invoiceQuery) }}\n}",
+        "options": {}
+      },
+      "id": "12e044d7-d17d-4c77-a9e9-5580750237de",
+      "name": "Find Updated Invoices",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        220,
+        500
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "netsuite-oauth2",
+          "name": "NetSuite OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns NetSuite invoices into the HubSpot \"Invoice Status\" value, one update per deal.\n// If a deal has several changed invoices, the most recently modified one wins.\nconst rows = $input.first().json.items ?? [];\nconst deals = new Map();\n\nfor (const row of rows) {\n  const dealId = String(row.custbody_hubspot_deal_id ?? '').trim();\n  if (!dealId) continue;\n  const total = Number(row.foreigntotal) || 0;\n  const unpaid = row.foreignamountunpaid === null || row.foreignamountunpaid === undefined || row.foreignamountunpaid === ''\n    ? null\n    : Number(row.foreignamountunpaid);\n\n  let invoiceStatus = 'Invoiced';\n  if (unpaid === 0) invoiceStatus = 'Paid in Full';\n  else if (unpaid !== null && unpaid < total) invoiceStatus = 'Partially Paid';\n\n  deals.set(dealId, { dealId, invoiceStatus, invoiceNumber: row.tranid ?? '', amountUnpaid: unpaid });\n}\n\nreturn [...deals.values()].map((json) => ({ json }));\n"
+      },
+      "id": "b3481826-bf54-49d4-8672-bf63e75269ca",
+      "name": "Map Invoice Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/deals/{{ $json.dealId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"invoice_status\": {{ JSON.stringify($json.invoiceStatus) }}\n  }\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1000
+            }
+          }
+        }
+      },
+      "id": "775315ca-083c-46ed-aba3-7750425c7e2b",
+      "name": "Update HubSpot Deal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        500
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "hubspot-service-key",
+          "name": "HubSpot"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "1d310de6-e765-4fba-926b-8f339f0ca024",
+      "name": "On Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        860
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "messageType": "text",
+        "text": "=:rotating_light: *HubSpot → NetSuite sync failed*\n*Step:* {{ $json.execution.lastNodeExecuted }}\n*Error:* {{ $json.execution.error.message }}\n*Execution:* {{ $json.execution.url }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "b6c14a99-447e-49bc-ae81-f755ec6c2789",
+      "name": "Alert on Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        220,
+        860
+      ],
+      "webhookId": "30fd78de-e1aa-433f-835e-b0743e39e885"
+    },
+    {
+      "parameters": {
+        "content": "## HubSpot to NetSuite Sales Order and Invoice Sync\n\n**Closed Won deal → NetSuite sales order.** When a HubSpot deal moves to Closed Won, the workflow finds the NetSuite customer by the contact's email (or creates one), saves the NetSuite customer ID on the HubSpot contact, and creates the sales order, or updates it if one already exists for the deal.\n\n**NetSuite invoices → HubSpot.** Every 15 minutes, invoices changed in NetSuite update the deal's **Invoice Status**: Invoiced, Partially Paid, or Paid in Full.\n\n**Failures → Slack.** Any error posts the deal, the NetSuite error, and a link to the execution.\n\n### Setup\n**HubSpot:** create a private app with these scopes: `crm.objects.deals.read`, `crm.objects.deals.write`, `crm.objects.contacts.read`, `crm.objects.contacts.write`, `crm.objects.line_items.read`. Add a **HubSpot Service Key** credential with its access token. Create the properties `netsuite_customer_id` (contact, text), `invoice_status` (deal, dropdown: Invoiced, Partially Paid, Paid in Full), and optionally `netsuite_item_id` (product and line item, text). In the app's **Webhooks** tab, subscribe to deal property changes for `dealstage`, sent to this workflow's production webhook URL.\n\n**NetSuite:** enable **REST Web Services** and **OAuth 2.0**, add a Free-Form Text transaction body field `custbody_hubspot_deal_id` applied to sales orders and invoices, and create an integration record using Authorization Code Grant with the REST Web Services scope. In n8n, create an **OAuth2 API** credential:\n- Authorization URL: `https://ACCOUNT_ID.app.netsuite.com/app/login/oauth2/authorize.nl`\n- Access Token URL: `https://ACCOUNT_ID.suitetalk.api.netsuite.com/services/rest/auth/oauth2/v1/token`\n- Scope: `rest_webservices`, Authentication: Header\n\nNetSuite's authorization-code tokens expire after 7 days, so reconnect the credential if NetSuite calls start returning 401.\n\n**Settings:** fill in your account ID, time zone, Closed Won stage IDs, and item, subsidiary, and currency IDs.\n\n**Slack:** connect Slack and pick a channel in **Alert on Slack**, then set **Workflow settings → Error workflow** to this workflow.",
+        "height": 1300,
+        "width": 640,
+        "color": 5
+      },
+      "id": "12b154a1-c781-4053-b08d-6fa5bd94e6ac",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1400,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Triggers and settings\n**HubSpot Deal Webhook** receives HubSpot's deal stage change events. **Every 15 Minutes** starts the invoice check.\n\n**Settings** holds your NetSuite account and ID mappings. **Which Sync?** sends each run to the right flow.",
+        "height": 1000,
+        "width": 640,
+        "color": 7
+      },
+      "id": "784313de-4a5b-4b2f-bead-e281d485437a",
+      "name": "Start",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. HubSpot deal moves to Closed Won\n**Read Deal Events** keeps the latest stage change per deal from HubSpot's batched events. Deals that reached a stage in `closedWonStages` continue.\n\n**Get Deal** reads the deal with its contact and line items. A deal without a contact stops with an error.",
+        "height": 600,
+        "width": 1100,
+        "color": 6
+      },
+      "id": "91e5a0fe-78f0-42bc-a586-eaaa244290ac",
+      "name": "Section 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Match or create the NetSuite customer\n**Find NetSuite Customer** looks up the contact's email with SuiteQL. If there's no match, **Create NetSuite Customer** creates one: a company customer when the contact has a company, otherwise an individual.\n\nThe NetSuite customer ID is saved on the HubSpot contact as `netsuite_customer_id`.",
+        "height": 600,
+        "width": 1500,
+        "color": 4
+      },
+      "id": "d6d9462c-3d9d-47da-ad3e-1477456850f9",
+      "name": "Section 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1060,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Create or update the sales order\nEach line item uses its `netsuite_item_id`, or `genericItemId` from Settings. A deal with no line items is billed as one line for the deal amount.\n\n**Find Existing Sales Order** checks `custbody_hubspot_deal_id`, so a deal never creates two sales orders. An existing order is updated and its lines replaced.\n\nNetSuite errors stop the run with the deal ID, NetSuite's error, and the deal link.",
+        "height": 640,
+        "width": 1420,
+        "color": 3
+      },
+      "id": "24903dc6-7f8c-4377-a674-51f073d3d492",
+      "name": "Section 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2580,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Sync invoice status back to HubSpot\nEvery 15 minutes, invoices changed in the last `invoiceLookbackMinutes` that carry a HubSpot deal ID update the deal's `invoice_status`: Paid in Full, Partially Paid, or Invoiced.",
+        "height": 320,
+        "width": 960,
+        "color": 5
+      },
+      "id": "b1c5951f-9d07-4265-9f70-0d1fe3046dcf",
+      "name": "Section 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 5. Slack alert when anything fails\nSet this workflow as its own error workflow. Any failure posts the step, the error, and a link to the execution.",
+        "height": 300,
+        "width": 700,
+        "color": 2
+      },
+      "id": "9369c52d-b91e-451c-bbdc-5a78dbc4b6f8",
+      "name": "Section 5",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        700
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "HubSpot Deal Webhook": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Which Sync?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Which Sync?": {
+      "main": [
+        [
+          {
+            "node": "Read Deal Events",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Invoice Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Deal Events": {
+      "main": [
+        [
+          {
+            "node": "Deal Closed Won?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deal Closed Won?": {
+      "main": [
+        [
+          {
+            "node": "Get Deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Deal": {
+      "main": [
+        [
+          {
+            "node": "Read Deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Deal": {
+      "main": [
+        [
+          {
+            "node": "Deal Has a Contact?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deal Has a Contact?": {
+      "main": [
+        [
+          {
+            "node": "Get Contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop: No Contact on Deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Contact": {
+      "main": [
+        [
+          {
+            "node": "Read Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Contact": {
+      "main": [
+        [
+          {
+            "node": "Find NetSuite Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find NetSuite Customer": {
+      "main": [
+        [
+          {
+            "node": "Customer Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report NetSuite Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Exists?": {
+      "main": [
+        [
+          {
+            "node": "Read Customer ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create NetSuite Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create NetSuite Customer": {
+      "main": [
+        [
+          {
+            "node": "Read Customer ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report NetSuite Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Customer ID": {
+      "main": [
+        [
+          {
+            "node": "Store NetSuite Customer ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store NetSuite Customer ID": {
+      "main": [
+        [
+          {
+            "node": "Has Line Items?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Line Items?": {
+      "main": [
+        [
+          {
+            "node": "Get Line Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Sales Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Line Items": {
+      "main": [
+        [
+          {
+            "node": "Build Sales Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Sales Order": {
+      "main": [
+        [
+          {
+            "node": "Find Existing Sales Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Existing Sales Order": {
+      "main": [
+        [
+          {
+            "node": "Sales Order Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report NetSuite Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sales Order Exists?": {
+      "main": [
+        [
+          {
+            "node": "Update Sales Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Sales Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Sales Order": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Report NetSuite Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Sales Order": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Report NetSuite Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Invoice Query": {
+      "main": [
+        [
+          {
+            "node": "Find Updated Invoices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Updated Invoices": {
+      "main": [
+        [
+          {
+            "node": "Map Invoice Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map Invoice Status": {
+      "main": [
+        [
+          {
+            "node": "Update HubSpot Deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Alert on Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

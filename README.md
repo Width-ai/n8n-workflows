@@ -30,3 +30,6 @@ QR ticket scanner and validator with instant check-in results, duplicate detecti
 
 ## n8n AI chatbot examples
 AI WhatsApp chatbot that answers text, voice notes, images, and PDFs with OpenAI, with spoken replies to voice notes and per-user memory: https://github.com/Width-ai/n8n-workflows/blob/main/AI-Powered%20WhatsApp%20Chatbot%20for%20Text%2C%20Voice%2C%20Images%20%26%20PDFs.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/AI-Powered%20WhatsApp%20Chatbot%20for%20Text%2C%20Voice%2C%20Images%20%26%20PDFs.md)
+
+## n8n CRM and ERP integration examples
+HubSpot to NetSuite integration that turns Closed Won deals into NetSuite sales orders, matches or creates customers by email, syncs invoice payment status back to HubSpot deals, and posts errors to Slack: https://github.com/Width-ai/n8n-workflows/blob/main/hubspot-to-netsuite-sales-order-and-invoice-sync.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/hubspot-to-netsuite-sales-order-and-invoice-sync.md)
