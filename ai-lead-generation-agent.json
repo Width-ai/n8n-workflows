@@ -1,0 +1,619 @@
+{
+  "name": "AI Lead Generation Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "1be3f6cb-85df-4da4-b053-b00b97181191",
+      "name": "When Chat Message Received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -560,
+        0
+      ],
+      "webhookId": "612737df-f1bc-4bfa-b9a6-1c52bb0a4512"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dc212c23-a97f-4419-829b-b7d3055e1fee",
+              "name": "yourCompany",
+              "value": "Your Company",
+              "type": "string"
+            },
+            {
+              "id": "f51c16c9-2093-4097-846a-c32d79be4165",
+              "name": "whatYouSell",
+              "value": "Describe what you sell and who it helps, for example: online booking and patient reminder software for independent dental clinics",
+              "type": "string"
+            },
+            {
+              "id": "99f0e373-f15f-4b82-a6f2-eb1229109acb",
+              "name": "idealCustomer",
+              "value": "Describe your best customers, for example: independent clinics with 1 to 5 locations, their own website, and no online booking yet",
+              "type": "string"
+            },
+            {
+              "id": "63e84dd4-e010-4897-b238-caaad5352cd9",
+              "name": "minFitScore",
+              "value": "7",
+              "type": "number"
+            },
+            {
+              "id": "fb751c36-123f-4ce5-b60d-824b51440a05",
+              "name": "maxLeadsPerRequest",
+              "value": "10",
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "1d739044-1019-417e-90e3-b7d2fb2c93b6",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -340,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "=You are a lead generation agent for {{ $json.yourCompany }}.\n\nWhat we sell: {{ $json.whatYouSell }}\nOur ideal customer: {{ $json.idealCustomer }}\nToday is {{ $now.toFormat('yyyy-MM-dd') }}.\n\nThe user describes the leads they want: a type of business, a location, and any filters, for example \"dental clinics in Austin with under 4.5 stars\". Find matching businesses, research them, score them, and save the good ones.\n\n## How to work\n1. Work out the business type, the location, any filters, and how many leads the user wants. If they do not say how many, aim for {{ $json.maxLeadsPerRequest }} saved leads. If there is no location, ask for one before you search.\n2. Call Check_Saved_Leads once at the start. It returns the place_id, company and website of every lead already saved. Never research or save a business whose place_id is already in that list.\n3. Call Search_Businesses with a specific query that names the business type and the place, for example \"dental clinics in Austin, TX\". For more results, call it again with the same query and the nextPageToken from the last response. You can also search nearby areas or other names for the same type of business.\n4. Skip results whose businessStatus is not OPERATIONAL, results that are already saved, and results that do not match the user's filters. Use rating and userRatingCount for rating and review filters.\n5. For each remaining business with a websiteUri, call Research_Website with that URL, one business at a time. If a business has no website, score it from the Google data alone and say so in the reasons.\n6. Score each business from 1 to 10 for how well it fits what we sell and our ideal customer:\n   - 9 to 10: a near perfect fit with clear signs they need what we sell\n   - 7 to 8: a good fit worth contacting\n   - 4 to 6: a possible fit, or important information is missing\n   - 1 to 3: a poor fit\n   Base the score only on what the tools returned.\n7. Save every business that scores {{ $json.minFitScore }} or higher with Save_Lead. Copy the place_id exactly as Search_Businesses returned it. Write one or two short reasons, and a one sentence opening line for a cold email that mentions something specific from their website or Google listing.\n8. Stop when you have saved enough leads or there are no new results.\n\n## Rules\n- Never invent contact details. Phone numbers come from Search_Businesses and emails come from Research_Website. If one was not found, leave it empty.\n- Do not guess facts about a business. If the tools did not show something, treat it as unknown.\n- Do not research the same website twice.\n\n## Final reply\nStart with one sentence on what you searched. Then show a markdown table of the leads you saved with these columns: Company, Score, Why it fits, Website, Phone, Email. After the table, say how many businesses you skipped because they were already saved and how many scored below {{ $json.minFitScore }}. End by offering to search another area or loosen the filters.",
+          "maxIterations": 60
+        }
+      },
+      "id": "b3656a22-e1d4-4248-896e-eba3cd6c4d35",
+      "name": "Lead Generation Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "options": {}
+      },
+      "id": "f9b30e49-6ff0-4289-baf9-ecd7313e9933",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -160,
+        240
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-api",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "id": "c258c887-e136-49f1-8933-5bb002f045e0",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Searches Google Maps (Google Places API Text Search) for businesses. Send one specific query that names the type of business and the location, for example: dental clinics in Austin, TX. Returns up to 20 places. Each place has id (use it as place_id), displayName.text, formattedAddress, websiteUri, nationalPhoneNumber, rating, userRatingCount, types, businessStatus and googleMapsUri. The response includes nextPageToken when more results are available.",
+        "method": "POST",
+        "url": "https://places.googleapis.com/v1/places:searchText",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Goog-FieldMask",
+              "value": "places.id,places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.types,places.businessStatus,places.googleMapsUri,nextPageToken"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "textQuery",
+              "value": "={{ $fromAI('textQuery', 'The search, naming the type of business and the location, for example: dental clinics in Austin, TX', 'string') }}"
+            },
+            {
+              "name": "pageSize",
+              "value": "={{ $fromAI('pageSize', 'How many places to return, from 1 to 20', 'number', 20) }}"
+            },
+            {
+              "name": "pageToken",
+              "value": "={{ $fromAI('pageToken', 'The nextPageToken from the previous response to get the next page of the same query. Leave empty for a new search', 'string', '') }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "554ba900-7e8b-43b1-9d7c-367a72e62472",
+      "name": "Search Businesses",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        300,
+        240
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "google-places-api-key",
+          "name": "Google Places API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Reads a business website with Pumice AI Smart Scrape and returns facts about the business: what it does, services, locations, public email and phone, contact page, social links, team size signals, how customers buy, and sales signals. Send the websiteUri from Search_Businesses. The facts may be nested under a data or result field in the response. Fields set to null were not found on the site.",
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/scraper/smart-scrape",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "=Read this business website and return JSON with the fields below. Use null for anything that is not shown on the site, and do not guess. company_name; what_they_do (one or two sentences); services (a list); locations (a list of cities or addresses); public_email (an email address shown on the site); public_phone; contact_page_url; social_links (an object of network name to URL); team_size_signals (for example the number of staff, practitioners, or locations listed); how_customers_buy (for example online booking, a quote form, or phone only, and whether prices are shown); sales_signals (anything useful for sales outreach, such as hiring, new locations, awards, or recent news). Also note anything about: {{ $fromAI('focus', 'Anything else to look for on the site that relates to the ideal customer or the user request, for example: online booking, a pricing page, or hiring', 'string', 'nothing else') }}"
+            },
+            {
+              "name": "source_url",
+              "value": "={{ $fromAI('url', 'The full website URL to research, copied from websiteUri', 'string') }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "cb55f49b-b42c-418d-98c6-3f2dbc8708c1",
+      "name": "Research Website",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        460,
+        240
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Returns every lead already saved in the Leads sheet, with place_id, company and website. Call it once before searching so you can skip businesses that are already saved.",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "filtersUI": {},
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "specifyRangeA1",
+              "range": "A:C"
+            }
+          }
+        }
+      },
+      "id": "f9799c60-9768-45b7-8414-d447ffc528fd",
+      "name": "Check Saved Leads",
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        620,
+        240
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-oauth2",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Saves one qualified lead to the Leads sheet. If a row with the same place_id already exists it is updated, otherwise a new row is added. Only save businesses that meet the minimum fit score. Leave email and phone empty when they were not found.",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Check Saved Leads').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ ((s) => (s.match(/gid=(\\d+)/) ?? s.match(/^(\\d+)$/) ?? [])[1] ?? '')(String($('Check Saved Leads').params.sheetName.value ?? '')) }}"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "place_id": "={{ $fromAI('place_id', 'The place id from Search_Businesses (the id field), copied exactly', 'string') }}",
+            "company": "={{ $fromAI('company', 'The business name (displayName.text from Search_Businesses)', 'string') }}",
+            "website": "={{ $fromAI('website', 'The websiteUri from Search_Businesses. Empty if there is none', 'string', '') }}",
+            "phone": "={{ $fromAI('phone', 'The nationalPhoneNumber from Search_Businesses. Empty if there is none', 'string', '') }}",
+            "email": "={{ $fromAI('email', 'A public email address that Research_Website found on the site. Empty if none was found. Never guess an email', 'string', '') }}",
+            "address": "={{ $fromAI('address', 'The formattedAddress from Search_Businesses', 'string') }}",
+            "rating": "={{ $fromAI('rating', 'The Google rating from Search_Businesses, for example 4.3. Use 0 if the business has no rating', 'number', 0) || '' }}",
+            "review_count": "={{ $fromAI('review_count', 'The userRatingCount from Search_Businesses. Use 0 if there are no reviews', 'number', 0) || '' }}",
+            "google_maps_url": "={{ $fromAI('google_maps_url', 'The googleMapsUri from Search_Businesses', 'string', '') }}",
+            "fit_score": "={{ $fromAI('fit_score', 'The fit score from 1 to 10', 'number') }}",
+            "reasons": "={{ $fromAI('reasons', 'One or two short reasons for the score, based only on what the tools returned', 'string') }}",
+            "opening_line": "={{ $fromAI('opening_line', 'A one sentence opening line for a cold email that mentions something specific about this business', 'string') }}",
+            "search_query": "={{ $fromAI('search_query', 'The query you sent to Search_Businesses', 'string') }}",
+            "saved_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "place_id"
+          ],
+          "schema": [
+            {
+              "id": "place_id",
+              "displayName": "place_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "website",
+              "displayName": "website",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "address",
+              "displayName": "address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "rating",
+              "displayName": "rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "review_count",
+              "displayName": "review_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "google_maps_url",
+              "displayName": "google_maps_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "fit_score",
+              "displayName": "fit_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "reasons",
+              "displayName": "reasons",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "opening_line",
+              "displayName": "opening_line",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "search_query",
+              "displayName": "search_query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "saved_at",
+              "displayName": "saved_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "7e1a3d8c-dae7-4a7a-a7b6-aaa52f0f6104",
+      "name": "Save Lead",
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        780,
+        240
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-oauth2",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## AI Lead Generation Agent\nChat with this agent to find new leads. Describe who you want, for example *\"dental clinics in Austin with under 4.5 stars\"*, and the agent:\n1. Searches Google Maps with the Google Places API\n2. Reads each business website with Pumice AI\n3. Scores each business from 1 to 10 against your ideal customer\n4. Saves leads that reach `minFitScore` (7 by default) to Google Sheets, skipping leads already saved\n5. Replies with a table of the leads it saved\n\n### Setup\n1. **Google Sheet:** add a tab named **Leads** with this header row, in this order:\n`place_id, company, website, phone, email, address, rating, review_count, google_maps_url, fit_score, reasons, opening_line, search_query, saved_at`\n2. **Check Saved Leads:** pick your spreadsheet and the Leads tab from the lists. **Save Lead** uses the same tab automatically.\n3. **Credentials:**\n   - OpenAI on **OpenAI Chat Model**\n   - Google Sheets on both Sheets tools\n   - Header Auth on **Research Website**: name `x-api-key`, value your Pumice API key\n   - Header Auth on **Search Businesses**: name `X-Goog-Api-Key`, value a Google Cloud API key with **Places API (New)** enabled\n4. **Settings:** describe your company, what you sell, and your ideal customer.\n5. Click **Open chat** and send a request.",
+        "height": 1000,
+        "width": 620,
+        "color": 5
+      },
+      "id": "2d21dbb6-d0c8-448f-b397-b96540cbab72",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1280,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Chat and settings\nEach chat message starts a run.\n\n**Settings** adds your company, what you sell, your ideal customer, the minimum fit score to save a lead, and how many leads to aim for when the request doesn't say.",
+        "height": 500,
+        "width": 420,
+        "color": 7
+      },
+      "id": "a6a6308d-5ce8-46b3-8279-b4f9d13ff05a",
+      "name": "Section 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. The agent\n**Lead Generation Agent** plans the search, calls the tools, scores each business, and writes the reply.\n\n**Simple Memory** remembers the last 10 exchanges in the chat, so you can follow up with *\"now try Round Rock\"*.",
+        "height": 700,
+        "width": 400,
+        "color": 6
+      },
+      "id": "e4f5082b-76a6-40ab-8331-08b35d81e367",
+      "name": "Section 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Tools\n**Search Businesses** runs a Google Places Text Search and returns up to 20 businesses per page.\n\n**Research Website** sends a website to Pumice Smart Scrape and gets back services, public contact details, team size, and sales signals.\n\n**Check Saved Leads** reads columns A to C of the Leads tab so saved leads are skipped. **Save Lead** adds or updates a row by `place_id`.",
+        "height": 700,
+        "width": 720,
+        "color": 4
+      },
+      "id": "8771eb1c-2aee-46a6-af62-8f40298d43b3",
+      "name": "Section 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        220,
+        -320
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Chat Message Received": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Lead Generation Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Lead Generation Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Lead Generation Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Businesses": {
+      "ai_tool": [
+        [
+          {
+            "node": "Lead Generation Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Website": {
+      "ai_tool": [
+        [
+          {
+            "node": "Lead Generation Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Saved Leads": {
+      "ai_tool": [
+        [
+          {
+            "node": "Lead Generation Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Lead": {
+      "ai_tool": [
+        [
+          {
+            "node": "Lead Generation Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

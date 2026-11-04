@@ -1,0 +1,1229 @@
+{
+  "name": "Automate Sales Proposals from Call Transcripts",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Create a Sales Proposal",
+        "formDescription": "Paste the call transcript or upload it as a file. AI writes the proposal from the call, prices it from your catalog, saves it as a Google Doc, and creates a Gmail draft to the client.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Client contact name",
+              "fieldName": "client_name",
+              "placeholder": "Jordan Lee",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Client company",
+              "fieldName": "client_company",
+              "placeholder": "Acme Inc.",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Client email",
+              "fieldName": "client_email",
+              "fieldType": "email",
+              "placeholder": "jordan@acme.com",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Your name",
+              "fieldName": "rep_name",
+              "placeholder": "Sam Rivera",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Your email",
+              "fieldName": "rep_email",
+              "fieldType": "email",
+              "placeholder": "sam@yourcompany.com",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Call transcript",
+              "fieldName": "transcript",
+              "fieldType": "textarea",
+              "placeholder": "Paste the transcript or your call notes here, or upload a file below"
+            },
+            {
+              "fieldLabel": "Transcript file",
+              "fieldName": "transcript_file",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".txt,.vtt,.srt,.pdf"
+            },
+            {
+              "fieldLabel": "Notes for the proposal",
+              "fieldName": "notes",
+              "fieldType": "textarea",
+              "placeholder": "Optional. For example: lead with the Salesforce integration, they want to start in March"
+            }
+          ]
+        },
+        "options": {
+          "path": "sales-proposal-form",
+          "buttonLabel": "Create proposal"
+        }
+      },
+      "id": "cfdf01c7-fe80-41ec-9cf7-85e026af2650",
+      "name": "Proposal Request Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -780,
+        0
+      ],
+      "webhookId": "904f1117-a6bf-4d7a-b55b-381b8c3b3fca"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "1b98f95f-0bed-4d4c-92a7-fc2b5428ae2f",
+                    "leftValue": "={{ ($binary?.transcript_file?.fileExtension || '').toLowerCase() }}",
+                    "rightValue": "pdf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "PDF"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "80f12c10-ef32-4c18-95a1-dd695c206ecb",
+                    "leftValue": "={{ !!$binary?.transcript_file }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Text file"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "No file"
+        }
+      },
+      "id": "0bfc8f0c-5dca-4cc7-9717-cc3234652c89",
+      "name": "Transcript File?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "transcript_file",
+        "options": {
+          "joinPages": true,
+          "keepSource": "json"
+        }
+      },
+      "id": "d9c7da45-c23c-42aa-a35b-ba0a12484031",
+      "name": "Read PDF Transcript",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -340,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "binaryPropertyName": "transcript_file",
+        "destinationKey": "file_text",
+        "options": {
+          "keepSource": "json"
+        }
+      },
+      "id": "1b1910f2-4069-43b3-9814-00bbd71e8278",
+      "name": "Read Text Transcript",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -340,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reads a form submission. The transcript can be pasted, uploaded as a file, or both.\nconst form = $('Proposal Request Form').first().json;\nconst input = $input.first().json;\nconst clean = (value) => (value === undefined || value === null ? '' : String(value)).trim();\n\n// Caption files (.vtt, .srt) have cue numbers and timestamps on every few lines.\n// Keep only the spoken text, with speaker names from WebVTT voice tags.\nfunction captionsToText(text) {\n  if (!/-->/.test(text)) return text;\n  const lines = [];\n  for (let line of text.replace(/\\r/g, '').split('\\n')) {\n    line = line.trim();\n    if (!line || /^WEBVTT/i.test(line) || /^(NOTE|STYLE|REGION)\\b/.test(line)) continue;\n    if (/^\\d+$/.test(line) || /-->/.test(line)) continue;\n    line = line\n      .replace(/<v(?:\\.[^\\s>]+)?\\s+([^>]+)>/g, '$1: ')\n      .replace(/<\\/?[^>]+>/g, '')\n      .replace(/\\s+/g, ' ')\n      .trim();\n    if (line && lines[lines.length - 1] !== line) lines.push(line);\n  }\n  return lines.join('\\n');\n}\n\nlet fileText = '';\nif ($('Read PDF Transcript').isExecuted) fileText = clean(input.text);\nelse if ($('Read Text Transcript').isExecuted) fileText = clean(captionsToText(clean(input.file_text)));\n\nconst fileName = clean(form.transcript_file?.filename);\nconst pasted = clean(form.transcript);\nconst sources = [];\nif (pasted) sources.push('pasted text');\nif (fileName) sources.push(`file: ${fileName}`);\n\nreturn [{\n  json: {\n    source: 'form',\n    client_name: clean(form.client_name),\n    client_company: clean(form.client_company),\n    client_email: clean(form.client_email).toLowerCase(),\n    rep_name: clean(form.rep_name),\n    rep_email: clean(form.rep_email).toLowerCase(),\n    notes: clean(form.notes),\n    transcript: [pasted, fileText].filter(Boolean).join('\\n\\n'),\n    transcript_source: sources.join(' + '),\n    file_name: fileName,\n    file_has_text: fileName ? fileText.length > 0 : null,\n  },\n}];\n"
+      },
+      "id": "9778f2d1-2d0e-4f13-9730-fb510211f4f7",
+      "name": "Read Form Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sales-proposal",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "fc8135b8-f0b7-4c3a-a3fd-ecfd50e1995d",
+      "name": "Proposal API",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -780,
+        300
+      ],
+      "webhookId": "cd4e1a36-60d0-416a-8865-1abcefb231bd",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "proposal-api-key",
+          "name": "Proposal API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reads a POST request to the Proposal API. The body is JSON with the same fields as the form.\nlet body = $input.first().json.body ?? {};\nif (typeof body === 'string') {\n  try {\n    body = JSON.parse(body);\n  } catch (error) {\n    body = {};\n  }\n}\nconst clean = (value) => (value === undefined || value === null ? '' : String(value)).trim();\n\nreturn [{\n  json: {\n    source: 'api',\n    client_name: clean(body.client_name),\n    client_company: clean(body.client_company),\n    client_email: clean(body.client_email).toLowerCase(),\n    rep_name: clean(body.rep_name),\n    rep_email: clean(body.rep_email).toLowerCase(),\n    notes: clean(body.notes),\n    transcript: clean(body.transcript),\n    transcript_source: 'api',\n    file_name: '',\n    file_has_text: null,\n  },\n}];\n"
+      },
+      "id": "1c20ad65-095d-4391-932a-1d3326e5ccaf",
+      "name": "Read API Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "306f0e5f-4f82-4e21-9f66-5f23d954b9b2",
+              "name": "templateDocId",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "41029815-259d-4b9a-80db-812b37babaea",
+              "name": "driveFolderId",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "826aab66-f5c0-4afb-8edb-7fc34f78303c",
+              "name": "companyName",
+              "value": "Your Company",
+              "type": "string"
+            },
+            {
+              "id": "238bfebf-d122-407d-b31d-55f22aa7a25f",
+              "name": "currency",
+              "value": "USD",
+              "type": "string"
+            },
+            {
+              "id": "78c6ef3f-47df-4e20-b585-d5186173f96f",
+              "name": "locale",
+              "value": "en-US",
+              "type": "string"
+            },
+            {
+              "id": "be6df940-094a-49d8-9936-6b25f846c3cf",
+              "name": "proposalValidityDays",
+              "value": "30",
+              "type": "number"
+            },
+            {
+              "id": "5a867cf0-3b25-42b9-bd5c-24cc50f055e9",
+              "name": "linkSharingRole",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "70a2ecf1-a466-4926-b7fb-4ba87527bc95",
+              "name": "pricingCatalog",
+              "value": "[\n  {\n    \"id\": \"discovery\",\n    \"name\": \"Discovery and planning workshop\",\n    \"description\": \"Two working sessions to map requirements, systems, and success metrics.\",\n    \"unit_price\": 2500,\n    \"unit\": \"workshop\"\n  },\n  {\n    \"id\": \"implementation\",\n    \"name\": \"Implementation\",\n    \"description\": \"Build, configure, and test the agreed solution.\",\n    \"unit_price\": 150,\n    \"unit\": \"hour\"\n  },\n  {\n    \"id\": \"integration\",\n    \"name\": \"System integration\",\n    \"description\": \"Connect one system, such as a CRM, ERP, help desk, or database.\",\n    \"unit_price\": 1800,\n    \"unit\": \"integration\"\n  },\n  {\n    \"id\": \"training\",\n    \"name\": \"Team training\",\n    \"description\": \"Live, recorded training session for up to 10 people.\",\n    \"unit_price\": 900,\n    \"unit\": \"session\"\n  },\n  {\n    \"id\": \"support\",\n    \"name\": \"Monthly support and maintenance\",\n    \"description\": \"Monitoring, fixes, and small changes.\",\n    \"unit_price\": 1200,\n    \"unit\": \"month\"\n  }\n]",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "305fcd59-cfb5-4c6f-9a7d-4b6a7f992263",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        120,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Checks the request and the Settings, reads the pricing catalog, and builds the AI prompt.\nconst MAX_TRANSCRIPT_CHARS = 150000;\nconst MIN_TRANSCRIPT_CHARS = 100;\n\nconst r = $input.first().json;\nconst clean = (value) => (value === undefined || value === null ? '' : String(value)).trim();\nconst idFrom = (value, pattern) => {\n  const text = clean(value);\n  const match = text.match(pattern);\n  return match ? match[1] : text;\n};\nconst isEmail = (value) => /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value);\nconst escapeHtml = (text) => String(text)\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\n\nconst errors = [];\nconst warnings = [];\n\n// Settings\nconst settings = {\n  templateDocId: idFrom(r.templateDocId, /\\/d\\/([\\w-]{20,})/),\n  driveFolderId: idFrom(r.driveFolderId, /folders\\/([\\w-]{10,})/),\n  companyName: clean(r.companyName) || 'Our company',\n  currency: clean(r.currency).toUpperCase() || 'USD',\n  locale: clean(r.locale) || 'en-US',\n  validityDays: Number(r.proposalValidityDays) > 0 ? Number(r.proposalValidityDays) : 30,\n  linkSharingRole: clean(r.linkSharingRole).toLowerCase(),\n};\nif (!settings.templateDocId) {\n  errors.push('Settings: add the ID of your proposal template Google Doc to templateDocId.');\n}\nif (settings.linkSharingRole && !['reader', 'commenter'].includes(settings.linkSharingRole)) {\n  errors.push('Settings: linkSharingRole must be empty, \"reader\", or \"commenter\".');\n}\ntry {\n  new Intl.NumberFormat(settings.locale, { style: 'currency', currency: settings.currency });\n} catch (error) {\n  errors.push(`Settings: currency \"${settings.currency}\" with locale \"${settings.locale}\" is not valid. Use a code like USD and a locale like en-US.`);\n}\n\n// Pricing catalog\nlet catalog = [];\ntry {\n  const parsed = typeof r.pricingCatalog === 'string' ? JSON.parse(r.pricingCatalog) : r.pricingCatalog;\n  if (!Array.isArray(parsed)) throw new Error('it must be a JSON list of services');\n  const seen = new Set();\n  parsed.forEach((service, index) => {\n    const id = clean(service?.id);\n    const name = clean(service?.name);\n    const unitPrice = Number(service?.unit_price);\n    if (!id || !name || !Number.isFinite(unitPrice) || unitPrice < 0) {\n      errors.push(`Settings: pricingCatalog item ${index + 1} needs an id, a name, and a unit_price of 0 or more.`);\n      return;\n    }\n    if (seen.has(id.toLowerCase())) {\n      errors.push(`Settings: pricingCatalog has the id \"${id}\" more than once.`);\n      return;\n    }\n    seen.add(id.toLowerCase());\n    catalog.push({\n      id,\n      name,\n      description: clean(service.description),\n      unit_price: unitPrice,\n      unit: clean(service.unit) || 'unit',\n    });\n  });\n} catch (error) {\n  errors.push(`Settings: pricingCatalog is not valid JSON (${error.message}).`);\n}\nif (!errors.some((e) => e.includes('pricingCatalog')) && catalog.length === 0) {\n  errors.push('Settings: pricingCatalog has no services.');\n}\n\n// Request\nconst request = {\n  client_name: clean(r.client_name),\n  client_company: clean(r.client_company),\n  client_email: clean(r.client_email),\n  rep_name: clean(r.rep_name),\n  rep_email: clean(r.rep_email),\n  notes: clean(r.notes),\n};\nconst required = [\n  ['client_name', 'the client contact name'],\n  ['client_company', 'the client company'],\n  ['client_email', 'the client email'],\n  ['rep_name', 'the sales rep name'],\n  ['rep_email', 'the sales rep email'],\n];\nfor (const [field, label] of required) {\n  if (!request[field]) errors.push(`Add ${label} (${field}).`);\n}\nfor (const field of ['client_email', 'rep_email']) {\n  if (request[field] && !isEmail(request[field])) errors.push(`${field} \"${request[field]}\" is not a valid email address.`);\n}\n\nlet transcript = clean(r.transcript);\nif (r.file_name && r.file_has_text === false) {\n  errors.push(`The file \"${r.file_name}\" has no readable text. Scanned PDFs need OCR first, or paste the transcript instead.`);\n} else if (transcript.length < MIN_TRANSCRIPT_CHARS) {\n  errors.push(`Add the call transcript (paste it, or upload a .txt, .vtt, .srt, or .pdf file). It needs at least ${MIN_TRANSCRIPT_CHARS} characters.`);\n}\nif (transcript.length > MAX_TRANSCRIPT_CHARS) {\n  transcript = transcript.slice(0, MAX_TRANSCRIPT_CHARS);\n  warnings.push(`The transcript was longer than ${MAX_TRANSCRIPT_CHARS.toLocaleString('en-US')} characters, so only the first ${MAX_TRANSCRIPT_CHARS.toLocaleString('en-US')} were used.`);\n}\n\nif (errors.length) {\n  return [{\n    json: {\n      ok: false,\n      source: r.source,\n      statusCode: 400,\n      title: \"The proposal wasn't created\",\n      message: `<p>Fix the following, then submit the form again:</p><ul>${errors.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}</ul>`,\n      body: { ok: false, errors },\n    },\n  }];\n}\n\nconst money = new Intl.NumberFormat(settings.locale, { style: 'currency', currency: settings.currency });\nconst catalogText = catalog\n  .map((s) => `- id: ${s.id} | ${s.name} | ${money.format(s.unit_price)} per ${s.unit}${s.description ? ` | ${s.description}` : ''}`)\n  .join('\\n');\n\nconst prompt = [\n  'Write a sales proposal and a follow-up email from this sales call.',\n  '',\n  `Seller (our company): ${settings.companyName}`,\n  `Sales rep: ${request.rep_name} <${request.rep_email}>`,\n  `Client contact: ${request.client_name} <${request.client_email}>`,\n  `Client company: ${request.client_company}`,\n  `Proposal date: ${$now.toFormat('yyyy-MM-dd')}`,\n  '',\n  \"Rep's notes (these take priority over the transcript):\",\n  request.notes || 'None',\n  '',\n  'Pricing catalog. Choose pricing_lines only from these ids:',\n  catalogText,\n  '',\n  'Call transcript:',\n  '\"\"\"',\n  transcript,\n  '\"\"\"',\n].join('\\n');\n\nreturn [{\n  json: {\n    ok: true,\n    source: r.source,\n    ...request,\n    transcript_source: r.transcript_source,\n    transcript_chars: transcript.length,\n    settings,\n    catalog,\n    warnings,\n    prompt,\n  },\n}];\n"
+      },
+      "id": "747787b8-2619-4941-beb8-bf6f03b2f148",
+      "name": "Check Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        340,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e0d18cf2-4dfc-44f1-a5c6-27376eb67ace",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "05be73c0-972b-4b0a-bedf-2cd72dd69b1d",
+      "name": "Request OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        560,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "type": "SystemMessagePromptTemplate",
+              "message": "You write B2B sales proposals from sales call transcripts. You write for the seller named in the request, to the client named in the request.\n\nRules:\n- Use only facts from the transcript and the rep's notes. Do not invent names, numbers, budgets, dates, results, or commitments. If something was not discussed, leave it out or list it as an assumption.\n- Write to the client as \"you\" and for the seller as \"we\". Use plain, specific business language. No hype and no filler.\n- proposal_title: a short title, for example \"Customer Support Automation for Acme\".\n- executive_summary: 2 to 4 sentences on what the client needs and what we will do about it.\n- client_goals and current_challenges: 2 to 6 short items each, in the client's own terms.\n- proposed_solution: one or two short paragraphs on how we will solve the problem.\n- scope_items: what is included in the work. deliverables: the concrete things the client receives.\n- timeline: phases in order, each with a duration. Use durations from the call. If none were discussed, give a reasonable estimate and add an assumption that the timeline is an estimate.\n- pricing_lines: choose only ids from the pricing catalog, with a quantity in that item's unit, based on what the client needs. Never write prices, totals, or discounts anywhere; the workflow adds them from the catalog. If the client needs something that is not in the catalog, add it to assumptions as \"To be quoted separately: ...\".\n- assumptions: the conditions this proposal depends on.\n- next_steps: concrete actions, with who does each one when that is known.\n- email_subject and email_body: a short follow-up email from the rep to the client contact. Greet them by first name, thank them for the call, recap two or three key points, say the proposal is linked below, and suggest the next step. Plain text. No link, no signature, and no placeholders; the workflow adds the link and the rep's name.\n- Write in the language of the transcript."
+            }
+          ]
+        }
+      },
+      "id": "5de21295-4d9c-44f1-bcd7-897ddaeb035d",
+      "name": "Write Proposal",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        800,
+        140
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "options": {
+          "timeout": 180000,
+          "maxRetries": 2
+        }
+      },
+      "id": "24d04f56-8267-49e3-9fb7-958b7ad15764",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        760,
+        360
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-api",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"proposal_title\": {\n      \"type\": \"string\",\n      \"description\": \"Short proposal title\"\n    },\n    \"executive_summary\": {\n      \"type\": \"string\",\n      \"description\": \"2 to 4 sentences\"\n    },\n    \"client_goals\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"current_challenges\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"proposed_solution\": {\n      \"type\": \"string\"\n    },\n    \"scope_items\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"deliverables\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"timeline\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"phase\": {\n            \"type\": \"string\"\n          },\n          \"duration\": {\n            \"type\": \"string\",\n            \"description\": \"For example: 2 weeks\"\n          },\n          \"description\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"phase\",\n          \"duration\",\n          \"description\"\n        ]\n      }\n    },\n    \"pricing_lines\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"catalog_id\": {\n            \"type\": \"string\",\n            \"description\": \"An id from the pricing catalog\"\n          },\n          \"quantity\": {\n            \"type\": \"number\",\n            \"description\": \"Quantity in the catalog item's unit\"\n          },\n          \"note\": {\n            \"type\": \"string\",\n            \"description\": \"Optional short note on what this line covers. No prices.\"\n          }\n        },\n        \"required\": [\n          \"catalog_id\",\n          \"quantity\"\n        ]\n      }\n    },\n    \"assumptions\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"next_steps\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"email_subject\": {\n      \"type\": \"string\"\n    },\n    \"email_body\": {\n      \"type\": \"string\",\n      \"description\": \"Plain text. No link and no signature.\"\n    }\n  },\n  \"required\": [\n    \"proposal_title\",\n    \"executive_summary\",\n    \"client_goals\",\n    \"current_challenges\",\n    \"proposed_solution\",\n    \"scope_items\",\n    \"deliverables\",\n    \"timeline\",\n    \"pricing_lines\",\n    \"assumptions\",\n    \"next_steps\",\n    \"email_subject\",\n    \"email_body\"\n  ]\n}"
+      },
+      "id": "7c9bba25-4a66-4de5-80c2-28e781048082",
+      "name": "Proposal Format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        940,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prices the AI's chosen catalog items and builds the text for every template placeholder.\n// The AI only picks catalog ids and quantities. Prices and totals come from the catalog here.\nconst req = $('Check Request').first().json;\nconst ai = $input.first().json.output ?? $input.first().json;\nconst { settings, catalog } = req;\nconst clean = (value) => (value === undefined || value === null ? '' : String(value)).trim();\nconst list = (value) => (Array.isArray(value) ? value.map(clean).filter(Boolean) : []);\nconst money = new Intl.NumberFormat(settings.locale, { style: 'currency', currency: settings.currency });\nconst round2 = (n) => Math.round(n * 100) / 100;\nconst warnings = [...(req.warnings || [])];\n\n// Pricing\nconst byId = new Map(catalog.map((service) => [service.id.toLowerCase(), service]));\nconst lines = [];\nconst dropped = [];\nfor (const line of Array.isArray(ai.pricing_lines) ? ai.pricing_lines : []) {\n  const id = clean(line?.catalog_id);\n  const service = byId.get(id.toLowerCase());\n  if (!service) {\n    dropped.push(id || '(no id)');\n    continue;\n  }\n  let quantity = Number(line.quantity);\n  if (!Number.isFinite(quantity) || quantity <= 0) {\n    quantity = 1;\n    warnings.push(`The AI gave no valid quantity for \"${service.name}\", so 1 was used. Check it in the doc.`);\n  }\n  quantity = round2(quantity);\n  lines.push({\n    catalog_id: service.id,\n    name: service.name,\n    description: service.description,\n    quantity,\n    unit: service.unit,\n    unit_price: service.unit_price,\n    line_total: round2(service.unit_price * quantity),\n    note: clean(line.note),\n  });\n}\nif (dropped.length) {\n  warnings.push(`Not in the pricing catalog, so left out of the price: ${dropped.join(', ')}.`);\n}\nif (!lines.length) {\n  warnings.push('No catalog items were chosen, so the proposal has no pricing. Add it in the doc before you send it.');\n}\nconst total = round2(lines.reduce((sum, line) => sum + line.line_total, 0));\n\nconst pricingText = lines.length\n  ? lines.map((l) => `${l.name}: ${l.quantity} x ${money.format(l.unit_price)} per ${l.unit} = ${money.format(l.line_total)}${l.note ? ` (${l.note})` : ''}`).join('\\n')\n  : 'Pricing to be confirmed.';\n\nconst timelineText = (Array.isArray(ai.timeline) ? ai.timeline : [])\n  .map((phase) => {\n    const name = clean(phase?.phase);\n    const duration = clean(phase?.duration);\n    const description = clean(phase?.description);\n    if (!name) return '';\n    return `${name}${duration ? ` (${duration})` : ''}${description ? `: ${description}` : ''}`;\n  })\n  .filter(Boolean)\n  .join('\\n');\n\n// Dates in the workflow's time zone, written for the Settings locale\nconst dateFormat = { year: 'numeric', month: 'long', day: 'numeric' };\nconst proposalDate = $now.setLocale(settings.locale).toLocaleString(dateFormat);\nconst validUntil = $now.plus({ days: settings.validityDays }).setLocale(settings.locale).toLocaleString(dateFormat);\n\n// One entry per {{placeholder}} in the template. The order matches the Fill Proposal Placeholders node.\nconst placeholders = {\n  proposal_title: clean(ai.proposal_title) || `Proposal for ${req.client_company}`,\n  proposal_date: proposalDate,\n  valid_until: validUntil,\n  client_name: req.client_name,\n  client_company: req.client_company,\n  client_email: req.client_email,\n  rep_name: req.rep_name,\n  rep_email: req.rep_email,\n  company_name: settings.companyName,\n  executive_summary: clean(ai.executive_summary),\n  client_goals: list(ai.client_goals).join('\\n'),\n  current_challenges: list(ai.current_challenges).join('\\n'),\n  proposed_solution: clean(ai.proposed_solution),\n  scope_items: list(ai.scope_items).join('\\n'),\n  deliverables: list(ai.deliverables).join('\\n'),\n  timeline: timelineText,\n  pricing_lines: pricingText,\n  total_price: money.format(total),\n  assumptions: list(ai.assumptions).join('\\n'),\n  next_steps: list(ai.next_steps).join('\\n'),\n};\n\nreturn [{\n  json: {\n    source: req.source,\n    client_name: req.client_name,\n    client_company: req.client_company,\n    client_email: req.client_email,\n    rep_name: req.rep_name,\n    rep_email: req.rep_email,\n    template_doc_id: settings.templateDocId,\n    folder_id: settings.driveFolderId || 'root',\n    doc_name: `Proposal - ${req.client_company} - ${$now.toFormat('yyyy-MM-dd')}`,\n    link_sharing_role: settings.linkSharingRole,\n    email_subject: clean(ai.email_subject) || `Your proposal from ${settings.companyName}`,\n    email_body: clean(ai.email_body) || `Hi ${req.client_name.split(' ')[0]},\\n\\nThank you for your time on our call. The proposal we discussed is ready for you to review.`,\n    email_signature: `${req.rep_name}\\n${settings.companyName}`,\n    pricing: {\n      currency: settings.currency,\n      lines,\n      total,\n      total_formatted: money.format(total),\n    },\n    dropped_items: dropped,\n    placeholders,\n    placeholder_keys: Object.keys(placeholders),\n    warnings,\n  },\n}];\n"
+      },
+      "id": "9254bc23-99af-418e-a749-fabaeed0f33b",
+      "name": "Price the Proposal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "copy",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.template_doc_id }}"
+        },
+        "name": "={{ $json.doc_name }}",
+        "sameFolder": false,
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.folder_id }}"
+        },
+        "options": {}
+      },
+      "id": "882020c1-bd0e-406f-ab67-388370d7d558",
+      "name": "Copy Proposal Template",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1380,
+        140
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "google-drive",
+          "name": "Google Drive"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentURL": "={{ $json.id }}",
+        "simple": false,
+        "actionsUi": {
+          "actionFields": [
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{proposal_title}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.proposal_title }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{proposal_date}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.proposal_date }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{valid_until}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.valid_until }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{client_name}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.client_name }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{client_company}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.client_company }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{client_email}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.client_email }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{rep_name}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.rep_name }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{rep_email}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.rep_email }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{company_name}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.company_name }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{executive_summary}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.executive_summary }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{client_goals}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.client_goals }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{current_challenges}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.current_challenges }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{proposed_solution}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.proposed_solution }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{scope_items}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.scope_items }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{deliverables}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.deliverables }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{timeline}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.timeline }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{pricing_lines}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.pricing_lines }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{total_price}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.total_price }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{assumptions}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.assumptions }}",
+              "matchCase": true
+            },
+            {
+              "object": "text",
+              "action": "replaceAll",
+              "text": "{{next_steps}}",
+              "replaceText": "={{ $('Price the Proposal').first().json.placeholders.next_steps }}",
+              "matchCase": true
+            }
+          ]
+        },
+        "updateFields": {}
+      },
+      "id": "1e0085f6-dc30-4c44-b158-3857f9af649e",
+      "name": "Fill Proposal Placeholders",
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        140
+      ],
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "google-docs",
+          "name": "Google Docs"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "65627be9-a42e-4335-8235-a393d2d5aba1",
+              "leftValue": "={{ $('Price the Proposal').first().json.link_sharing_role }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "37d63ed1-b1ab-4ce9-aa7e-26122ae7567e",
+      "name": "Share Doc Link?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1820,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "share",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Copy Proposal Template').first().json.id }}"
+        },
+        "permissionsUi": {
+          "permissionsValues": {
+            "role": "={{ $('Price the Proposal').first().json.link_sharing_role }}",
+            "type": "anyone"
+          }
+        },
+        "options": {}
+      },
+      "id": "d0280003-5247-4ff2-910d-42f0dd827dac",
+      "name": "Share Doc Link",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2040,
+        20
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "google-drive",
+          "name": "Google Drive"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "operation": "create",
+        "subject": "={{ $('Price the Proposal').first().json.email_subject }}",
+        "emailType": "text",
+        "message": "={{ $('Price the Proposal').first().json.email_body }}\n\nYou can review the full proposal here:\nhttps://docs.google.com/document/d/{{ $('Copy Proposal Template').first().json.id }}/edit\n\n{{ $('Price the Proposal').first().json.email_signature }}",
+        "options": {
+          "sendTo": "={{ $('Price the Proposal').first().json.client_email }}"
+        }
+      },
+      "id": "e72cce3f-ad78-419f-bcfe-71249638b580",
+      "name": "Create Gmail Draft",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2260,
+        140
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail",
+          "name": "Gmail"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds the success response: the form completion page and the API JSON.\nconst p = $('Price the Proposal').first().json;\nconst copy = $('Copy Proposal Template').first().json;\nconst fill = $('Fill Proposal Placeholders').first().json;\nconst draft = $input.first().json;\nconst escapeHtml = (text) => String(text)\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\n\nconst docUrl = `https://docs.google.com/document/d/${copy.id}/edit`;\nconst warnings = [...p.warnings];\n\n// Docs returns one reply per replace request, in the same order as the placeholders.\nconst replies = Array.isArray(fill.replies) ? fill.replies : [];\nconst missing = p.placeholder_keys.filter((key, i) => !(replies[i]?.replaceAllText?.occurrencesChanged > 0));\nif (missing.length) {\n  warnings.push(`Not found in your template, so not filled in: ${missing.map((k) => `{{${k}}}`).join(', ')}.`);\n}\n\nlet linkShared = false;\nif (p.link_sharing_role) {\n  const share = $('Share Doc Link').isExecuted ? $('Share Doc Link').first().json : {};\n  if (share.error) {\n    warnings.push(`Link sharing failed, so the doc is still private: ${share.error.message ?? share.error}`);\n  } else {\n    linkShared = true;\n  }\n}\nconst shareText = linkShared\n  ? `Anyone with the link can ${p.link_sharing_role === 'commenter' ? 'comment on' : 'view'} the doc.`\n  : 'The doc is private to your Google account. Share it with the client before you send the email.';\n\nconst message = [\n  `<p>The proposal for <strong>${escapeHtml(p.client_company)}</strong> is ready, with a total of <strong>${escapeHtml(p.pricing.total_formatted)}</strong>.</p>`,\n  `<p><a href=\"${docUrl}\" target=\"_blank\" rel=\"noopener\">Open the proposal in Google Docs</a></p>`,\n  `<p>A Gmail draft to ${escapeHtml(p.client_email)} is waiting in Drafts. Review the doc and the email, then send it.</p>`,\n  `<p>${escapeHtml(shareText)}</p>`,\n  warnings.length ? `<p>Check these before you send:</p><ul>${warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join('')}</ul>` : '',\n].join('');\n\nreturn [{\n  json: {\n    ok: true,\n    source: p.source,\n    statusCode: 200,\n    title: 'Your proposal is ready',\n    message,\n    body: {\n      ok: true,\n      client_company: p.client_company,\n      doc_id: copy.id,\n      doc_url: docUrl,\n      doc_name: p.doc_name,\n      gmail_draft_id: draft.id ?? null,\n      gmail_message_id: draft.message?.id ?? null,\n      link_shared: linkShared,\n      total: p.pricing.total,\n      total_formatted: p.pricing.total_formatted,\n      currency: p.pricing.currency,\n      pricing_lines: p.pricing.lines,\n      dropped_items: p.dropped_items,\n      warnings,\n    },\n  },\n}];\n"
+      },
+      "id": "a52eda4c-619d-4f43-9216-203c2c767dec",
+      "name": "Build Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2480,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Runs when the AI, Google Drive, Google Docs, or Gmail step fails.\n// The failed step is the last of these that ran, because the chain stops at the failure.\nconst req = $('Check Request').first().json;\nconst steps = [\n  ['Create Gmail Draft', 'creating the Gmail draft'],\n  ['Fill Proposal Placeholders', 'filling in the proposal doc'],\n  ['Copy Proposal Template', 'copying the proposal template'],\n  ['Write Proposal', 'writing the proposal with AI'],\n];\nconst failed = steps.find(([name]) => $(name).isExecuted) ?? steps[steps.length - 1];\nconst err = $input.first().json.error;\nconst reason = String((err && typeof err === 'object' ? err.message : err) || $input.first().json.message || 'Unknown error');\nconst escapeHtml = (text) => String(text)\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\n\n// If the copy was made before the failure, point to it so nothing is lost.\nlet docUrl = null;\nif ($('Copy Proposal Template').isExecuted) {\n  const copy = $('Copy Proposal Template').first().json;\n  if (copy.id && !copy.error) docUrl = `https://docs.google.com/document/d/${copy.id}/edit`;\n}\n\nreturn [{\n  json: {\n    ok: false,\n    source: req.source,\n    statusCode: 502,\n    title: \"The proposal wasn't finished\",\n    message: `<p>Something went wrong while ${failed[1]}:</p><p><code>${escapeHtml(reason)}</code></p>`\n      + (docUrl ? `<p>The doc was created: <a href=\"${docUrl}\" target=\"_blank\" rel=\"noopener\">open it in Google Docs</a>.</p>` : '')\n      + '<p>Check the workflow execution in n8n for details.</p>',\n    body: { ok: false, failed_step: failed[0], error: reason, doc_url: docUrl },\n  },\n}];\n"
+      },
+      "id": "01c45b07-c9ff-4676-8968-c6e7605fa011",
+      "name": "Report Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2480,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c7832235-ffa0-455c-9aa4-1c634b190cdf",
+              "leftValue": "={{ $json.source }}",
+              "rightValue": "form",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f42b1145-a158-4288-adfd-a42f2c85b72b",
+      "name": "From the Form?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2700,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "={{ $json.title }}",
+        "completionMessage": "={{ $json.message }}",
+        "options": {}
+      },
+      "id": "705a864d-5e50-464d-96e0-8fae299330ce",
+      "name": "Show Result Page",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        2940,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body }}",
+        "options": {
+          "responseCode": "={{ $json.statusCode }}"
+        }
+      },
+      "id": "c521f9a7-a25e-4573-85f5-8a8ce3d06b71",
+      "name": "Return API Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2940,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Automate sales proposals from call transcripts\n\nTurn a sales call into a proposal your rep only has to review. Paste or upload the transcript in the form, or send it to the API. AI writes the proposal from what was said on the call, prices come only from your catalog, and the workflow fills in a copy of your Google Doc template and creates a Gmail draft to the client with the link.\n\n### Setup\n1. Connect OpenAI in **OpenAI Chat Model**, Google Drive in **Copy Proposal Template** and **Share Doc Link**, Google Docs in **Fill Proposal Placeholders**, and Gmail in **Create Gmail Draft**.\n2. Create a Google Doc template with the `{{placeholders}}` from the guide, such as `{{client_company}}`, `{{executive_summary}}`, `{{pricing_lines}}`, and `{{total_price}}`.\n3. In **Settings**, add the template's Doc ID, an optional Drive folder ID, your company name, currency, and your pricing catalog.\n4. For the API, create an **HTTP Header Auth** credential in **Proposal API** (for example **Name** `X-API-Key` and a long random **Value**).\n5. Publish the workflow and open the **Proposal Request Form** production URL.\n\n### API\n```\nPOST /webhook/sales-proposal\nX-API-Key: <your key>\n{\"client_name\": \"Jordan Lee\", \"client_company\": \"Acme Inc.\",\n \"client_email\": \"jordan@acme.com\", \"rep_name\": \"Sam Rivera\",\n \"rep_email\": \"sam@yourcompany.com\", \"transcript\": \"...\",\n \"notes\": \"optional\"}\n```\nReturns the doc URL, Gmail draft ID, and priced lines as JSON.",
+        "height": 1040,
+        "width": 640,
+        "color": 5
+      },
+      "id": "632cedad-56d4-49ba-8960-bbee2ae7c9d0",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1500,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Get the call transcript\n**Proposal Request Form** takes the client and rep details and the transcript, pasted or uploaded as a `.txt`, `.vtt`, `.srt`, or `.pdf` file. **Transcript File?** sends PDFs and text files to the right reader, and caption timestamps are removed.\n\n**Proposal API** takes the same fields as JSON, so a call recorder or CRM can send transcripts automatically.",
+        "height": 1040,
+        "width": 900,
+        "color": 7
+      },
+      "id": "23c214ae-d0c8-435a-bef5-04940701e2f3",
+      "name": "Section 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -840,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Settings and checks\n**Settings** holds the template Doc ID, folder, company name, currency, link sharing, and the pricing catalog.\n\n**Check Request** checks the fields and settings and builds the prompt. Problems go straight back to the form page or the API caller.",
+        "height": 1040,
+        "width": 620,
+        "color": 6
+      },
+      "id": "76d3632b-e9c4-46e4-90b0-f531a8636cff",
+      "name": "Section 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        80,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Write the proposal with AI\n**Write Proposal** turns the transcript into the summary, goals, challenges, solution, scope, deliverables, timeline, assumptions, next steps, and a follow-up email. It picks catalog items and quantities only.\n\n**Price the Proposal** looks up each price in your catalog and adds up the total, so the AI never sets a price.",
+        "height": 1040,
+        "width": 560,
+        "color": 4
+      },
+      "id": "2b8adc9b-75ad-461d-a3d4-234448351755",
+      "name": "Section 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        720,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Create the Google Doc and Gmail draft\n**Copy Proposal Template** copies your template into the folder as `Proposal - <Company> - <date>`, and **Fill Proposal Placeholders** replaces every `{{placeholder}}`.\n\nIf `linkSharingRole` is set, **Share Doc Link** lets anyone with the link view or comment. **Create Gmail Draft** writes the follow-up email to the client with the doc link, so the rep reviews it before sending.",
+        "height": 1040,
+        "width": 1100,
+        "color": 3
+      },
+      "id": "7ec261f1-e2e1-4dc7-8fc3-0a6d4887fab9",
+      "name": "Section 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 5. Show the result\nThe form shows a page with the doc link and anything to check before sending. The API returns JSON with status `200`, `400` (missing fields or settings), or `502` (an AI, Google, or Gmail step failed).\n\n**Report Failure** catches errors from the AI, Drive, Docs, and Gmail steps.",
+        "height": 1040,
+        "width": 720,
+        "color": 2
+      },
+      "id": "e115f639-9a32-4b83-82c5-2fa0bd3b8753",
+      "name": "Section 5",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2420,
+        -420
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Proposal Request Form": {
+      "main": [
+        [
+          {
+            "node": "Transcript File?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcript File?": {
+      "main": [
+        [
+          {
+            "node": "Read PDF Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Text Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Form Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read PDF Transcript": {
+      "main": [
+        [
+          {
+            "node": "Read Form Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Text Transcript": {
+      "main": [
+        [
+          {
+            "node": "Read Form Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Form Request": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Proposal API": {
+      "main": [
+        [
+          {
+            "node": "Read API Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read API Request": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Check Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Request": {
+      "main": [
+        [
+          {
+            "node": "Request OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request OK?": {
+      "main": [
+        [
+          {
+            "node": "Write Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "From the Form?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Proposal": {
+      "main": [
+        [
+          {
+            "node": "Price the Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Price the Proposal": {
+      "main": [
+        [
+          {
+            "node": "Copy Proposal Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Copy Proposal Template": {
+      "main": [
+        [
+          {
+            "node": "Fill Proposal Placeholders",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fill Proposal Placeholders": {
+      "main": [
+        [
+          {
+            "node": "Share Doc Link?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Share Doc Link?": {
+      "main": [
+        [
+          {
+            "node": "Share Doc Link",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Gmail Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Share Doc Link": {
+      "main": [
+        [
+          {
+            "node": "Create Gmail Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Gmail Draft": {
+      "main": [
+        [
+          {
+            "node": "Build Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Result": {
+      "main": [
+        [
+          {
+            "node": "From the Form?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Failure": {
+      "main": [
+        [
+          {
+            "node": "From the Form?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "From the Form?": {
+      "main": [
+        [
+          {
+            "node": "Show Result Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return API Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write Proposal",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Proposal Format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Write Proposal",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

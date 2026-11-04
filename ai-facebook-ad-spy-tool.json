@@ -1,0 +1,723 @@
+{
+  "name": "AI Facebook Ad Spy Tool",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Facebook Ad Spy Tool",
+        "formDescription": "Enter a competitor's Facebook page, a Meta Ad Library link, or a keyword. Their ads are pulled from the Meta Ad Library, analyzed with AI, and added to your Google Sheet.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Competitor page URL, Ad Library URL, or keyword",
+              "fieldName": "search",
+              "fieldType": "text",
+              "requiredField": true,
+              "placeholder": "https://www.facebook.com/competitor or \"protein powder\""
+            },
+            {
+              "fieldLabel": "Competitor name (optional)",
+              "fieldName": "label",
+              "fieldType": "text",
+              "placeholder": "Competitor name"
+            },
+            {
+              "fieldLabel": "Country (2-letter code, or ALL)",
+              "fieldName": "country",
+              "fieldType": "text",
+              "defaultValue": "US"
+            },
+            {
+              "fieldLabel": "Maximum ads to pull (up to 100)",
+              "fieldName": "max_ads",
+              "fieldType": "number",
+              "defaultValue": "20"
+            },
+            {
+              "fieldLabel": "Active ads only?",
+              "fieldName": "active_only",
+              "fieldType": "dropdown",
+              "defaultValue": "Yes",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Yes"
+                  },
+                  {
+                    "option": "No"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "responseMode": "onReceived",
+        "options": {
+          "buttonLabel": "Spy on these ads",
+          "respondWithOptions": {
+            "values": {
+              "respondWith": "text",
+              "formSubmittedText": "Got it. The ads are being pulled and analyzed now. New rows will appear in the Ads tab of your Google Sheet in a few minutes."
+            }
+          }
+        }
+      },
+      "id": "ebdfa892-bfe7-4a7f-80f1-d449a6d7085a",
+      "name": "Ad Spy Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -700,
+        0
+      ],
+      "webhookId": "94593ddb-18fd-4bee-a009-676281eba4f9"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "fb6623c6-535c-4eb1-aa71-e2a17167e261",
+      "name": "Every Monday",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -700,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Logged Ads').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Competitors"
+        },
+        "options": {}
+      },
+      "id": "4cfaa939-fc62-4cc5-97ec-70fd7cc9a059",
+      "name": "Get Competitors",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -480,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns each search (from the form or a Competitors row) into one Apify request.\n// A search can be a Meta Ad Library URL, a Facebook page URL, a numeric page ID, or a keyword.\nconst DEFAULT_COUNTRY = 'US';\nconst DEFAULT_MAX_ADS = 20;\nconst MAX_ADS_LIMIT = 100;\n\nconst out = [];\nfor (const [index, item] of $input.all().entries()) {\n  const j = item.json;\n  const search = String(j.search ?? '').trim();\n  if (!search) continue;\n\n  let country = String(j.country ?? '').trim().toUpperCase();\n  if (!/^([A-Z]{2}|ALL)$/.test(country)) country = DEFAULT_COUNTRY;\n\n  let maxAds = parseInt(j.max_ads, 10);\n  if (!(maxAds > 0)) maxAds = DEFAULT_MAX_ADS;\n  maxAds = Math.min(maxAds, MAX_ADS_LIMIT);\n\n  const activeOnly = !/^(no|n|false|0)$/i.test(String(j.active_only ?? '').trim());\n  const status = activeOnly ? 'active' : 'all';\n  const withScheme = (s) => (/^https?:\\/\\//i.test(s) ? s : 'https://' + s);\n\n  let searchType;\n  let startUrl;\n  if (/facebook\\.com\\/ads\\/library/i.test(search)) {\n    searchType = 'Ad Library URL';\n    startUrl = withScheme(search);\n  } else if (/^(https?:\\/\\/)?([\\w-]+\\.)*(facebook|fb)\\.com\\//i.test(search)) {\n    searchType = 'Facebook page';\n    startUrl = withScheme(search);\n  } else if (/^\\d{6,}$/.test(search)) {\n    searchType = 'Facebook page ID';\n    startUrl = 'https://www.facebook.com/ads/library/?active_status=' + status +\n      '&ad_type=all&country=' + country + '&is_targeted_country=false&media_type=all' +\n      '&search_type=page&view_all_page_id=' + search;\n  } else {\n    searchType = 'Keyword';\n    startUrl = 'https://www.facebook.com/ads/library/?active_status=' + status +\n      '&ad_type=all&country=' + country + '&is_targeted_country=false&media_type=all' +\n      '&q=' + encodeURIComponent(search) + '&search_type=keyword_unordered';\n  }\n\n  out.push({\n    json: {\n      search,\n      label: String(j.label ?? '').trim() || search,\n      search_type: searchType,\n      country,\n      max_ads: maxAds,\n      active_only: activeOnly,\n      start_url: startUrl,\n      apify_input: {\n        startUrls: [{ url: startUrl }],\n        resultsLimit: maxAds,\n        activeStatus: activeOnly ? 'active' : '',\n      },\n    },\n    pairedItem: { item: index },\n  });\n}\n\nreturn out;\n"
+      },
+      "id": "54f07774-0d9e-42d5-8d52-0b3aff584b4c",
+      "name": "Build Ad Library URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/apify~facebook-ads-scraper/run-sync-get-dataset-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "maxItems",
+              "value": "={{ $json.max_ads }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.apify_input) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 310000
+        }
+      },
+      "id": "b527f286-351b-4dba-a066-0175674aa988",
+      "name": "Scrape Ad Library (Apify)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        60,
+        120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "apify-api",
+          "name": "Apify API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns the Apify Facebook Ads Scraper output into one clean record per ad.\nconst items = $input.all();\nconst arr = (v) => (Array.isArray(v) ? v : []);\nconst str = (v) => (v === null || v === undefined ? '' : String(v)).trim();\nconst isTemplate = (s) => /\\{\\{\\s*product\\./i.test(s);\nconst firstText = (...vals) => {\n  for (const v of vals) {\n    const s = str(typeof v === 'object' && v !== null ? v.text : v);\n    if (s && !isTemplate(s)) return s;\n  }\n  return '';\n};\nconst pick = (o, ...keys) => {\n  for (const k of keys) if (o && o[k]) return str(o[k]);\n  return '';\n};\nconst toMs = (unix, iso) => {\n  if (unix) return Number(unix) * (Number(unix) < 1e12 ? 1000 : 1);\n  const t = Date.parse(iso || '');\n  return Number.isNaN(t) ? null : t;\n};\nconst day = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : '');\n\nconst ads = [];\nconst errors = [];\nconst seen = new Set();\n\nfor (const [i, item] of items.entries()) {\n  const j = item.json;\n  let src = {};\n  try {\n    src = $('Build Ad Library URL').itemMatching(i).json;\n  } catch (e) {\n    src = $('Build Ad Library URL').all().map((x) => x.json).find((x) => x.start_url === j.inputUrl) ?? {};\n  }\n\n  const adId = str(j.adArchiveID ?? j.adArchiveId ?? j.ad_archive_id);\n  if (!adId) {\n    if (j.error) {\n      const msg = typeof j.error === 'object' ? (j.error.message || JSON.stringify(j.error)) : j.error;\n      errors.push(`${src.label || src.search || 'search'}: ${str(msg).slice(0, 300)}`);\n    }\n    continue;\n  }\n\n  const collationId = str(j.collationId ?? j.collationID ?? j.collation_id);\n  const key = collationId ? 'c:' + collationId : adId;\n  if (seen.has(key)) continue;\n  seen.add(key);\n\n  const snap = j.snapshot ?? {};\n  const images = arr(snap.images);\n  const videos = arr(snap.videos);\n  const cards = arr(snap.cards);\n  const card = cards[0] ?? {};\n  const displayFormat = str(snap.displayFormat ?? snap.display_format).toUpperCase();\n\n  let format;\n  if (displayFormat === 'VIDEO') format = 'video';\n  else if (displayFormat === 'DCO' || displayFormat === 'DPA') format = 'dynamic';\n  else if (displayFormat === 'CAROUSEL' || cards.length > 1) format = 'carousel';\n  else if (displayFormat === 'IMAGE' || images.length) format = 'image';\n  else if (videos.length) format = 'video';\n  else if (cards.length) format = pick(card, 'videoHdUrl', 'videoSdUrl', 'video_hd_url') ? 'video' : 'image';\n  else format = displayFormat ? displayFormat.toLowerCase() : 'text';\n\n  const image = images[0] ?? {};\n  const video = videos[0] ?? {};\n  const creativeUrl =\n    pick(image, 'originalImageUrl', 'resizedImageUrl', 'original_image_url', 'resized_image_url') ||\n    pick(video, 'videoPreviewImageUrl', 'video_preview_image_url') ||\n    pick(card, 'originalImageUrl', 'resizedImageUrl', 'videoPreviewImageUrl',\n      'original_image_url', 'resized_image_url', 'video_preview_image_url');\n  const videoUrl = pick(video, 'videoHdUrl', 'videoSdUrl', 'video_hd_url', 'video_sd_url') ||\n    pick(card, 'videoHdUrl', 'videoSdUrl', 'video_hd_url', 'video_sd_url');\n  const isVideo = format === 'video' || !!videoUrl;\n\n  const startMs = toMs(j.startDate, j.startDateFormatted);\n  const endMs = toMs(j.endDate, j.endDateFormatted);\n  const active = j.isActive === true || str(j.isActive).toLowerCase() === 'true';\n  const until = active || !endMs ? Date.now() : endMs;\n  const daysRunning = startMs ? Math.max(1, Math.round((until - startMs) / 86400000)) : 0;\n\n  const pageName = str(j.pageName ?? snap.pageName ?? snap.page_name);\n  const headline = firstText(snap.title, card.title);\n  const body = firstText(snap.body, card.body);\n  const cta = firstText(snap.ctaText, card.ctaText);\n  const linkUrl = firstText(snap.linkUrl, card.linkUrl);\n  const linkDescription = firstText(snap.linkDescription, card.linkDescription);\n  const platforms = arr(j.publisherPlatform ?? j.publisherPlatforms)\n    .map((p) => str(p).toLowerCase().replace(/_/g, ' '))\n    .join(', ');\n  const variants = Number(j.collationCount ?? j.collation_count) || 1;\n\n  let analysisBasis = 'ad copy only';\n  let creativeNote = 'No image is available for this ad. Analyze it from the copy and details only.';\n  if (creativeUrl) {\n    if (isVideo) {\n      analysisBasis = 'video preview image and ad copy';\n      creativeNote = \"The attached image is the video's preview frame. You cannot watch the video, so base the format notes on this frame and the copy.\";\n    } else if (format === 'carousel' || format === 'dynamic') {\n      analysisBasis = 'first card image and ad copy';\n      creativeNote = 'The attached image is the first card of a ' + format + ' ad.';\n    } else {\n      analysisBasis = 'image and ad copy';\n      creativeNote = \"The attached image is the ad's creative.\";\n    }\n  }\n\n  const adDetails = [\n    `Advertiser: ${pageName || 'Unknown'}`,\n    `Found by searching: ${src.label || src.search || ''}`,\n    `Format: ${format}`,\n    `Status: ${active ? 'active' : 'inactive'}, running for ${daysRunning} days${startMs ? ' (since ' + day(startMs) + ')' : ''}`,\n    `Platforms: ${platforms || 'Not listed'}`,\n    `Ads using this creative: ${variants}`,\n    '',\n    `Headline: ${headline || 'None'}`,\n    'Primary text:',\n    body || 'None',\n    '',\n    `Call to action button: ${cta || 'None'}`,\n    `Link: ${linkUrl || 'None'}`,\n    `Link description: ${linkDescription || 'None'}`,\n  ].join('\\n');\n\n  ads.push({\n    json: {\n      ad_id: adId,\n      collation_id: collationId,\n      search: src.label || src.search || '',\n      page_name: pageName,\n      page_url: str(snap.pageProfileUri ?? snap.page_profile_uri),\n      ad_library_url: 'https://www.facebook.com/ads/library/?id=' + adId,\n      status: active ? 'active' : 'inactive',\n      start_date: day(startMs),\n      days_running: daysRunning,\n      platforms,\n      format,\n      variants,\n      headline,\n      body,\n      cta,\n      link_url: linkUrl,\n      creative_url: creativeUrl,\n      video_url: videoUrl,\n      analysis_basis: analysisBasis,\n      creative_note: creativeNote,\n      ad_details: adDetails,\n    },\n  });\n}\n\nif (!ads.length && errors.length) {\n  throw new Error('Apify did not return any ads. ' + errors.join(' | '));\n}\n\nreturn ads;\n"
+      },
+      "id": "c405e8ef-ac61-4a05-9f3f-f58bb7f4f3e7",
+      "name": "Normalize Ads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Ads"
+        },
+        "options": {}
+      },
+      "id": "7844ec56-0187-40a3-b640-9eead6dae9e3",
+      "name": "Get Logged Ads",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        580,
+        120
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keeps only ads that are not in the Ads tab yet, longest-running first,\n// and caps how many are analyzed in one run.\nconst MAX_ADS_TO_ANALYZE = 30;\n\nconst logged = new Set();\nconst clean = (v) => String(v ?? '').trim().replace(/^'/, '');\nfor (const row of $input.all()) {\n  const adId = clean(row.json.ad_id);\n  const collationId = clean(row.json.collation_id);\n  const fromUrl = clean(row.json.ad_library_url).match(/[?&]id=(\\d+)/);\n  if (adId) logged.add(adId);\n  if (fromUrl) logged.add(fromUrl[1]);\n  if (collationId) logged.add('c:' + collationId);\n}\n\nconst fresh = $('Normalize Ads')\n  .all()\n  .map((item) => item.json)\n  .filter((ad) => !logged.has(ad.ad_id) && !(ad.collation_id && logged.has('c:' + ad.collation_id)));\n\n// Ads that have run the longest are the ones most likely to be profitable.\nfresh.sort((a, b) => b.days_running - a.days_running);\n\nreturn fresh.slice(0, MAX_ADS_TO_ANALYZE).map((json) => ({ json }));\n"
+      },
+      "id": "7244f614-bd54-4e9b-9de6-319da7ac5fd6",
+      "name": "Pick New Ads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0b7ba213-d00b-4d99-8a7f-65b88f96f8c3",
+              "leftValue": "={{ $json.creative_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d352c410-8cdb-48e4-a526-2007a4fe4af4",
+      "name": "Has Creative Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1080,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.creative_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "creative"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "701508d1-5d8e-475f-b0fd-4185cf470a9a",
+      "name": "Download Creative",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1300,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Pick New Ads').item.json.ad_details }}\n\n{{ $('Pick New Ads').item.json.creative_note }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "type": "SystemMessagePromptTemplate",
+              "message": "You are a senior performance marketer who studies competitors' Facebook and Instagram ads from the Meta Ad Library. You get one ad: its copy, its details, and usually an image of the creative. Break down why the ad works so the reader can learn from it and adapt the ideas for their own brand.\n\nBe specific. Quote the actual hook, name the actual offer, and describe what is in the image. Do not invent anything that is not in the ad. If something is not shown, write \"Not stated\".\n\nScore the ad from 1 to 10 as direct response advertising: how strong the hook is, how specific the offer is, how well the image and copy fit together, and how clear the call to action is. Ads that have run for a long time are usually profitable, so treat 60 or more days running as a strong signal and under 14 days as unproven. Use the full range. 5 is average.\n\nFor ideas_to_adapt, give three ideas a different brand could test based on what makes this ad work. Do not suggest copying the ad word for word."
+            },
+            {
+              "type": "HumanMessagePromptTemplate",
+              "messageType": "imageBinary",
+              "binaryImageDataKey": "creative",
+              "imageDetail": "auto"
+            }
+          ]
+        }
+      },
+      "id": "0e7590b0-cd93-40ff-8f7a-ad5dc0a100b2",
+      "name": "Analyze Ad Creative",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1540,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Pick New Ads').item.json.ad_details }}\n\nNo image is available for this ad. Analyze it from the copy and details only.",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "type": "SystemMessagePromptTemplate",
+              "message": "You are a senior performance marketer who studies competitors' Facebook and Instagram ads from the Meta Ad Library. You get one ad: its copy, its details, and usually an image of the creative. Break down why the ad works so the reader can learn from it and adapt the ideas for their own brand.\n\nBe specific. Quote the actual hook, name the actual offer, and describe what is in the image. Do not invent anything that is not in the ad. If something is not shown, write \"Not stated\".\n\nScore the ad from 1 to 10 as direct response advertising: how strong the hook is, how specific the offer is, how well the image and copy fit together, and how clear the call to action is. Ads that have run for a long time are usually profitable, so treat 60 or more days running as a strong signal and under 14 days as unproven. Use the full range. 5 is average.\n\nFor ideas_to_adapt, give three ideas a different brand could test based on what makes this ad work. Do not suggest copying the ad word for word."
+            }
+          ]
+        }
+      },
+      "id": "99e9ca52-86d7-4268-badd-afed88b783f9",
+      "name": "Analyze Ad Copy Only",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1540,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "options": {
+          "reasoningEffort": "low",
+          "timeout": 120000
+        }
+      },
+      "id": "a1df0602-62d1-4d5e-9002-efc09aa6e336",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1460,
+        540
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-api",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"hook\": {\n      \"type\": \"string\",\n      \"description\": \"The opening line or visual that stops the scroll, quoted or described\"\n    },\n    \"angle\": {\n      \"type\": \"string\",\n      \"description\": \"The core marketing angle, such as a pain point, social proof, a transformation, a comparison, urgency, or curiosity\"\n    },\n    \"offer\": {\n      \"type\": \"string\",\n      \"description\": \"What is offered, including any price, discount, free trial, bonus, or guarantee. \\\"Not stated\\\" if there is none\"\n    },\n    \"call_to_action\": {\n      \"type\": \"string\",\n      \"description\": \"What the ad asks the viewer to do, and how\"\n    },\n    \"target_audience\": {\n      \"type\": \"string\",\n      \"description\": \"Who the ad is written for\"\n    },\n    \"emotional_triggers\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"The emotions or motivations the ad uses\"\n    },\n    \"format_notes\": {\n      \"type\": \"string\",\n      \"description\": \"How the creative is built: visual style, text on the image, people, product shots, colors, and layout\"\n    },\n    \"why_it_works\": {\n      \"type\": \"string\",\n      \"description\": \"Two or three sentences on why the ad is likely effective, or why it is weak\"\n    },\n    \"score\": {\n      \"type\": \"integer\",\n      \"minimum\": 1,\n      \"maximum\": 10,\n      \"description\": \"Overall strength from 1 to 10\"\n    },\n    \"ideas_to_adapt\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"minItems\": 3,\n      \"maxItems\": 3,\n      \"description\": \"Three ideas another brand could test based on this ad\"\n    }\n  },\n  \"required\": [\n    \"hook\",\n    \"angle\",\n    \"offer\",\n    \"call_to_action\",\n    \"target_audience\",\n    \"emotional_triggers\",\n    \"format_notes\",\n    \"why_it_works\",\n    \"score\",\n    \"ideas_to_adapt\"\n  ]\n}"
+      },
+      "id": "398d0057-8e00-4561-9a62-c4617d1cd650",
+      "name": "Ad Analysis Format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1680,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combines the ad details with the AI analysis into one row per ad for the Ads tab.\n// Ads whose analysis failed are left out, so they are picked up again on the next run.\nconst list = (v) => (Array.isArray(v) ? v : v ? [v] : []);\nconst copyOnly = $prevNode.name === 'Analyze Ad Copy Only';\n// Ad IDs are 15 to 17 digits. The leading apostrophe stores them as text, so Google Sheets\n// does not round them like a number.\nconst asText = (id) => (id ? \"'\" + id : '');\n\nconst rows = [];\nconst errors = [];\nfor (const [i, item] of $input.all().entries()) {\n  const a = item.json.output;\n  const ad = $('Pick New Ads').itemMatching(i).json;\n  if (item.json.error || !a || typeof a !== 'object') {\n    errors.push(`${ad.page_name || ad.ad_id}: ${item.json.error || 'no analysis returned'}`);\n    continue;\n  }\n\n  let basis = ad.analysis_basis;\n  if (copyOnly) basis = ad.creative_url ? 'ad copy only (image download failed)' : 'ad copy only';\n\n  rows.push({\n    json: {\n      analyzed_at: $now.toFormat('yyyy-MM-dd HH:mm'),\n      search: ad.search,\n      page_name: ad.page_name,\n      ad_id: asText(ad.ad_id),\n      status: ad.status,\n      days_running: ad.days_running,\n      start_date: ad.start_date,\n      format: ad.format,\n      platforms: ad.platforms,\n      variants: ad.variants,\n      score: a.score ?? '',\n      hook: a.hook ?? '',\n      angle: a.angle ?? '',\n      offer: a.offer ?? '',\n      call_to_action: a.call_to_action ?? '',\n      target_audience: a.target_audience ?? '',\n      emotional_triggers: list(a.emotional_triggers).join('; '),\n      format_notes: a.format_notes ?? '',\n      why_it_works: a.why_it_works ?? '',\n      ideas_to_adapt: list(a.ideas_to_adapt).map((idea, n) => `${n + 1}. ${idea}`).join('\\n'),\n      headline: ad.headline,\n      body: ad.body,\n      cta: ad.cta,\n      link_url: ad.link_url,\n      ad_library_url: ad.ad_library_url,\n      page_url: ad.page_url,\n      creative_url: ad.creative_url,\n      video_url: ad.video_url,\n      analysis_basis: basis,\n      collation_id: asText(ad.collation_id),\n    },\n    pairedItem: { item: i },\n  });\n}\n\nif (!rows.length && errors.length) {\n  throw new Error('The AI analysis failed for every ad. ' + errors.slice(0, 5).join(' | '));\n}\n\nreturn rows;\n"
+      },
+      "id": "cf0fe270-b069-491a-afd5-dd6f6fc7fa7c",
+      "name": "Build Ad Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Logged Ads').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Ads"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "7439bd78-ab40-426f-b251-24b0eaaf1f81",
+      "name": "Log Ad to Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2140,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## AI Facebook Ad Spy Tool\n\nA free, self-hosted Facebook spy tool. Pull any competitor's ads from the Meta Ad Library, have AI break down each ad's hook, angle, offer, and call to action, and keep everything in a Google Sheet. You pay only for Apify and OpenAI usage.\n\n### How to use it\n- **Form:** enter a Facebook page URL, an Ad Library link, a page ID, or a keyword, and the results go to the sheet.\n- **Weekly:** every Monday at 8:00, each row of the **Competitors** tab is checked for new ads.\n\nAds already in the **Ads** tab are skipped, and the longest-running new ads are analyzed first (up to 30 per run).\n\n### Setup\n1. Create a Google Sheet with two tabs:\n   - **Competitors** with columns `search`, `label`, `country`, `max_ads`, `active_only`\n   - **Ads**, left empty (the header row is added on the first run)\n2. In **Get Logged Ads**, connect Google Sheets and pick that spreadsheet. Connect the same Google account in **Get Competitors** and **Log Ad to Sheet**.\n3. Create an **HTTP Header Auth** credential named `Apify API` with **Name** `Authorization` and **Value** `Bearer YOUR_APIFY_TOKEN`, and select it in **Scrape Ad Library (Apify)**.\n4. Add your OpenAI credential to **OpenAI Chat Model**.\n5. Publish the workflow and open the **Ad Spy Form** production URL.",
+        "height": 1100,
+        "width": 640,
+        "color": 5
+      },
+      "id": "d91e6cf0-ba3b-460e-a4a8-bb74d61052f6",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1400,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Choose the ads to spy on\n**Ad Spy Form** takes one search at a time. **Every Monday** reads every row of the **Competitors** tab.\n\n**Build Ad Library URL** turns each search into an Apify request:\n- an Ad Library link is used as is, with its own filters\n- a Facebook page URL is scraped directly (the country is not applied)\n- a page ID or a keyword becomes an Ad Library search for that country\n\n`max_ads` defaults to 20 and is capped at 100. `active_only` defaults to yes.",
+        "height": 1100,
+        "width": 760,
+        "color": 7
+      },
+      "id": "398e06de-9a05-4f90-af19-41009e0cb7ad",
+      "name": "Section 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Scrape the Meta Ad Library with Apify\n**Scrape Ad Library (Apify)** runs Apify's Facebook Ads Scraper and waits for the results, one search at a time. Apify's synchronous API waits up to 300 seconds per run, so keep `max_ads` modest.\n\n**Normalize Ads** cleans each ad: page, dates, days running, format, copy, call to action, link, and the creative image. Duplicate creatives are dropped.",
+        "height": 1100,
+        "width": 480,
+        "color": 6
+      },
+      "id": "980d8739-730d-4700-9b32-29138b25fde7",
+      "name": "Section 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        20,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Skip ads you already have\n**Get Logged Ads** reads the **Ads** tab. **Pick New Ads** removes any ad that is already there, sorts the rest by days running (long-running ads are usually the profitable ones), and keeps the top 30.\n\nDelete a row in the **Ads** tab to have that ad analyzed again.",
+        "height": 1100,
+        "width": 480,
+        "color": 4
+      },
+      "id": "42d72eb4-083c-4ad8-9f2f-b1ea5d4d5bf7",
+      "name": "Section 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        520,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Analyze each ad with AI\n**Download Creative** downloads the ad image (for video ads, the video's preview image). **Analyze Ad Creative** sends the image and the ad copy to OpenAI.\n\nAds with no image, or whose image fails to download, go to **Analyze Ad Copy Only**.\n\nBoth return the hook, angle, offer, call to action, target audience, emotional triggers, format notes, why it works, a 1 to 10 score, and three ideas to adapt. Video ads are judged from the preview image and the copy, not the video itself.",
+        "height": 1100,
+        "width": 840,
+        "color": 3
+      },
+      "id": "e354107d-e718-46ed-9485-3eb64a9629d2",
+      "name": "Section 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1020,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 5. Log to Google Sheets\n**Build Ad Row** combines the ad details with the analysis, and **Log Ad to Sheet** appends one row per ad to the **Ads** tab. If the analysis fails for an ad, it is left out and tried again on the next run.\n\nEach row links to the ad in the Meta Ad Library.",
+        "height": 1100,
+        "width": 480,
+        "color": 5
+      },
+      "id": "7587d7ae-ef8c-46e6-b2da-353fa88e0c3b",
+      "name": "Section 5",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1880,
+        -420
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Ad Spy Form": {
+      "main": [
+        [
+          {
+            "node": "Build Ad Library URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every Monday": {
+      "main": [
+        [
+          {
+            "node": "Get Competitors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Competitors": {
+      "main": [
+        [
+          {
+            "node": "Build Ad Library URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Ad Library URL": {
+      "main": [
+        [
+          {
+            "node": "Scrape Ad Library (Apify)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Ad Library (Apify)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Ads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Ads": {
+      "main": [
+        [
+          {
+            "node": "Get Logged Ads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Logged Ads": {
+      "main": [
+        [
+          {
+            "node": "Pick New Ads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick New Ads": {
+      "main": [
+        [
+          {
+            "node": "Has Creative Image?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Creative Image?": {
+      "main": [
+        [
+          {
+            "node": "Download Creative",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Analyze Ad Copy Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Creative": {
+      "main": [
+        [
+          {
+            "node": "Analyze Ad Creative",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Analyze Ad Copy Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Ad Creative": {
+      "main": [
+        [
+          {
+            "node": "Build Ad Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Ad Copy Only": {
+      "main": [
+        [
+          {
+            "node": "Build Ad Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Ad Row": {
+      "main": [
+        [
+          {
+            "node": "Log Ad to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analyze Ad Creative",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Analyze Ad Copy Only",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ad Analysis Format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Analyze Ad Creative",
+            "type": "ai_outputParser",
+            "index": 0
+          },
+          {
+            "node": "Analyze Ad Copy Only",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

@@ -1,0 +1,1014 @@
+{
+  "name": "Connect Facebook Lead Ads and Google Ads to Google Sheets and Salesforce",
+  "nodes": [
+    {
+      "parameters": {
+        "event": "newLead",
+        "page": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "form": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {
+          "simplifyOutput": true
+        }
+      },
+      "id": "7a3ec6b0-5d63-40e2-9729-8da6ac5fef79",
+      "name": "Facebook Lead Ads Trigger",
+      "type": "n8n-nodes-base.facebookLeadAdsTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "facebookLeadAdsOAuth2Api": {
+          "id": "facebook-lead-ads-oauth2",
+          "name": "Facebook Lead Ads"
+        }
+      },
+      "webhookId": "2d92ae15-f900-4a9d-8903-d35680d29574"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "google-ads-leads",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b69ea385-640a-4ade-8336-93bc25d5da7c",
+      "name": "Google Ads Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "ee1bca09-7efc-4c84-82ba-e042526e3a0a"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "37098a26-f8f6-4f82-9097-5de0e10a2ca9",
+              "name": "google_ads_webhook_key",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "be3e9109-9f45-42ec-9ec5-8bc0ccab8729",
+              "name": "facebook_lead_source",
+              "value": "Facebook Lead Ads",
+              "type": "string"
+            },
+            {
+              "id": "c97cd75a-c64f-4a7e-a956-b0e33a3a3f00",
+              "name": "google_lead_source",
+              "value": "Google Ads",
+              "type": "string"
+            },
+            {
+              "id": "0be37277-8244-4c71-8d14-cf7b1d0f01d0",
+              "name": "default_company",
+              "value": "Not provided",
+              "type": "string"
+            },
+            {
+              "id": "7913cdd6-7dac-4fd6-af93-8ffca1bd72c8",
+              "name": "send_test_leads_to_salesforce",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "8b216795-86f8-4919-9a74-f47fd1691301",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        240,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b5e32353-f683-4081-a1d6-e5232b71fedb",
+              "leftValue": "={{ $json.headers !== undefined && $json.body !== undefined }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0ae2af6e-0ec6-4712-9dca-06b4d1156614",
+      "name": "From Google Ads?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        460,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "62392548-019d-4286-a2a4-71a1e9c44129",
+              "leftValue": "={{ $json.google_ads_webhook_key }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "b1b162c6-bb7d-45a6-bf1a-6c7cc7b99278",
+              "leftValue": "={{ $json.body.google_key ?? $json.body.Google_key }}",
+              "rightValue": "={{ $json.google_ads_webhook_key }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b83b5117-c364-4559-98b5-698e421fac28",
+      "name": "Google Key Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "efeac4d7-d7a2-467a-9868-998512c3e043",
+      "name": "Accept Google Lead",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        920,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"message\": \"Invalid google_key\"\n}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "85c06d46-d098-4cb7-8509-c4a2c081c575",
+      "name": "Reject Google Lead",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        920,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns a Google Ads lead form webhook body into one lead record.\n// Google sends each answer in user_column_data as { column_id, column_name, string_value }.\nconst settings = $('Settings').first().json;\n\n// Google's standard column IDs, mapped to our columns. First match wins.\nconst FIELDS = {\n  full_name: ['FULL_NAME'],\n  first_name: ['FIRST_NAME'],\n  last_name: ['LAST_NAME'],\n  email: ['EMAIL', 'WORK_EMAIL'],\n  phone: ['PHONE_NUMBER', 'WORK_PHONE'],\n  company: ['COMPANY_NAME'],\n  job_title: ['JOB_TITLE'],\n  city: ['CITY'],\n  postal_code: ['POSTAL_CODE'],\n};\nconst MAPPED = new Set(Object.values(FIELDS).flat());\n\nconst clean = (v) => (v === null || v === undefined ? '' : String(v).trim());\n\nfunction splitName(full) {\n  const parts = full.split(/\\s+/).filter(Boolean);\n  if (parts.length < 2) return ['', parts[0] || ''];\n  return [parts.slice(0, -1).join(' '), parts[parts.length - 1]];\n}\n\nconst leads = [];\nfor (const [index, item] of $input.all().entries()) {\n  const body = item.json.body || {};\n  const answers = {};\n  const other = {};\n  for (const col of body.user_column_data || []) {\n    const id = clean(col.column_id).toUpperCase();\n    const value = clean(col.string_value);\n    if (!value) continue;\n    if (MAPPED.has(id)) {\n      if (!(id in answers)) answers[id] = value;\n    } else {\n      // Other standard fields and custom questions, keyed by their label.\n      other[clean(col.column_name) || id] = value;\n    }\n  }\n\n  const lead = {};\n  for (const [column, ids] of Object.entries(FIELDS)) {\n    lead[column] = ids.map((id) => answers[id]).find(Boolean) || '';\n  }\n  if (!lead.full_name) lead.full_name = [lead.first_name, lead.last_name].filter(Boolean).join(' ');\n  if (!lead.first_name && !lead.last_name && lead.full_name) {\n    [lead.first_name, lead.last_name] = splitName(lead.full_name);\n  }\n\n  const isTest = body.is_test === true || body.is_test === 'true';\n\n  leads.push({\n    json: {\n      lead_id: clean(body.lead_id),\n      source: 'Google Ads',\n      created_time: clean(body.lead_submit_time) || new Date().toISOString(),\n      full_name: lead.full_name,\n      first_name: lead.first_name,\n      last_name: lead.last_name,\n      email: lead.email.toLowerCase(),\n      phone: lead.phone,\n      company: lead.company,\n      job_title: lead.job_title,\n      city: lead.city,\n      postal_code: lead.postal_code,\n      other_answers: Object.keys(other).length ? JSON.stringify(other) : '',\n      form: clean(body.form_id),\n      campaign: clean(body.campaign_id),\n      ad: clean(body.adgroup_id) || clean(body.asset_group_id) || clean(body.creative_id),\n      gclid: clean(body.gcl_id),\n      is_test: isTest,\n      sync_status: isTest && !settings.send_test_leads_to_salesforce ? 'test lead, not sent to Salesforce' : 'pending',\n    },\n    pairedItem: { item: index },\n  });\n}\nreturn leads;\n"
+      },
+      "id": "85c69add-c3f3-42a0-bf06-7feb0cf8328b",
+      "name": "Read Google Ads Lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1140,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns each Facebook Lead Ads Trigger item (Simplify Output on) into one lead record.\nconst settings = $('Settings').first().json;\n\n// Facebook's standard question keys, mapped to our columns. First match wins.\nconst FIELDS = {\n  full_name: ['full_name'],\n  first_name: ['first_name'],\n  last_name: ['last_name'],\n  email: ['email', 'work_email'],\n  phone: ['phone_number', 'work_phone_number'],\n  company: ['company_name'],\n  job_title: ['job_title'],\n  city: ['city'],\n  postal_code: ['zip_code', 'post_code', 'postal_code'],\n};\nconst MAPPED = new Set(Object.values(FIELDS).flat());\n\nconst clean = (v) => (v === null || v === undefined ? '' : String(v).trim());\n\nfunction splitName(full) {\n  const parts = full.split(/\\s+/).filter(Boolean);\n  if (parts.length < 2) return ['', parts[0] || ''];\n  return [parts.slice(0, -1).join(' '), parts[parts.length - 1]];\n}\n\nconst leads = [];\nfor (const [index, item] of $input.all().entries()) {\n  const fb = item.json;\n  const data = fb.data || {};\n  const lead = {};\n  for (const [column, keys] of Object.entries(FIELDS)) {\n    lead[column] = clean(keys.map((k) => data[k]).find((v) => clean(v) !== ''));\n  }\n  if (!lead.full_name) lead.full_name = [lead.first_name, lead.last_name].filter(Boolean).join(' ');\n  if (!lead.first_name && !lead.last_name && lead.full_name) {\n    [lead.first_name, lead.last_name] = splitName(lead.full_name);\n  }\n\n  // Answers to custom questions, keyed by the question's field name.\n  const other = {};\n  for (const [key, value] of Object.entries(data)) {\n    if (!MAPPED.has(key) && clean(value) !== '') other[key] = clean(value);\n  }\n\n  // Meta's Lead Ads Testing Tool fills answers with dummy values that start with \"<test lead\".\n  const isTest = Object.values(data).some((v) => /^<test lead/i.test(clean(v)));\n\n  leads.push({\n    json: {\n      lead_id: clean(fb.id),\n      source: 'Facebook Lead Ads',\n      created_time: clean(fb.created_time) || new Date().toISOString(),\n      full_name: lead.full_name,\n      first_name: lead.first_name,\n      last_name: lead.last_name,\n      email: lead.email.toLowerCase(),\n      phone: lead.phone,\n      company: lead.company,\n      job_title: lead.job_title,\n      city: lead.city,\n      postal_code: lead.postal_code,\n      other_answers: Object.keys(other).length ? JSON.stringify(other) : '',\n      form: clean(fb.form?.name) || clean(fb.form?.id),\n      campaign: clean(fb.adset?.name) || clean(fb.adset?.id),\n      ad: clean(fb.ad?.name) || clean(fb.ad?.id),\n      gclid: '',\n      is_test: isTest,\n      sync_status: isTest && !settings.send_test_leads_to_salesforce ? 'test lead, not sent to Salesforce' : 'pending',\n    },\n    pairedItem: { item: index },\n  });\n}\nreturn leads;\n"
+      },
+      "id": "0018dffd-fa0e-4945-b88e-41d57bc964a3",
+      "name": "Read Facebook Lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1140,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "lead_id"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "60bb63cc-bbae-41b5-9751-f30bd7a4780c",
+      "name": "Save Lead to Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1380,
+        110
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-oauth2",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "60043e56-be4f-4d02-a5b2-e54d3f6c8970",
+              "leftValue": "={{ $json.sync_status }}",
+              "rightValue": "pending",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "caab1d7a-5a75-4f01-b06b-ed3ac996e881",
+      "name": "Send to Salesforce?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1600,
+        110
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds one SOQL query that finds existing, unconverted Salesforce Leads for every email in this run.\nconst escapeSoql = (s) => String(s)\n  .replace(/\\\\/g, '\\\\\\\\')\n  .replace(/'/g, \"\\\\'\")\n  .replace(/\"/g, '\\\\\"')\n  .replace(/\\n/g, '\\\\n')\n  .replace(/\\r/g, '\\\\r');\n\nconst items = $input.all();\nconst emails = [...new Set(items.map((i) => String(i.json.email || '').toLowerCase()).filter(Boolean))];\n\nconst soql = emails.length\n  ? 'SELECT Id, Email, FirstName, LastName, Company, Phone, Title, City, PostalCode FROM Lead ' +\n    `WHERE IsConverted = false AND Email IN (${emails.map((e) => `'${escapeSoql(e)}'`).join(', ')}) ` +\n    'ORDER BY CreatedDate DESC'\n  // No emails to look up, so run a query that returns nothing and every lead is created.\n  : 'SELECT Id FROM Lead WHERE Id = null';\n\nreturn items.map((item, index) => ({ json: { ...item.json, soql }, pairedItem: { item: index } }));\n"
+      },
+      "id": "e56e12d8-48b6-4a4d-a993-4ac5fc044cbd",
+      "name": "Build Salesforce Lookup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        90
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "search",
+        "operation": "query",
+        "query": "={{ $json.soql }}"
+      },
+      "id": "5dc1cd7f-39fb-4b85-b314-63b81d36931c",
+      "name": "Find Existing Leads",
+      "type": "n8n-nodes-base.salesforce",
+      "typeVersion": 1.1,
+      "position": [
+        2060,
+        90
+      ],
+      "credentials": {
+        "salesforceOAuth2Api": {
+          "id": "salesforce-oauth2",
+          "name": "Salesforce"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pairs each lead with the Salesforce Lead found by email, and prepares the Salesforce field values.\nconst settings = $('Settings').first().json;\nconst leads = $('Build Salesforce Lookup').all().map((i) => i.json);\nconst results = $input.all().map((i) => i.json);\n\n// Find Existing Leads continues on error, so a failed lookup arrives here as { error }.\nconst failed = results.find((r) => r.error);\nconst lookupError = failed ? [failed.error, failed.description].filter(Boolean).join(': ') : '';\n\n// Newest unconverted Lead per email (the query sorts by CreatedDate, newest first).\nconst existingByEmail = {};\nfor (const r of results) {\n  const key = String(r.Email || '').toLowerCase();\n  if (r.Id && key && !existingByEmail[key]) existingByEmail[key] = r;\n}\n\n// Trim values to Salesforce's standard Lead field lengths so a long answer can't fail the sync.\nconst cut = (v, max) => String(v || '').trim().slice(0, max);\n\nreturn leads.map((lead) => {\n  const existing = existingByEmail[lead.email] || null;\n  const fresh = {\n    first_name: cut(lead.first_name, 40),\n    last_name: cut(lead.last_name || lead.full_name, 80),\n    company: cut(lead.company, 255),\n    phone: cut(lead.phone, 40),\n    title: cut(lead.job_title, 128),\n    city: cut(lead.city, 40),\n    postal_code: cut(lead.postal_code, 20),\n  };\n\n  let action = existing ? 'update' : 'create';\n  if (lookupError) action = 'error';\n\n  let fields;\n  if (action === 'update') {\n    // Keep what Salesforce already has when the new form left a field blank.\n    fields = {\n      first_name: fresh.first_name || existing.FirstName || '',\n      last_name: fresh.last_name || existing.LastName || 'Unknown',\n      company: fresh.company || existing.Company || settings.default_company,\n      phone: fresh.phone || existing.Phone || '',\n      title: fresh.title || existing.Title || '',\n      city: fresh.city || existing.City || '',\n      postal_code: fresh.postal_code || existing.PostalCode || '',\n    };\n  } else {\n    fields = {\n      ...fresh,\n      last_name: fresh.last_name || 'Unknown',\n      company: fresh.company || cut(settings.default_company, 255),\n    };\n  }\n\n  let other = '';\n  if (lead.other_answers) {\n    try {\n      other = Object.entries(JSON.parse(lead.other_answers)).map(([q, a]) => `${q}: ${a}`).join('\\n');\n    } catch (e) {\n      other = lead.other_answers;\n    }\n  }\n  const description = [\n    `Lead from ${lead.source}.`,\n    lead.form ? `Form: ${lead.form}` : '',\n    lead.campaign ? `Campaign: ${lead.campaign}` : '',\n    lead.ad ? `Ad: ${lead.ad}` : '',\n    lead.gclid ? `GCLID: ${lead.gclid}` : '',\n    `Lead ID: ${lead.lead_id}`,\n    other ? `\\nOther answers:\\n${other}` : '',\n  ].filter(Boolean).join('\\n');\n\n  return {\n    json: {\n      lead_id: lead.lead_id,\n      sf_action: action,\n      sf_id: existing ? existing.Id : '',\n      email: cut(lead.email, 80),\n      ...fields,\n      lead_source: lead.source === 'Google Ads' ? settings.google_lead_source : settings.facebook_lead_source,\n      description: description.slice(0, 32000),\n      sync_error: lookupError,\n    },\n  };\n});\n"
+      },
+      "id": "6b0aa8a6-bbb6-4186-b772-4798c85781fb",
+      "name": "Match Existing Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2280,
+        90
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cac20068-5a58-4e2e-a0f0-ad543287493f",
+                    "leftValue": "={{ $json.sf_action }}",
+                    "rightValue": "update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Update"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "11fa355a-a55c-4ef8-b914-a8545a148338",
+                    "leftValue": "={{ $json.sf_action }}",
+                    "rightValue": "create",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Create"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "14065384-87ba-46fd-b814-cddf4d691ad7",
+                    "leftValue": "={{ $json.sf_action }}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Lookup failed"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "48d04821-08d0-4ea0-a164-7ced5131b402",
+      "name": "Create or Update?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2500,
+        90
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "lead",
+        "operation": "update",
+        "leadId": "={{ $json.sf_id }}",
+        "updateFields": {
+          "firstname": "={{ $json.first_name }}",
+          "lastname": "={{ $json.last_name }}",
+          "company": "={{ $json.company }}",
+          "phone": "={{ $json.phone }}",
+          "title": "={{ $json.title }}",
+          "city": "={{ $json.city }}",
+          "postalCode": "={{ $json.postal_code }}"
+        }
+      },
+      "id": "c8c937d6-43a8-4280-89b9-d3aa9965e380",
+      "name": "Update Salesforce Lead",
+      "type": "n8n-nodes-base.salesforce",
+      "typeVersion": 1.1,
+      "position": [
+        2760,
+        -40
+      ],
+      "credentials": {
+        "salesforceOAuth2Api": {
+          "id": "salesforce-oauth2",
+          "name": "Salesforce"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "resource": "lead",
+        "operation": "create",
+        "company": "={{ $json.company }}",
+        "lastname": "={{ $json.last_name }}",
+        "additionalFields": {
+          "firstname": "={{ $json.first_name }}",
+          "email": "={{ $json.email }}",
+          "phone": "={{ $json.phone }}",
+          "title": "={{ $json.title }}",
+          "city": "={{ $json.city }}",
+          "postalCode": "={{ $json.postal_code }}",
+          "leadSource": "={{ $json.lead_source }}",
+          "description": "={{ $json.description }}"
+        }
+      },
+      "id": "4f41277a-688a-430d-8a86-a3c53103eb24",
+      "name": "Create Salesforce Lead",
+      "type": "n8n-nodes-base.salesforce",
+      "typeVersion": 1.1,
+      "position": [
+        2760,
+        180
+      ],
+      "credentials": {
+        "salesforceOAuth2Api": {
+          "id": "salesforce-oauth2",
+          "name": "Salesforce"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "59d083a8-8fc8-4e39-bf33-c88c64b55012",
+              "name": "lead_id",
+              "value": "={{ $('Match Existing Leads').item.json.lead_id }}",
+              "type": "string"
+            },
+            {
+              "id": "779a7809-e772-491a-b33d-d718569698cf",
+              "name": "sync_status",
+              "value": "synced",
+              "type": "string"
+            },
+            {
+              "id": "723ccb7f-03bf-45c4-8e37-4765e37e5e0f",
+              "name": "salesforce_action",
+              "value": "={{ $('Match Existing Leads').item.json.sf_action === 'update' ? 'updated' : 'created' }}",
+              "type": "string"
+            },
+            {
+              "id": "ed20ac47-70ce-4770-9a03-59fdd8510ddf",
+              "name": "salesforce_id",
+              "value": "={{ $json.id || $('Match Existing Leads').item.json.sf_id }}",
+              "type": "string"
+            },
+            {
+              "id": "aaf6e4ce-0a8b-4262-9c1c-68c9a149eea2",
+              "name": "synced_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "58edb944-cf6e-40b0-9118-cef8c2fc8b79",
+              "name": "sync_error",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "350c8a8c-3763-4266-9cf0-03c6fc1216e5",
+      "name": "Mark Synced",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3020,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d6fa4a49-459c-4b1d-a3a3-558c0babfc01",
+              "name": "lead_id",
+              "value": "={{ $('Match Existing Leads').item.json.lead_id }}",
+              "type": "string"
+            },
+            {
+              "id": "1b7b7243-8598-457d-95d6-648d3190d1ee",
+              "name": "sync_status",
+              "value": "error",
+              "type": "string"
+            },
+            {
+              "id": "fdf6840a-0d26-411f-9798-477f1d7080aa",
+              "name": "salesforce_action",
+              "value": "={{ $('Match Existing Leads').item.json.sf_action === 'error' ? 'lookup failed' : $('Match Existing Leads').item.json.sf_action + ' failed' }}",
+              "type": "string"
+            },
+            {
+              "id": "fd4bf387-cb0d-4f4f-a79b-0b30a0507f99",
+              "name": "salesforce_id",
+              "value": "={{ $('Match Existing Leads').item.json.sf_id }}",
+              "type": "string"
+            },
+            {
+              "id": "9299ff5b-7086-4f7a-8ac5-54e386b54698",
+              "name": "synced_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "e0948c63-8739-4adf-83c5-84f765c8f184",
+              "name": "sync_error",
+              "value": "={{ $json.sync_error || [$json.error, $json.description].filter(Boolean).join(': ') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c49ba922-0001-42a0-8e00-346e02832df3",
+      "name": "Mark Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3020,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Save Lead to Sheet').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ ((s) => (s.match(/gid=(\\d+)/) ?? s.match(/^(\\d+)$/) ?? [])[1] ?? '')(String($('Save Lead to Sheet').params.sheetName.value ?? '')) }}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "lead_id"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "d680b9f9-b248-4d95-98d9-250f36efb70d",
+      "name": "Update Lead Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3260,
+        150
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-oauth2",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Connect Facebook Lead Ads and Google Ads to Google Sheets and Salesforce\n\nEvery new lead from a **Facebook Lead Ads** form or a **Google Ads lead form** is saved to a Google Sheet and sent to **Salesforce** as a Lead. If an unconverted Lead with the same email already exists, it's updated instead of duplicated. The Salesforce ID and sync result are written back to the lead's row.\n\n### Setup\n1. **Google Sheet:** create a **Leads** tab with this header row: `lead_id, source, created_time, full_name, first_name, last_name, email, phone, company, job_title, city, postal_code, other_answers, form, campaign, ad, gclid, is_test, sync_status, salesforce_action, salesforce_id, synced_at, sync_error`. Pick the sheet in **Save Lead to Sheet**.\n2. **Salesforce:** connect a Salesforce OAuth2 credential in the three Salesforce nodes.\n3. **Facebook:** connect a Facebook Lead Ads credential and pick the page and form in **Facebook Lead Ads Trigger**.\n4. **Google Ads:** in **Settings**, set `google_ads_webhook_key` to a long random string. In Google Ads, open the lead form, add a webhook integration with this workflow's production URL for **Google Ads Lead Webhook** and the same key, and click **Send test data**.\n5. Activate the workflow.\n\nOnly using one ad platform? Delete the other trigger.\n\nTest leads (Google's **Send test data**, Meta's Lead Ads Testing Tool) are saved to the sheet but not sent to Salesforce unless `send_test_leads_to_salesforce` is true.",
+        "height": 1000,
+        "width": 680,
+        "color": 5
+      },
+      "id": "fbc9c72d-3fb0-4ff0-b19b-9cbc8b3f7a3f",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Triggers and settings\n**Facebook Lead Ads Trigger** fires when someone submits your Facebook or Instagram lead form. **Google Ads Lead Webhook** receives Google Ads lead form submissions.\n\n**Settings** holds your Google Ads webhook key, the Lead Source values for each platform, the company name used when a lead leaves it blank, and whether test leads go to Salesforce.",
+        "height": 1000,
+        "width": 700,
+        "color": 7
+      },
+      "id": "17bdebb7-5f69-4981-9112-ea965d70ab0e",
+      "name": "Start",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Check and read the lead\nGoogle Ads leads must carry the key from **Settings**. A matching key gets the `200 {}` reply Google expects. A wrong or missing key gets a `403` and the lead is dropped.\n\n**Read Google Ads Lead** and **Read Facebook Lead** turn each platform's format into the same lead record. Answers to custom questions go in `other_answers`.",
+        "height": 1000,
+        "width": 680,
+        "color": 6
+      },
+      "id": "108bd74e-c84b-4c06-81e0-bcb68b1fe33a",
+      "name": "Section 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        660,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Save to Google Sheets\nEvery lead is added to the sheet, or its row is updated if the `lead_id` is already there.\n\nTest leads stop here unless `send_test_leads_to_salesforce` is on.",
+        "height": 1000,
+        "width": 440,
+        "color": 4
+      },
+      "id": "f67e0a2a-7af1-43b5-a0d8-47026e8c54ca",
+      "name": "Section 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Find or create the Salesforce Lead\n**Find Existing Leads** runs one SOQL query for every email in the run and finds unconverted Leads with the same email.\n\nA match is updated. Fields the new form left blank keep their Salesforce values. Everyone else becomes a new Lead with the Lead Source for their platform and the form, campaign, ad, and other answers in the Description.",
+        "height": 1000,
+        "width": 1140,
+        "color": 3
+      },
+      "id": "602574ff-478a-4d46-bef0-82e015b3ca56",
+      "name": "Section 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1820,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Write the result back\nThe lead's row gets the Salesforce ID, `created` or `updated`, the sync time, and `synced`.\n\nIf Salesforce rejects a lead or the lookup fails, the row gets `error` and Salesforce's message in `sync_error`, so no lead is lost.",
+        "height": 1000,
+        "width": 480,
+        "color": 2
+      },
+      "id": "6d8f4aee-bbba-48a7-8748-dbb56f813869",
+      "name": "Section 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2980,
+        -380
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Facebook Lead Ads Trigger": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Ads Lead Webhook": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "From Google Ads?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "From Google Ads?": {
+      "main": [
+        [
+          {
+            "node": "Google Key Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Facebook Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Key Valid?": {
+      "main": [
+        [
+          {
+            "node": "Accept Google Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject Google Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accept Google Lead": {
+      "main": [
+        [
+          {
+            "node": "Read Google Ads Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Google Ads Lead": {
+      "main": [
+        [
+          {
+            "node": "Save Lead to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Facebook Lead": {
+      "main": [
+        [
+          {
+            "node": "Save Lead to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Lead to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Send to Salesforce?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Salesforce?": {
+      "main": [
+        [
+          {
+            "node": "Build Salesforce Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Salesforce Lookup": {
+      "main": [
+        [
+          {
+            "node": "Find Existing Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Existing Leads": {
+      "main": [
+        [
+          {
+            "node": "Match Existing Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Existing Leads": {
+      "main": [
+        [
+          {
+            "node": "Create or Update?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create or Update?": {
+      "main": [
+        [
+          {
+            "node": "Update Salesforce Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Salesforce Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Salesforce Lead": {
+      "main": [
+        [
+          {
+            "node": "Mark Synced",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Salesforce Lead": {
+      "main": [
+        [
+          {
+            "node": "Mark Synced",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Synced": {
+      "main": [
+        [
+          {
+            "node": "Update Lead Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Error": {
+      "main": [
+        [
+          {
+            "node": "Update Lead Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

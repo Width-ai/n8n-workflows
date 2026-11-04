@@ -1,0 +1,899 @@
+{
+  "name": "Automate Google Reviews with AI Replies, Slack Approval and Sheets Logging",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 15,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "event": "reviewAdded",
+        "account": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "location": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "id": "bfb816a9-33de-4027-86b0-1ac066ce193b",
+      "name": "New Google Review",
+      "type": "n8n-nodes-base.googleBusinessProfileTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "credentials": {
+        "googleBusinessProfileOAuth2Api": {
+          "id": "google-business-profile",
+          "name": "Google Business Profile"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns each Google Business Profile review into clean fields.\n// A review's name looks like accounts/123/locations/456/reviews/AbC...\nconst STARS = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };\n\nreturn $input.all().map((item, index) => {\n  const review = item.json;\n  const name = String(review.name ?? '');\n  const parts = name.match(/^(accounts\\/[^/]+)\\/(locations\\/[^/]+)\\/reviews\\/([^/]+)$/) ?? [];\n  const reviewer = review.reviewer ?? {};\n  const displayName = reviewer.isAnonymous ? '' : String(reviewer.displayName ?? '').trim();\n  const firstName = /^a google user$/i.test(displayName) ? '' : displayName.split(/\\s+/)[0] ?? '';\n\n  return {\n    json: {\n      review_id: String(review.reviewId ?? parts[3] ?? ''),\n      review_name: name,\n      account: parts[1] ?? '',\n      location: parts[2] ?? '',\n      reviewer: displayName || 'A Google user',\n      reviewer_first_name: firstName,\n      rating: STARS[review.starRating] ?? 0,\n      review_text: String(review.comment ?? '').trim(),\n      review_created: review.createTime ?? '',\n      has_reply: Boolean(review.reviewReply?.comment),\n    },\n    pairedItem: { item: index },\n  };\n});\n"
+      },
+      "id": "1f356788-56f0-403b-bedc-3d2111b10a52",
+      "name": "Read Review",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "31cb0ef5-e500-4317-8ee3-432869020cfb",
+              "leftValue": "={{ $json.has_reply }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "10849f6f-49cd-4dbc-b190-78d6515f2d84",
+              "leftValue": "={{ $json.rating }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "a99c2072-b7a3-4e97-97ab-70eac75f4059",
+              "leftValue": "={{ $json.account }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "03ba4e69-7770-4ca1-a94b-c47e7399b336",
+      "name": "Needs a Reply?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "08a3512b-5652-42cd-8e62-6abdb8d1f04a",
+              "name": "business_name",
+              "value": "Your Business Name",
+              "type": "string"
+            },
+            {
+              "id": "1cd6dfa8-1cd6-4aa4-81a2-e6e5cf84d415",
+              "name": "tone",
+              "value": "warm, friendly and professional",
+              "type": "string"
+            },
+            {
+              "id": "1b97da54-1223-45f1-8270-5cff1053f0ba",
+              "name": "sign_off",
+              "value": "The Your Business Name Team",
+              "type": "string"
+            },
+            {
+              "id": "e9c9d0a5-4ce0-4982-be5e-5d5580ee4f28",
+              "name": "unhappy_contact",
+              "value": "Please email us at support@example.com or call (555) 123-4567 so we can make this right.",
+              "type": "string"
+            },
+            {
+              "id": "cb5e974c-5246-48e1-9d72-ff28bef01a38",
+              "name": "extra_instructions",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "7632d78d-77cd-4b68-8e65-c1da016c5dde",
+              "name": "auto_post_min_rating",
+              "value": 4,
+              "type": "number"
+            },
+            {
+              "id": "436b1e52-23d9-4d44-8f4a-fb6a2613707b",
+              "name": "test_mode",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "include": "all",
+        "options": {}
+      },
+      "id": "e0564d54-098a-4afe-8905-0e972d0505ab",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Reviewer first name: {{ $json.reviewer_first_name || 'not given, do not use a name' }}\nStar rating: {{ $json.rating }} out of 5\nReview text: {{ $json.review_text || '(no text, rating only)' }}",
+        "messages": {
+          "messageValues": [
+            {
+              "type": "SystemMessagePromptTemplate",
+              "message": "=You write public replies to Google reviews for {{ $json.business_name }}. Each reply is posted under the business's name on Google Search and Maps, where anyone can read it.\n\nWrite in a {{ $json.tone }} voice and follow these rules:\n- Reply in the same language as the review.\n- Keep it short: 2 to 4 sentences and under 90 words.\n- Thank the reviewer. Use their first name only if one is given.\n- Mention one specific thing they said, in your own words, so the reply does not read like a template.\n- If the review has no text, thank them for the rating in 1 or 2 sentences.\n- For 1 to 3 stars: apologize sincerely, do not argue or make excuses, do not admit fault, and invite them to continue offline with this contact line: {{ $json.unhappy_contact }}\n- For 4 and 5 stars: be warm and invite them back.\n- Never offer discounts, refunds, gifts or anything else in exchange for a review or for changing a review.\n- Never include private details such as order numbers, health information, last names or addresses.\n- Do not promise specific actions or results.\n- No hashtags, no emojis, and no links unless the contact line has one.\n- End with this sign-off on its own line: {{ $json.sign_off }}\n{{ $json.extra_instructions ? '- ' + $json.extra_instructions : '' }}\n\nReturn only the reply text, with no quotes, labels or notes."
+            }
+          ]
+        }
+      },
+      "id": "66dca458-06e4-4295-ac4e-c163e4520544",
+      "name": "Write Reply",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "options": {
+          "reasoningEffort": "low"
+        }
+      },
+      "id": "8a8e93f1-da4f-4815-aa25-d8a814ecc8ab",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        880,
+        520
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-api",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Cleans the AI draft, decides which reviews need a manager's approval,\n// and builds the Slack message for those reviews.\nconst MAX_REPLY = 4096; // Google's limit for a review reply\nconst MAX_SLACK_TEXT = 1100; // keeps the Slack message under Slack's 3,000 character limit\n\nconst shorten = (text, max) => (text.length > max ? text.slice(0, max).replace(/\\s+\\S*$/, '') + '...' : text);\n\nconst items = $input.all().map((item, index) => {\n  const review = $('Settings').itemMatching(index).json;\n\n  let draft = String(item.json.text ?? '').trim();\n  draft = draft.replace(/^[\"“]+|[\"”]+$/g, '').trim(); // drop quotes wrapped around the whole reply\n  if (draft.length > MAX_REPLY) draft = draft.slice(0, MAX_REPLY).replace(/\\s+\\S*$/, '');\n\n  const minRating = Number(review.auto_post_min_rating);\n  const threshold = Number.isFinite(minRating) ? minRating : 4;\n  const needsApproval = !draft || review.rating < threshold;\n\n  const stars = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);\n  const reviewText = review.review_text ? shorten(review.review_text, MAX_SLACK_TEXT) : '(No text, rating only)';\n  const slackMessage = [\n    `*New ${review.rating}-star Google review for ${review.business_name}*`,\n    `${stars}  from ${review.reviewer}`,\n    '',\n    reviewText,\n    '',\n    '*Suggested reply:*',\n    draft ? shorten(draft, MAX_SLACK_TEXT) : '(The AI did not return a reply. Write one in the form.)',\n    '',\n    'Click *Review reply* to post it, edit it first, or skip it.',\n  ].join('\\n');\n\n  const formDescription = [\n    `${review.rating}-star review from ${review.reviewer}:`,\n    review.review_text || '(No text, rating only)',\n    '',\n    'Edit the reply below if needed, then choose what to do.',\n  ].join('\\n');\n\n  return {\n    json: {\n      ...review,\n      ai_draft: draft,\n      needs_approval: needsApproval,\n      slack_message: slackMessage,\n      form_description: formDescription,\n    },\n    pairedItem: { item: index },\n  };\n});\n\n// Post the replies that need no approval first, so they never wait behind a Slack approval.\nitems.sort((a, b) => Number(a.json.needs_approval) - Number(b.json.needs_approval));\nreturn items;\n"
+      },
+      "id": "8a66c03b-59cc-4d15-99ba-72d05ec4a8fb",
+      "name": "Check Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "829e186b-7f80-4ca3-bd8f-9fc63d59618d",
+      "name": "Loop Over Reviews",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4470e04c-4cd4-40d6-afcd-3ebaca354b0a",
+              "leftValue": "={{ $json.needs_approval }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "30722f0b-7b40-401b-ab6b-9ae29e1d96f1",
+      "name": "Needs Approval?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1620,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "message": "={{ $json.slack_message }}",
+        "responseType": "customForm",
+        "defineForm": "fields",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "What should we do?",
+              "fieldName": "decision",
+              "fieldType": "radio",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Post this reply"
+                  },
+                  {
+                    "option": "Don't reply"
+                  }
+                ]
+              },
+              "defaultValue": "Post this reply",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Reply",
+              "fieldName": "reply",
+              "fieldType": "textarea",
+              "defaultValue": "={{ $json.ai_draft }}"
+            }
+          ]
+        },
+        "options": {
+          "messageButtonLabel": "Review reply",
+          "responseFormTitle": "=Reply to {{ $json.reviewer }}'s {{ $json.rating }}-star review",
+          "responseFormDescription": "={{ $json.form_description }}",
+          "responseFormButtonLabel": "Submit",
+          "limitWaitTime": {
+            "values": {
+              "limitType": "afterTimeInterval",
+              "resumeAmount": 24,
+              "resumeUnit": "hours"
+            }
+          },
+          "appendAttribution": false
+        }
+      },
+      "id": "9751224d-0084-42c8-a6f7-2ac52f1f8ee7",
+      "name": "Ask in Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        1860,
+        200
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-bot",
+          "name": "Slack"
+        }
+      },
+      "webhookId": "4d4d311a-f070-42eb-a17d-0b48b3096fc0"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Reads the manager's answer from the Slack form.\n// When the wait time runs out with no answer, Slack passes the review through without a \"data\" field.\nconst POST = 'Post this reply';\nconst review = $('Loop Over Reviews').item.json;\nconst answer = $json.data;\nconst clean = (text) => String(text ?? '').replace(/\\r\\n/g, '\\n').trim();\n\nlet action = 'skip';\nlet decision = 'no response';\nlet finalReply = '';\n\nif (answer) {\n  const edited = clean(answer.reply);\n  if (answer.decision === POST) {\n    finalReply = (edited || clean(review.ai_draft)).slice(0, 4096);\n    if (!finalReply) decision = 'skipped';\n    else {\n      action = 'post';\n      decision = edited && edited !== clean(review.ai_draft) ? 'edited' : 'approved';\n    }\n  } else {\n    decision = 'skipped';\n  }\n}\n\nreturn {\n  json: {\n    ...review,\n    action,\n    final_reply: finalReply,\n    decision,\n    responded_at: answer?.respondedAt ?? '',\n  },\n};\n"
+      },
+      "id": "fe40254b-debb-4545-a6a1-2871d20cbef0",
+      "name": "Read Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8c9307be-4639-47d5-8c2a-d332ff1a823f",
+              "name": "action",
+              "value": "post",
+              "type": "string"
+            },
+            {
+              "id": "360ed332-0f60-4d04-aad7-8e83af91ce84",
+              "name": "final_reply",
+              "value": "={{ $json.ai_draft }}",
+              "type": "string"
+            },
+            {
+              "id": "f831da34-0240-4576-a052-db1747a71ea4",
+              "name": "decision",
+              "value": "auto",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "include": "all",
+        "options": {}
+      },
+      "id": "fdd784ed-9623-43ef-b40b-e02c52b73393",
+      "name": "Use AI Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1960,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f5765c84-fb47-4868-925c-4310d0cd550a",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "post",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "a3773e1c-0999-4e86-9b61-ea78e3366825",
+                    "leftValue": "={{ $json.test_mode }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "false",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Post to Google"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a7a07e17-feb6-486e-88c8-1f16483c4b42",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "post",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "00ac1b04-6c6c-49b7-86b7-10532021215c",
+                    "leftValue": "={{ $json.test_mode }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Test mode"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "c3b79554-56d1-40d6-b708-961b75b1fd34",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "post",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Skip"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4593195d-0c9c-4c5d-856e-73967bedb46e",
+      "name": "Route Reply",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2320,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "review",
+        "operation": "reply",
+        "account": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $json.account }}"
+        },
+        "location": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $json.location }}"
+        },
+        "review": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $json.review_name }}"
+        },
+        "reply": "={{ $json.final_reply }}"
+      },
+      "id": "02460b18-3241-45c1-8ae6-7fc89cc83ef2",
+      "name": "Post Reply to Google",
+      "type": "n8n-nodes-base.googleBusinessProfile",
+      "typeVersion": 1,
+      "position": [
+        2560,
+        200
+      ],
+      "credentials": {
+        "googleBusinessProfileOAuth2Api": {
+          "id": "google-business-profile",
+          "name": "Google Business Profile"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Builds one Google Sheets row per review, whichever path it took.\n// decision: auto, approved, edited, skipped, no response\n// status:   posted, test mode, not posted, error\nconst review = $('Route Reply').item.json;\nconst from = $prevNode.name;\nconst output = $prevNode.outputIndex;\n\nlet status = 'not posted';\nlet postedAt = '';\nlet error = '';\n\nif (from === 'Post Reply to Google') {\n  if (output === 0) {\n    status = 'posted';\n    postedAt = $json.updateTime ?? $now.toISO();\n  } else {\n    status = 'error';\n    const err = $input.item.error ?? $json.error;\n    error = String(err?.description ?? err?.message ?? err ?? 'Google did not accept the reply. Open the execution for details.');\n  }\n} else if (review.action === 'post') {\n  status = 'test mode';\n}\n\nreturn {\n  json: {\n    review_id: review.review_id,\n    location: review.location,\n    reviewer: review.reviewer,\n    rating: review.rating,\n    review_text: review.review_text,\n    review_created: review.review_created,\n    ai_draft: review.ai_draft,\n    final_reply: review.final_reply ?? '',\n    decision: review.decision,\n    status,\n    posted_at: postedAt,\n    error,\n    logged_at: $now.toISO(),\n  },\n};\n"
+      },
+      "id": "167ff79e-2b29-4c69-80d8-0800e62006fe",
+      "name": "Build Log Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2820,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "review_id"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "989fd5de-fab8-4a3a-90f3-8d2194de06a1",
+      "name": "Log to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3040,
+        320
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## How to automate Google reviews with AI replies\n\nThis workflow replies to your Google Business Profile reviews for you. It does not ask customers for reviews; it answers the ones you get.\n\n**How it works**\n1. Every 15 minutes it checks one Business Profile location for new reviews that have no reply yet.\n2. AI writes a short reply in your voice that mentions what the reviewer said.\n3. Reviews rated at or above `auto_post_min_rating` (4 by default) get the reply posted automatically.\n4. Lower ratings go to Slack first. A manager can post the AI reply, edit it, or skip it.\n5. Every review is logged to Google Sheets with the draft, the final reply, the decision and the status.\n\n**Setup**\n- **Google Business Profile:** your Google Cloud project needs Business Profile API access approved by Google and three APIs enabled: **Google My Business API**, **My Business Account Management API** and **My Business Business Information API**. Create a Google Business Profile credential (scope `https://www.googleapis.com/auth/business.manage`), then pick the account and location in **New Google Review**.\n- **OpenAI:** add your API key to **OpenAI Chat Model**.\n- **Slack:** connect a bot and pick a channel in **Ask in Slack**. Your n8n URL must be reachable from the manager's browser.\n- **Google Sheets:** pick a spreadsheet and tab in **Log to Google Sheets**. A blank tab is fine; the headers are added on the first run.\n- **Settings:** fill in your business name, tone, sign-off and contact line.\n\n`test_mode` is on by default: nothing is posted to Google and rows are logged as **test mode**. Turn it off when the drafts look right.",
+        "height": 1080,
+        "width": 680,
+        "color": 5
+      },
+      "id": "a59371da-0b16-4d08-9ef0-53ba4e8a82c5",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Catch new reviews\n**New Google Review** polls the location every 15 minutes and starts when the total review count goes up. The first poll after you activate the workflow only records the count, so existing reviews are left alone.\n\n**Read Review** turns the star rating into a number and pulls out the reviewer's first name. **Needs a Reply?** drops reviews that already have a reply.\n\n**Settings** holds your business details, the auto-post threshold and `test_mode`.",
+        "height": 760,
+        "width": 900,
+        "color": 7
+      },
+      "id": "4adc2b72-0131-4192-8b46-5f2fbd446ec1",
+      "name": "Section 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Draft the reply with AI\n**Write Reply** asks the model for a 2 to 4 sentence reply in the reviewer's language. It never offers incentives and gives unhappy customers your contact line.\n\n**Check Draft** cleans the reply and decides which reviews need approval.",
+        "height": 760,
+        "width": 500,
+        "color": 6
+      },
+      "id": "3a88c60d-2966-47ab-b4a8-0c35a929405f",
+      "name": "Section 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        860,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Approve low ratings in Slack\nReviews go through one at a time. **Needs Approval?** sends ratings below `auto_post_min_rating` (and any empty draft) to **Ask in Slack**. The manager opens a form with the AI reply already filled in and chooses **Post this reply** (as is or edited) or **Don't reply**.\n\nIf nobody answers within 24 hours, the review is logged as **no response** and nothing is posted.",
+        "height": 760,
+        "width": 880,
+        "color": 4
+      },
+      "id": "9ccb5850-5975-4043-ac9b-6d6204f8e882",
+      "name": "Section 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1380,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Post the reply and log it\n**Route Reply** posts the reply with **Post Reply to Google**, or skips posting in test mode or when the manager chose **Don't reply**.\n\n**Log to Google Sheets** adds or updates one row per review, matched on `review_id`. `status` is **posted**, **test mode**, **not posted** or **error**, and `error` holds Google's message when a reply fails.",
+        "height": 760,
+        "width": 960,
+        "color": 3
+      },
+      "id": "99ec35c0-fe9d-4ca7-8d6b-4e36f576bdf6",
+      "name": "Section 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2280,
+        -100
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "New Google Review": {
+      "main": [
+        [
+          {
+            "node": "Read Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Review": {
+      "main": [
+        [
+          {
+            "node": "Needs a Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs a Reply?": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Write Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Reply": {
+      "main": [
+        [
+          {
+            "node": "Check Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Draft": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Reviews": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Needs Approval?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Approval?": {
+      "main": [
+        [
+          {
+            "node": "Ask in Slack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Use AI Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask in Slack": {
+      "main": [
+        [
+          {
+            "node": "Read Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Decision": {
+      "main": [
+        [
+          {
+            "node": "Route Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use AI Reply": {
+      "main": [
+        [
+          {
+            "node": "Route Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Reply": {
+      "main": [
+        [
+          {
+            "node": "Post Reply to Google",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Log Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Log Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post Reply to Google": {
+      "main": [
+        [
+          {
+            "node": "Build Log Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Log Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Log Row": {
+      "main": [
+        [
+          {
+            "node": "Log to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write Reply",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

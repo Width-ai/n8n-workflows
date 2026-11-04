@@ -25,11 +25,21 @@ Instagram and Facebook video downloader Telegram bot with a Google Drive and Goo
 
 Download TikTok videos without watermarks with an n8n form, plus bulk downloads from Google Sheets to Google Drive: https://github.com/Width-ai/n8n-workflows/blob/main/Download%20TikTok%20Videos%20Without%20Watermarks.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/Download%20TikTok%20Videos%20Without%20Watermarks.md)
 
+Facebook spy tool that scrapes competitor ads from the Meta Ad Library with Apify, analyzes each creative with OpenAI, and logs the breakdowns to Google Sheets: https://github.com/Width-ai/n8n-workflows/blob/main/ai-facebook-ad-spy-tool.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/ai-facebook-ad-spy-tool.md)
+
+Automate Google reviews with AI replies to Google Business Profile reviews, Slack approval for low ratings, and Google Sheets logging: https://github.com/Width-ai/n8n-workflows/blob/main/automate-google-reviews-ai-replies.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/automate-google-reviews-ai-replies.md)
+
 ## n8n event automation examples
 QR ticket scanner and validator with instant check-in results, duplicate detection, ticket rules, and alerts: https://github.com/Width-ai/n8n-workflows/blob/main/Validate%20QR%20tickets%20in%20real%20time%20with%20n8n%20Forms%20and%20Google%20Sheets.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/Validate%20QR%20tickets%20in%20real%20time%20with%20n8n%20Forms%20and%20Google%20Sheets.md)
 
 ## n8n AI chatbot examples
 AI WhatsApp chatbot that answers text, voice notes, images, and PDFs with OpenAI, with spoken replies to voice notes and per-user memory: https://github.com/Width-ai/n8n-workflows/blob/main/AI-Powered%20WhatsApp%20Chatbot%20for%20Text%2C%20Voice%2C%20Images%20%26%20PDFs.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/AI-Powered%20WhatsApp%20Chatbot%20for%20Text%2C%20Voice%2C%20Images%20%26%20PDFs.md)
 
+AI lead generation agent that finds local businesses with Google Places, researches their websites with Pumice, scores fit, and saves qualified leads to Google Sheets: https://github.com/Width-ai/n8n-workflows/blob/main/ai-lead-generation-agent.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/ai-lead-generation-agent.md)
+
 ## n8n CRM and ERP integration examples
 HubSpot to NetSuite integration that turns Closed Won deals into NetSuite sales orders, matches or creates customers by email, syncs invoice payment status back to HubSpot deals, and posts errors to Slack: https://github.com/Width-ai/n8n-workflows/blob/main/hubspot-to-netsuite-sales-order-and-invoice-sync.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/hubspot-to-netsuite-sales-order-and-invoice-sync.md)
+
+Connect Facebook Lead Ads and Google Ads lead forms to Google Sheets and Salesforce, with duplicate lead checks and sync status on each row: https://github.com/Width-ai/n8n-workflows/blob/main/connect-facebook-lead-ads-google-sheets-salesforce.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/connect-facebook-lead-ads-google-sheets-salesforce.md)
+
+Automate sales proposals from call transcripts, with AI-written scope, catalog pricing, a Google Doc proposal, and a Gmail draft for the client: https://github.com/Width-ai/n8n-workflows/blob/main/automate-sales-proposals-from-call-transcripts.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/automate-sales-proposals-from-call-transcripts.md)
