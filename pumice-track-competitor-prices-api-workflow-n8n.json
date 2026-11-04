@@ -1,0 +1,1321 @@
+{
+  "name": "Track Competitor Prices API with Pumice AI",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "4e2fedae-7b41-4886-a625-b493e8187e68",
+      "name": "Check Competitor Prices Daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "da2af7b3-c218-4ea1-abc7-f18db2a475a5",
+              "name": "alert_change_percent",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "464c7f8f-a1e4-495b-8edb-419eef6395ad",
+              "name": "default_currency",
+              "value": "USD",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "53d946a2-3a3b-482e-92df-f609de3a2575",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "265896bd-aac4-4dc2-9386-bda69da7c308",
+      "name": "Get Competitor List",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Competitor List').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Latest Prices"
+        },
+        "options": {}
+      },
+      "id": "4488526a-7375-4805-98ac-66f79d55ad1f",
+      "name": "Get Latest Prices",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -440,
+        300
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns each row of the competitor list into a price check.\n// A row has either a product_url (the competitor's product page), or a competitor_url plus\n// a SKU, UPC, MPN, or product name to search that site for.\nconst rows = $('Get Competitor List').all().map((i) => i.json);\n\nconst text = (v) => String(v ?? '').trim();\n// (URL() isn't available in n8n's Code node, so URLs are read with patterns)\nconst hostOf = (url) => (url.match(/^https?:\\/\\/([^/?#:\\s]+)/i)?.[1] ?? '').toLowerCase();\nconst domainOf = (value) => text(value).toLowerCase()\n  .replace(/^https?:\\/\\//, '').replace(/[/?#:].*$/, '').replace(/^www\\./, '');\n// Drops tracking parameters and the #fragment, so the same page always gets the same key\nconst cleanUrl = (url) => {\n  const [base] = url.split('#');\n  const [path, query = ''] = base.split('?');\n  const kept = query.split('&').filter((p) => p && !/^(utm_[a-z]+|gclid|gbraid|wbraid|fbclid|msclkid|srsltid|_ga|mc_cid|mc_eid)=/i.test(p));\n  const host = hostOf(path);\n  const rest = path.replace(/^https?:\\/\\/[^/?#]+/i, '').replace(/(.)\\/$/, '$1');\n  return `https://${host}${rest}${kept.length ? `?${kept.join('&')}` : ''}`;\n};\n// Sheets drops the leading zero of a 12-digit UPC stored as a number\nconst cleanUpc = (v) => {\n  const s = text(v).replace(/\\s|-/g, '');\n  return /^\\d{11}$/.test(s) ? `0${s}` : s;\n};\n\nconst out = [];\nfor (const row of rows) {\n  const ids = { sku: text(row.sku), upc: cleanUpc(row.upc), mpn: text(row.mpn) };\n  const productName = text(row.product_name);\n  const brand = text(row.brand);\n  const productUrl = text(row.product_url).match(/https?:\\/\\/\\S+/i)?.[0] ?? '';\n  const siteInput = text(row.competitor_url);\n  if (!productUrl && !siteInput && !ids.sku && !ids.upc && !ids.mpn && !productName) continue;\n\n  const savedUrl = text(row.matched_url).match(/^https?:\\/\\/\\S+/i)?.[0] ?? '';\n  const domain = domainOf(productUrl || savedUrl || siteInput);\n  const base = {\n    list_row: row.row_number,\n    competitor: text(row.competitor) || domain,\n    domain,\n    product_name: productName,\n    brand,\n    ...ids,\n  };\n  const add = (json) => out.push({ json: { ...base, ...json }, pairedItem: { item: 0 } });\n  const fail = (code, error) => add({ lookup: 'error', ok: false, code, error });\n\n  // A product page you gave, or one matched on an earlier run: price it directly\n  if (productUrl || savedUrl) {\n    const url = cleanUrl(productUrl || savedUrl);\n    add({ lookup: 'url', found_by: productUrl ? 'product url' : 'search', productUrl: url, product_key: url });\n    continue;\n  }\n\n  if (!/^[a-z0-9-]+(\\.[a-z0-9-]+)+$/.test(domain)) {\n    fail('invalid_request', 'Add the competitor\\'s website in competitor_url (for example bestbuy.com), or the product page in product_url.');\n    continue;\n  }\n\n  // Search the competitor's site for the most specific identifier the row has\n  const identifier = ids.mpn || ids.upc || ids.sku || productName;\n  if (!identifier) {\n    fail('invalid_request', 'Add a SKU, UPC, MPN, or product name to search the competitor\\'s site for, or the product page in product_url.');\n    continue;\n  }\n  add({\n    lookup: 'search',\n    found_by: 'search',\n    searched_for: identifier,\n    searchQuery: `site:${domain} ${identifier}`,\n  });\n}\n\nreturn out;\n"
+      },
+      "id": "e5ca478a-f255-4150-8a56-65b81793b623",
+      "name": "Plan Daily Checks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b54e8cac-799e-45b4-9508-845c587567d9",
+                    "leftValue": "={{ $json.lookup }}",
+                    "rightValue": "search",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Search the competitor's site"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Product page or invalid row"
+        }
+      },
+      "id": "c13244db-44ea-4030-a62a-157fbc1f9774",
+      "name": "How to Find the Product?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/scraper/universal",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": {{ JSON.stringify($json.searchQuery) }}\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "c325f252-be50-437a-b8be-ad968af0f11a",
+      "name": "Search Competitor Site",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        260,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Takes the top pages on the competitor's site from Pumice Universal Search for each row.\n// Each one is scraped and checked with Pumice product matching before it is used.\nconst MAX_CANDIDATES = 3;\nconst out = [];\n\nconst hostOf = (url) => (String(url).match(/^https?:\\/\\/([^/?#:\\s]+)/i)?.[1] ?? '').toLowerCase();\nconst cleanUrl = (url) => {\n  const [base] = String(url).split('#');\n  const [path, query = ''] = base.split('?');\n  const kept = query.split('&').filter((p) => p && !/^(utm_[a-z]+|gclid|gbraid|wbraid|fbclid|msclkid|srsltid|_ga|mc_cid|mc_eid)=/i.test(p));\n  const host = hostOf(path);\n  const rest = path.replace(/^https?:\\/\\/[^/?#]+/i, '').replace(/(.)\\/$/, '$1');\n  return `https://${host}${rest}${kept.length ? `?${kept.join('&')}` : ''}`;\n};\n\n$input.all().forEach((item, i) => {\n  let request;\n  try {\n    request = $('How to Find the Product?').itemMatching(i).json;\n  } catch (e) {\n    request = $('How to Find the Product?').all(0)[i].json;\n  }\n  const res = item.json;\n\n  // The response shape can vary, so check the common containers\n  let list = res.results ?? res.data ?? res.items ?? res.pages ?? res.urls ?? res.organic ?? [];\n  if (list && !Array.isArray(list) && Array.isArray(list.results)) list = list.results;\n  if (!Array.isArray(list)) list = [];\n\n  const seen = new Set();\n  const pages = [];\n  for (const r of list) {\n    const url = typeof r === 'string' ? r : (r?.url || r?.link || r?.source_url || r?.page_url || '');\n    const host = hostOf(url);\n    // Only pages on the competitor's site (any subdomain), and not its home page or search results\n    const onSite = host === request.domain || host.endsWith(`.${request.domain}`);\n    const isHome = /^https?:\\/\\/[^/?#]+\\/?$/i.test(url);\n    const isSearch = /\\/search|searchpage|[?&](q|query|st|k|search|searchTerm)=/i.test(url);\n    if (!onSite || isHome || isSearch) continue;\n    const clean = cleanUrl(url);\n    if (seen.has(clean)) continue;\n    seen.add(clean);\n    pages.push(clean);\n    if (pages.length >= MAX_CANDIDATES) break;\n  }\n\n  if (!pages.length) {\n    const reason = typeof res.error === 'string' ? res.error : res.error?.message;\n    out.push({\n      json: {\n        ...request,\n        lookup: 'error',\n        ok: false,\n        code: reason ? 'scrape_failed' : 'not_found',\n        error: reason\n          ? `Pumice Universal Search failed (${reason}). It will be tried again on the next run.`\n          : `No pages on ${request.domain} were found for \"${request.searched_for}\". Try another identifier, or add the product page in product_url.`,\n      },\n      pairedItem: { item: i },\n    });\n    return;\n  }\n\n  pages.forEach((url, rank) => {\n    out.push({\n      json: { ...request, productUrl: url, product_key: url, candidate_rank: rank + 1, candidate_count: pages.length },\n      pairedItem: { item: i },\n    });\n  });\n});\n\nreturn out;\n"
+      },
+      "id": "15f91f8f-debf-4233-8dd5-598d2a8ae9d4",
+      "name": "Pick Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "76cb6744-7258-4696-a0a6-2d07fb8a4a52",
+              "leftValue": "={{ $json.ok !== false }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8225c182-5fd0-41b4-ba25-e31f1535cfb5",
+      "name": "Any Candidates?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/scraper/smart-scrape",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": \"This is a page on an online store. If it is the page for a single product, extract these fields and use null for anything that isn't shown on the page: title (the product name); brand; sku (the store's SKU or item number); upc (the UPC, GTIN, or EAN barcode number); mpn (the manufacturer's part or model number); description (the key features, as plain text). If it is not a single product page, such as a search, category, or article page, return null for every field.\",\n  \"source_url\": {{ JSON.stringify($json.productUrl) }}\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "c204ce4a-2415-498d-bc99-0126dad7633b",
+      "name": "Scrape Candidate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        920,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Builds the two product records for Pumice product matching:\n// product_1 is the row you entered, product_2 is the page Smart Scrape just read.\nconst candidate = $('Pick Candidates').item.json;\nconst res = $input.item.json;\n\nlet d = res.data ?? res.result ?? res.output ?? res.extracted ?? res;\nif (typeof d === 'string') {\n  try { d = JSON.parse(d); } catch (e) { d = {}; }\n}\nif (Array.isArray(d)) d = d[0] ?? {};\nd = d && typeof d === 'object' ? d : {};\nconst text = (v) => (Array.isArray(v) ? v.join(' ') : String(v ?? '')).trim();\nconst compact = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v));\n\n// The SKU is only compared when the row has no title, UPC, or MPN, because SKUs are often store-specific\nconst useSku = !candidate.product_name && !candidate.upc && !candidate.mpn;\nconst product1 = compact({\n  title: candidate.product_name,\n  brand: candidate.brand,\n  upc: candidate.upc,\n  mpn: candidate.mpn,\n  sku: useSku ? candidate.sku : '',\n});\nconst product2 = compact({\n  title: text(d.title ?? d.product_title ?? d.name),\n  brand: text(d.brand),\n  upc: text(d.upc ?? d.gtin ?? d.ean),\n  mpn: text(d.mpn ?? d.model_number ?? d.model),\n  sku: text(d.sku),\n  description: text(d.description ?? d.features).slice(0, 1500),\n});\n\nreturn {\n  json: {\n    ...candidate,\n    scraped_title: product2.title ?? '',\n    // The product matching endpoint expects each product as a JSON string\n    product_1: JSON.stringify(product1),\n    product_2: JSON.stringify(product2),\n  },\n};\n"
+      },
+      "id": "014a583f-da42-4193-a051-14c97b062b85",
+      "name": "Prepare Match",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1140,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/v1/merchandising-api/product_matching",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ product_1: $json.product_1, product_2: $json.product_2, customer_rules: [], fields: '', examples: '' }) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "2d65e1e0-eb6e-45ca-be3e-3188c02b7f74",
+      "name": "Match Product",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1360,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Reads Pumice product matching's answer for one candidate: yes, no, or error.\nconst candidate = $('Prepare Match').item.json;\nconst res = $input.item.json;\nconst answer = String(res.answer ?? res.data?.answer ?? res.result?.answer ?? '').trim().toLowerCase();\nconst reason = typeof res.error === 'string' ? res.error : res.error?.message;\n\nconst { product_1, product_2, ...rest } = candidate;\nreturn {\n  json: {\n    ...rest,\n    match: answer === 'yes' ? 'yes' : answer === 'no' ? 'no' : 'error',\n    match_error: answer === 'yes' || answer === 'no' ? '' : (reason || 'No answer from product matching'),\n  },\n};\n"
+      },
+      "id": "97f1ed88-cc9f-4df8-9ca7-fb8e408376d8",
+      "name": "Read Match",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1580,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "512ba023-3bfc-4f8d-833e-cf0fdfa34583",
+      "name": "Search Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Picks, for each row, the highest-ranked search result that product matching confirmed\n// is the same product. Rows where no result matched get an error instead.\nconst rows = new Map();\nconst out = [];\n\n$input.all().forEach((item, i) => {\n  const r = item.json;\n  if (r.ok === false) {\n    out.push({ json: r, pairedItem: { item: i } });\n    return;\n  }\n  if (!rows.has(r.list_row)) rows.set(r.list_row, []);\n  rows.get(r.list_row).push({ r, i });\n});\n\nfor (const list of rows.values()) {\n  list.sort((a, b) => a.r.candidate_rank - b.r.candidate_rank);\n  const hit = list.find(({ r }) => r.match === 'yes');\n  const { r: first, i } = hit ?? list[0];\n  const { candidate_rank, candidate_count, match, match_error, scraped_title, ...base } = first;\n\n  if (hit) {\n    out.push({ json: { ...base, lookup: 'url' }, pairedItem: { item: i } });\n    continue;\n  }\n\n  const allFailed = list.every(({ r }) => r.match === 'error');\n  const checked = list\n    .map(({ r }) => (r.scraped_title ? `${r.productUrl} (${r.scraped_title.slice(0, 60)})` : r.productUrl))\n    .join(', ');\n  out.push({\n    json: {\n      ...base,\n      productUrl: '',\n      product_key: '',\n      lookup: 'error',\n      ok: false,\n      code: allFailed ? 'match_failed' : 'no_match',\n      error: allFailed\n        ? `Pumice product matching failed (${first.match_error}). It will be tried again on the next run.`\n        : `None of the top ${list.length} results on ${base.domain} for \"${base.searched_for}\" matched. Checked: ${checked}. Add the product page in product_url instead.`,\n    },\n    pairedItem: { item: i },\n  });\n}\n\nreturn out;\n"
+      },
+      "id": "efa77a2a-0215-4312-8c22-42c88cbf238d",
+      "name": "Pick Matched Product",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2020,
+        300
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "51ce393e-80a6-4211-b53e-b1f2e59e8800",
+      "name": "All Product Pages",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keeps one price check per product page. Rows with a product_url come first,\n// then rows found by search, so the first one wins.\nconst firstRow = new Map();\n\nreturn $input.all().map((item, i) => {\n  const j = item.json;\n  if (j.ok === false || !j.product_key) return { json: j, pairedItem: { item: i } };\n\n  if (firstRow.has(j.product_key)) {\n    return {\n      json: { ...j, ok: false, code: 'duplicate', error: `${j.product_key} is already tracked from row ${firstRow.get(j.product_key)}.` },\n      pairedItem: { item: i },\n    };\n  }\n  firstRow.set(j.product_key, j.list_row);\n  return { json: j, pairedItem: { item: i } };\n});\n"
+      },
+      "id": "f5323589-d656-4329-a428-4a589bbf7e6e",
+      "name": "Remove Duplicate Products",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "eb78fc42-ce88-48d4-b0f1-9f941726f240",
+              "leftValue": "={{ $json.ok !== false }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b332f590-ca6f-47e8-9f5e-66e302a2a0d7",
+      "name": "Product Page Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/scraper/smart-scrape",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": \"This is a product page on an online store. Extract these fields and use null for anything that isn't shown on the page: title (the product name); price (the current price a customer pays now for one unit, as a number without the currency symbol; use the sale price if there is one); currency (3-letter code such as USD); list_price (the regular or crossed-out price, as a number, only if the product is on sale); availability (the stock or availability text, such as In stock or Sold out); in_stock (true or false); rating (the average star rating out of 5, as a number); review_count (the number of reviews, as a number).\",\n  \"source_url\": {{ JSON.stringify($json.productUrl) }}\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "6044163e-6f88-472d-b64d-2fbee9763f6b",
+      "name": "Scrape Price",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2940,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Turns Pumice Smart Scrape's output into a clean price record, and compares it with the\n// product's row in the Latest Prices tab to find price changes and stock changes.\nconst request = $('Remove Duplicate Products').item.json;\nconst res = $input.item.json;\nconst settings = $('Settings').first().json;\n\nconst fail = (code, error, extra = {}) => ({ json: { ...request, ...extra, ok: false, code, error } });\n\nif (res.error && res.data === undefined && res.result === undefined) {\n  const reason = typeof res.error === 'string' ? res.error : res.error?.message;\n  return fail('scrape_failed', `Pumice Smart Scrape failed${reason ? ` (${reason})` : ''}. It will be tried again on the next run.`);\n}\n\n// The extracted fields can arrive at the top level or nested, as an object or a JSON string\nlet d = res.data ?? res.result ?? res.output ?? res.extracted ?? res;\nif (typeof d === 'string') {\n  try { d = JSON.parse(d); } catch (e) { d = {}; }\n}\nif (Array.isArray(d)) d = d[0] ?? {};\nif (d && typeof d === 'object' && d.price === undefined && d.product && typeof d.product === 'object') d = d.product;\nd = d ?? {};\n\nconst pick = (...keys) => keys.map((k) => d[k]).find((v) => v !== undefined && v !== null && v !== '');\n\n// \"$1,299.99\", \"1.299,99 €\" and 1299.99 all become 1299.99\nconst parsePrice = (value) => {\n  if (typeof value === 'number') return Number.isFinite(value) ? value : null;\n  let s = String(value ?? '').match(/\\d[\\d.,]*/)?.[0] ?? '';\n  if (!s) return null;\n  const lastComma = s.lastIndexOf(',');\n  const lastDot = s.lastIndexOf('.');\n  if (lastComma > lastDot) {\n    s = /,\\d{1,2}$/.test(s) ? s.replace(/\\./g, '').replace(',', '.') : s.replace(/,/g, '');\n  } else if (/^\\d{1,3}(\\.\\d{3})+$/.test(s)) {\n    s = s.replace(/\\./g, '');\n  } else {\n    s = s.replace(/,/g, '');\n  }\n  const n = parseFloat(s);\n  return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;\n};\nconst parseNumber = (value) => {\n  const n = parseFloat(String(value ?? '').replace(/,/g, '').match(/\\d+(\\.\\d+)?/)?.[0] ?? '');\n  return Number.isFinite(n) ? n : null;\n};\n\nconst price = parsePrice(pick('price', 'current_price', 'sale_price', 'offer_price'));\nconst title = String(pick('title', 'product_title', 'name') ?? '').trim();\nconst availability = String(pick('availability', 'availability_text', 'stock') ?? '').trim();\n\n// No price and no title means the page wasn't read\nif (price === null && !title) {\n  return fail('no_price', 'Pumice could not read a price or title from the page. It will be tried again on the next run.');\n}\n\nconst scrapedCurrency = String(pick('currency', 'currency_code') ?? '').trim().toUpperCase();\nconst currency = /^[A-Z]{3}$/.test(scrapedCurrency)\n  ? scrapedCurrency\n  : (String(settings.default_currency ?? '').trim().toUpperCase() || 'USD');\n\nconst listPrice = parsePrice(pick('list_price', 'was_price', 'regular_price', 'original_price', 'compare_at_price'));\nconst inStockField = pick('in_stock', 'is_in_stock');\nlet inStock = typeof inStockField === 'boolean'\n  ? inStockField\n  : /out of stock|sold out|unavailable|discontinued|no longer available|backorder/i.test(availability) ? false\n  : /in stock|available|add to cart|ships|only \\d+ left|pick up/i.test(availability) ? true\n  : null;\n// A page with no price is treated as not available to buy\nif (price === null && inStock === null) inStock = false;\n\nconst money = (n) => {\n  try {\n    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(n);\n  } catch (e) {\n    return `${currency} ${n.toFixed(2)}`;\n  }\n};\n\n// Compare with the last check stored in the Latest Prices tab\nconst last = $('Get Latest Prices').all().map((i) => i.json).find((r) => String(r.product_key ?? '') === request.product_key);\nconst previous = last ? parsePrice(last.price) : null;\nconst lowestBefore = last ? parsePrice(last.lowest_price) : null;\nconst wasInStock = last ? (last.in_stock === 'yes' ? true : last.in_stock === 'no' ? false : null) : null;\n\nconst threshold = Math.max(Number(settings.alert_change_percent) || 0, 0);\nconst priceChange = previous !== null && price !== null ? Math.round((price - previous) * 100) / 100 : null;\nconst changePercent = priceChange !== null && previous > 0 ? Math.round((priceChange / previous) * 1000) / 10 : null;\nconst lowest = [lowestBefore, price].filter((n) => n !== null);\n\nconst alerts = [];\nif (priceChange !== null && priceChange !== 0 && Math.abs(changePercent ?? 0) >= threshold) {\n  const direction = priceChange < 0 ? 'Price dropped' : 'Price went up';\n  const newLow = priceChange < 0 && lowestBefore !== null && price < lowestBefore ? ', lowest price so far' : '';\n  alerts.push(`${direction} ${Math.abs(changePercent)}% from ${money(previous)}${newLow}`);\n}\nif (previous !== null && price === null) alerts.push('No price on the page');\nif (wasInStock === true && inStock === false) alerts.push('Went out of stock');\nif (wasInStock === false && inStock === true) alerts.push('Back in stock');\n\nreturn {\n  json: {\n    ...request,\n    ok: true,\n    title,\n    url: request.productUrl,\n    price,\n    price_display: price !== null ? money(price) : 'No price',\n    currency,\n    previous_price: previous,\n    previous_display: previous !== null ? money(previous) : '',\n    price_change: priceChange,\n    change_percent: changePercent,\n    lowest_price: lowest.length ? Math.min(...lowest) : null,\n    list_price: listPrice,\n    discount_percent: listPrice && price && listPrice > price ? Math.round((1 - price / listPrice) * 100) : null,\n    in_stock: inStock,\n    availability,\n    rating: parseNumber(pick('rating', 'stars', 'average_rating')),\n    review_count: parseNumber(pick('review_count', 'reviews', 'ratings_count', 'rating_count')),\n    alert: alerts.join('; '),\n    checked_at: $now.toFormat('yyyy-MM-dd HH:mm'),\n  },\n};\n"
+      },
+      "id": "4f717e70-5d43-45f4-9d1e-c03dca2afc91",
+      "name": "Read Price",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3160,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "998a3e80-6c94-4953-8fca-28dae28d0ebc",
+      "name": "All Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "38b90d7b-244e-4a27-a394-d19a79f7407f",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d9c97396-d880-4c12-bdda-0decbc74e15d",
+      "name": "Price Found?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        3640,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// One row per competitor product in the Latest Prices tab, keyed by product_key (the page URL)\nconst r = $input.item.json;\nconst blank = (v) => (v === null || v === undefined ? '' : v);\nreturn {\n  json: {\n    product_key: r.product_key,\n    competitor: r.competitor,\n    domain: r.domain,\n    product_name: r.product_name,\n    sku: r.sku,\n    upc: r.upc,\n    mpn: r.mpn,\n    title: r.title,\n    url: r.url,\n    price: blank(r.price),\n    currency: r.currency,\n    previous_price: blank(r.previous_price),\n    price_change: blank(r.price_change),\n    change_percent: blank(r.change_percent),\n    lowest_price: blank(r.lowest_price),\n    list_price: blank(r.list_price),\n    discount_percent: blank(r.discount_percent),\n    in_stock: r.in_stock === null ? '' : (r.in_stock ? 'yes' : 'no'),\n    rating: blank(r.rating),\n    review_count: blank(r.review_count),\n    found_by: r.found_by,\n    alert: r.alert,\n    last_checked: r.checked_at,\n  },\n};\n"
+      },
+      "id": "ba0da738-5f94-4dca-8d3a-01774da9a5bc",
+      "name": "Build Latest Price Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3860,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Competitor List').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Latest Prices"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "product_key"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "1d0e278b-d151-46a7-9607-0300772e7cfe",
+      "name": "Update Latest Prices",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4080,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// One row per check in the Price History tab\nconst r = $input.item.json;\nreturn {\n  json: {\n    checked_at: r.last_checked,\n    product_key: r.product_key,\n    competitor: r.competitor,\n    domain: r.domain,\n    sku: r.sku,\n    upc: r.upc,\n    mpn: r.mpn,\n    title: r.title,\n    price: r.price,\n    currency: r.currency,\n    list_price: r.list_price,\n    in_stock: r.in_stock,\n    url: r.url,\n  },\n};\n"
+      },
+      "id": "94a99e22-7ac1-493a-a6a7-61c098b1a73e",
+      "name": "Build History Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4300,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Competitor List').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Price History"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "9b290253-ef35-4699-89a1-3f0cdffc704d",
+      "name": "Log Price History",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4520,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds one status update per row of the competitor list, so you can see in the sheet which\n// rows need attention. Rows found by search also get the matched page's URL and title,\n// so later runs price that page without searching again.\nconst now = $now.toFormat('yyyy-MM-dd HH:mm');\nconst rows = new Map();\n\nfor (const { json: r } of $input.all()) {\n  if (r.list_row === undefined || r.list_row === null || r.list_row === '') continue;\n  const s = rows.get(r.list_row) ?? { ok: false, errors: [], notes: [] };\n  if (r.ok === true) {\n    s.ok = true;\n    s.price = r.price ?? '';\n    if (r.found_by === 'search') s.matched = { matched_url: r.url, matched_title: r.title };\n  } else if (r.code === 'duplicate') {\n    s.notes.push(r.error);\n  } else {\n    s.errors.push(r.error);\n  }\n  rows.set(r.list_row, s);\n}\n\nreturn [...rows].map(([row, s]) => ({\n  json: {\n    row_number: row,\n    status: s.errors.length ? 'error' : 'ok',\n    last_price: s.ok ? s.price : '',\n    note: [...new Set([...s.errors, ...s.notes])].join(' | ').slice(0, 1000),\n    last_checked: now,\n    ...(s.matched ?? {}),\n  },\n}));\n"
+      },
+      "id": "2dc772a1-4294-4160-b1f6-867d52ed55a0",
+      "name": "Summarize Competitor Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3640,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Competitor List').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ ((s) => (s.match(/gid=(\\d+)/) ?? s.match(/^(\\d+)$/) ?? [])[1] ?? '')(String($('Get Competitor List').params.sheetName.value ?? '')) }}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "c7cb1777-3d76-47cd-9691-38103c37a068",
+      "name": "Update Competitor List",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3860,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds one email with every competitor price change from this run, grouped by competitor.\n// Returns nothing when there are no changes, so no email is sent.\nconst changes = $input.all().map((i) => i.json).filter((r) => r.ok === true && r.alert);\nif (!changes.length) return [];\n\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst stock = (v) => (v === true ? 'In stock' : v === false ? 'Out of stock' : 'Unknown');\nconst ids = (r) => [r.sku && `SKU ${r.sku}`, r.upc && `UPC ${r.upc}`, r.mpn && `MPN ${r.mpn}`].filter(Boolean).join(', ');\n\nconst byCompetitor = new Map();\nfor (const r of changes) {\n  const name = r.competitor || r.domain;\n  if (!byCompetitor.has(name)) byCompetitor.set(name, []);\n  byCompetitor.get(name).push(r);\n}\n\nconst cell = 'style=\"padding:6px 8px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top\"';\nlet html = `<p>${changes.length} competitor price ${changes.length === 1 ? 'change' : 'changes'} in today's check.</p>`;\nfor (const [name, list] of byCompetitor) {\n  html += `<h3 style=\"margin:20px 0 6px\">${esc(name)}</h3>`;\n  html += `<table cellspacing=\"0\" style=\"border-collapse:collapse;font-size:14px\">`;\n  html += `<tr><th ${cell}>Product</th><th ${cell}>Change</th><th ${cell}>Price</th><th ${cell}>Previous</th><th ${cell}>Stock</th></tr>`;\n  for (const r of list) {\n    html += `<tr><td ${cell}><a href=\"${esc(r.url)}\">${esc((r.title || r.product_name || r.url).slice(0, 80))}</a>`\n      + `${ids(r) ? `<br><small>${esc(ids(r))}</small>` : ''}</td>`\n      + `<td ${cell}><b>${esc(r.alert)}</b></td><td ${cell}>${esc(r.price_display)}</td>`\n      + `<td ${cell}>${esc(r.previous_display || 'First check')}</td><td ${cell}>${stock(r.in_stock)}</td></tr>`;\n  }\n  html += '</table>';\n}\n\nconst competitors = [...byCompetitor.keys()];\nreturn [{\n  json: {\n    subject: `Competitor prices: ${changes.length} ${changes.length === 1 ? 'change' : 'changes'} (${competitors.slice(0, 3).join(', ')}${competitors.length > 3 ? ', and more' : ''})`,\n    html,\n  },\n}];\n"
+      },
+      "id": "e3cbc72b-bfe2-44c2-9ce3-ec58da729555",
+      "name": "Build Price Change Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3640,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "you@example.com",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "d2e9e14c-b2a0-4b3d-8e4a-281eb7666c3d",
+      "name": "Send Price Change Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3860,
+        540
+      ],
+      "webhookId": "a37b6a61-cd38-4a34-b58c-b8596f1bc6ca"
+    },
+    {
+      "parameters": {
+        "multipleMethods": true,
+        "httpMethod": [
+          "GET",
+          "POST"
+        ],
+        "path": "competitor-prices",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "6609a7d7-0102-4a8d-afd6-867d07a35363",
+      "name": "Competitor Prices API",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1100,
+        1080
+      ],
+      "webhookId": "203aff96-2c0e-4326-b80c-85b6406851a0"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Reads the API filters from the query string (GET) or JSON body (POST).\n// All filters are optional: with none, every tracked product is returned.\nconst item = $input.item.json;\nconst req = { ...(item.query ?? {}), ...(item.body && typeof item.body === 'object' ? item.body : {}) };\n\nconst list = (value) => (Array.isArray(value) ? value : String(value ?? '').split(','))\n  .map((s) => String(s).trim().toLowerCase())\n  .filter(Boolean);\n\nconst rawDays = String(req.history_days ?? '').trim();\nconst historyDays = rawDays === '' ? 30 : Number(rawDays);\nif (!Number.isInteger(historyDays) || historyDays < 0) {\n  return { json: { ok: false, status: 400, code: 'invalid_request', error: 'history_days must be a whole number of days, 0 or more.' } };\n}\n\nreturn {\n  json: {\n    ok: true,\n    competitors: list(req.competitor ?? req.competitors).map((c) => c.replace(/^https?:\\/\\//, '').replace(/^www\\./, '').replace(/\\/.*$/, '')),\n    skus: list(req.sku),\n    // Sheets drops the leading zero of a 12-digit UPC stored as a number\n    upcs: list(req.upc).map((u) => (/^\\d{11}$/.test(u) ? `0${u}` : u)),\n    mpns: list(req.mpn),\n    history_days: Math.min(historyDays, 365),\n  },\n};\n"
+      },
+      "id": "bfc12c5f-4661-4f82-9dde-b63d112e852e",
+      "name": "Read API Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        1080
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Competitor List').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Latest Prices"
+        },
+        "options": {}
+      },
+      "id": "c12a0812-abfb-47a1-bec7-7f28732e842c",
+      "name": "Get Latest Prices for API",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -660,
+        1080
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Competitor List').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Price History"
+        },
+        "options": {}
+      },
+      "id": "d6f268ee-2108-434c-9917-df410d59c949",
+      "name": "Get Price History for API",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -440,
+        1080
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds the API response from the stored prices: the latest price of each matching competitor\n// product, a price comparison per product and per competitor, and each product's price history.\nconst req = $('Read API Request').first().json;\nconst reply = (status, body) => [{ json: { status, body } }];\n\nif (!req.ok) return reply(req.status, { ok: false, code: req.code, error: req.error });\n\nconst latest = $('Get Latest Prices for API').all().map((i) => i.json);\nconst sheetError = latest.find((r) => r.error && !r.product_key);\nif (sheetError) {\n  const reason = typeof sheetError.error === 'string' ? sheetError.error : sheetError.error?.message ?? 'unknown error';\n  return reply(500, { ok: false, code: 'sheet_error', error: `Couldn't read the Latest Prices tab (${reason}).` });\n}\n\nconst stored = latest.filter((r) => r.product_key);\nif (!stored.length) {\n  return reply(404, {\n    ok: false,\n    code: 'no_data',\n    error: 'No competitor prices are stored yet. Run the daily check once to fill the Latest Prices tab.',\n  });\n}\n\nconst str = (v) => String(v ?? '').trim();\nconst num = (v) => {\n  if (v === '' || v === null || v === undefined) return null;\n  const n = Number(v);\n  return Number.isFinite(n) ? n : null;\n};\nconst bool = (v) => (v === 'yes' || v === true ? true : v === 'no' || v === false ? false : null);\nconst upc = (v) => (/^\\d{11}$/.test(str(v)) ? `0${str(v)}` : str(v));\nconst has = (wanted, value) => !wanted.length || wanted.includes(value.toLowerCase());\n\nconst matches = stored.filter((r) =>\n  (!req.competitors.length || req.competitors.includes(str(r.competitor).toLowerCase()) || req.competitors.includes(str(r.domain).toLowerCase())) &&\n  has(req.skus, str(r.sku)) && has(req.upcs, upc(r.upc)) && has(req.mpns, str(r.mpn)));\n\nif (!matches.length) {\n  return reply(404, {\n    ok: false,\n    code: 'not_found',\n    error: 'No tracked products match these filters.',\n    tracked_competitors: [...new Set(stored.map((r) => str(r.competitor)).filter(Boolean))].sort(),\n  });\n}\n\n// Price history for the matching products, oldest first\nconst history = new Map();\nlet historyWarning = null;\nif (req.history_days > 0) {\n  const cutoff = $now.minus({ days: req.history_days }).toFormat('yyyy-MM-dd HH:mm');\n  let rows = [];\n  try {\n    rows = $('Get Price History for API').all().map((i) => i.json);\n  } catch (e) {\n    rows = [];\n  }\n  if (rows.some((r) => r.error && !r.product_key)) historyWarning = \"Couldn't read the Price History tab, so history is empty.\";\n  for (const h of rows) {\n    if (!h.product_key || str(h.checked_at) < cutoff) continue;\n    if (!history.has(h.product_key)) history.set(h.product_key, []);\n    history.get(h.product_key).push({ checked_at: h.checked_at, price: num(h.price), in_stock: bool(h.in_stock) });\n  }\n  for (const list of history.values()) list.sort((a, b) => str(a.checked_at).localeCompare(str(b.checked_at)));\n}\n\nconst products = matches\n  .map((r) => {\n    const p = {\n      competitor: str(r.competitor),\n      domain: str(r.domain),\n      product_name: str(r.product_name),\n      sku: str(r.sku),\n      upc: upc(r.upc),\n      mpn: str(r.mpn),\n      title: str(r.title),\n      url: str(r.url),\n      price: num(r.price),\n      currency: str(r.currency),\n      previous_price: num(r.previous_price),\n      price_change: num(r.price_change),\n      change_percent: num(r.change_percent),\n      lowest_price: num(r.lowest_price),\n      list_price: num(r.list_price),\n      discount_percent: num(r.discount_percent),\n      in_stock: bool(r.in_stock),\n      rating: num(r.rating),\n      review_count: num(r.review_count),\n      found_by: str(r.found_by),\n      alert: r.alert ? str(r.alert) : null,\n      last_checked: str(r.last_checked),\n    };\n    if (req.history_days > 0) p.history = history.get(str(r.product_key)) ?? [];\n    return p;\n  })\n  .sort((a, b) => a.competitor.localeCompare(b.competitor) || a.title.localeCompare(b.title));\n\n// Price ranges are only given when the prices in a group share one currency\nconst stats = (list) => {\n  const priced = list.filter((p) => p.price !== null);\n  const currencies = new Set(priced.map((p) => p.currency));\n  if (!priced.length || currencies.size !== 1) {\n    return { currency: null, lowest_price: null, highest_price: null, average_price: null };\n  }\n  const prices = priced.map((p) => p.price);\n  return {\n    currency: [...currencies][0],\n    lowest_price: Math.min(...prices),\n    highest_price: Math.max(...prices),\n    average_price: Math.round((prices.reduce((a, b) => a + b, 0) / prices.length) * 100) / 100,\n  };\n};\nconst group = (keyOf) => {\n  const groups = new Map();\n  for (const p of products) {\n    const key = keyOf(p);\n    if (!groups.has(key)) groups.set(key, []);\n    groups.get(key).push(p);\n  }\n  return [...groups.values()];\n};\n\n// One line per product you track, comparing its price across competitors.\n// Rows are grouped by UPC, then MPN, then product name, because SKUs usually differ between stores.\nconst byProduct = group((p) => (p.upc || p.mpn || p.product_name || p.sku || p.url).toLowerCase()).map((list) => {\n  const s = stats(list);\n  const cheapest = s.lowest_price !== null ? list.find((p) => p.price === s.lowest_price) : null;\n  return {\n    product_name: list[0].product_name || list[0].title,\n    sku: list[0].sku,\n    upc: list[0].upc,\n    mpn: list[0].mpn,\n    competitors: list.length,\n    in_stock: list.filter((p) => p.in_stock === true).length,\n    ...s,\n    lowest_price_competitor: cheapest ? cheapest.competitor : null,\n  };\n});\n\n// One line per competitor\nconst byCompetitor = group((p) => p.competitor).map((list) => ({\n  competitor: list[0].competitor,\n  products: list.length,\n  in_stock: list.filter((p) => p.in_stock === true).length,\n  ...stats(list),\n}));\n\nconst body = {\n  ok: true,\n  count: products.length,\n  as_of: products.map((p) => p.last_checked).sort().pop() ?? null,\n  by_product: byProduct,\n  by_competitor: byCompetitor,\n  products,\n};\nif (historyWarning) body.warning = historyWarning;\n\nreturn reply(200, body);\n"
+      },
+      "id": "7aefedee-183f-4699-8649-c70996999ac9",
+      "name": "Build API Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220,
+        1080
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body }}",
+        "options": {
+          "responseCode": "={{ $json.status }}"
+        }
+      },
+      "id": "eb0cc662-e7e2-4538-b917-a0595c2573bb",
+      "name": "Return Competitor Prices",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        1080
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Track Competitor Prices API with Pumice AI\n\nKeep a list of your products and the competitor websites that sell them in Google Sheets. Every morning, Pumice AI finds each product on the competitor's site, confirms it is the same product, and reads the live price. The results are saved to the sheet, you get one email with every competitor price change, and your own apps read the stored prices from a simple API.\n\n### What you can list\nEach row of the **Competitors** tab is one product at one competitor:\n- **A competitor website and an identifier:** `competitor_url` (such as `bestbuy.com`) plus a `sku`, `upc`, `mpn`, or `product_name`. The site is searched with `site:bestbuy.com <identifier>`, and **Pumice product matching** confirms the page is the same product.\n- **A product page:** `product_url`, priced directly.\n\n### Competitor price API\nReturns the stored prices from the daily run, with no new scrape:\n```\nGET  /webhook/competitor-prices?mpn=ABC-1000\nGET  /webhook/competitor-prices?competitor=bestbuy.com&history_days=90\nPOST /webhook/competitor-prices\n{\"upc\": [\"012345678905\"], \"competitor\": [\"Best Buy\", \"Target\"]}\n```\n\n### Setup\n1. Create an **HTTP Header Auth** credential named `Pumice API` with **Name** `x-api-key` and your Pumice API key as the **Value**.\n2. Create a Google Sheet with a **Competitors** tab (columns `competitor`, `competitor_url`, `product_url`, `sku`, `upc`, `mpn`, `product_name`, `brand`) and two empty tabs named exactly `Latest Prices` and `Price History`.\n3. Connect Google Sheets in the seven Sheets nodes and pick the spreadsheet and Competitors tab in **Get Competitor List**. The other Sheets nodes use the same spreadsheet.\n4. Connect Gmail in **Send Price Change Email** and replace `you@example.com`.\n5. Publish the workflow.",
+        "height": 1500,
+        "width": 640,
+        "color": 5
+      },
+      "id": "6b38e464-63cc-4724-923b-2fe1118776f7",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1820,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Read the competitor list\n**Check Competitor Prices Daily** starts the run at 8:00. **Settings** holds the smallest price change, in percent, that goes in the email, and the currency to use when a page doesn't show one.\n\n**Get Latest Prices** reads the last saved price of every product so today's price can be compared with it.\n\n**Plan Daily Checks** turns each row into a check: a product page to price directly, or a competitor site to search. A row that was matched on an earlier run is priced from its saved `matched_url`, with no new search.",
+        "height": 940,
+        "width": 1280,
+        "color": 7
+      },
+      "id": "2af3f9e2-c1c7-43de-acce-8352f0339229",
+      "name": "Section 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1160,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Find the product on the competitor's site and confirm it\n**Pumice Universal Search** searches only the competitor's site with `site:<domain>` and the row's MPN, UPC, SKU, or product name, in that order of preference. The top 3 pages on that site, leaving out its home page and search pages, are candidates.\n\n**Pumice Smart Scrape** reads each candidate's title, brand, SKU, UPC, MPN, and features, and **Pumice product matching** compares it with your row. The highest-ranked page that matches is used. If none match, the row gets an error instead of tracking the wrong product.\n\n**Remove Duplicate Products** keeps one check per page, so a page listed twice is only priced once.",
+        "height": 940,
+        "width": 2720,
+        "color": 6
+      },
+      "id": "2a154a93-dc2d-47e8-a5ff-b7deaaf6209f",
+      "name": "Section 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        140,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Scrape the live price with Pumice\n**Pumice Smart Scrape** reads each product page and returns the current price, regular price, currency, availability, rating, and review count. Pumice handles proxies, CAPTCHAs, and page changes on any store.\n\n**Read Price** cleans up the values and compares the price and stock status with the last saved check.",
+        "height": 940,
+        "width": 680,
+        "color": 4
+      },
+      "id": "31f36415-00f4-44a9-9a23-cd7183aacd37",
+      "name": "Section 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Save prices and send one email\n**Update Latest Prices** keeps one row per competitor product with its latest price, previous price, change, and lowest price. **Log Price History** adds one row per check.\n\n**Update Competitor List** writes a `status`, `last_price`, `note`, and `last_checked` to each row of your list. Rows found by search also get the `matched_url` and `matched_title` of the matched page, and later runs use that page. Clear `matched_url` to search and match again.\n\n**Send Price Change Email** sends one email with every price change and stock change from this run. No changes, no email.",
+        "height": 940,
+        "width": 1180,
+        "color": 3
+      },
+      "id": "21441d96-cf0a-4407-8874-5910753fdce7",
+      "name": "Section 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3580,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 5. Competitor price API\n**Competitor Prices API** accepts `GET` or `POST` with optional filters: `competitor` (name or domain), `sku`, `upc`, `mpn` (each one or a comma-separated list), and `history_days` (default 30, 0 for none).\n\nIt reads the **Latest Prices** and **Price History** tabs and returns each matching product's latest price, a price comparison per product and per competitor, and the price history. Errors return `400` (bad filter), `404` (nothing stored or nothing matches), or `500` (the sheet couldn't be read).",
+        "height": 520,
+        "width": 1280,
+        "color": 2
+      },
+      "id": "ae4b965c-6a40-4ae9-a03c-1c13d2bdc3b5",
+      "name": "Section 5",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1160,
+        800
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Check Competitor Prices Daily": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Get Competitor List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Competitor List": {
+      "main": [
+        [
+          {
+            "node": "Get Latest Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Latest Prices": {
+      "main": [
+        [
+          {
+            "node": "Plan Daily Checks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Daily Checks": {
+      "main": [
+        [
+          {
+            "node": "How to Find the Product?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "How to Find the Product?": {
+      "main": [
+        [
+          {
+            "node": "Search Competitor Site",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "All Product Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Competitor Site": {
+      "main": [
+        [
+          {
+            "node": "Pick Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Candidates": {
+      "main": [
+        [
+          {
+            "node": "Any Candidates?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Candidates?": {
+      "main": [
+        [
+          {
+            "node": "Scrape Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Search Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Scrape Candidate": {
+      "main": [
+        [
+          {
+            "node": "Prepare Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Match": {
+      "main": [
+        [
+          {
+            "node": "Match Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Product": {
+      "main": [
+        [
+          {
+            "node": "Read Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Match": {
+      "main": [
+        [
+          {
+            "node": "Search Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Results": {
+      "main": [
+        [
+          {
+            "node": "Pick Matched Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Matched Product": {
+      "main": [
+        [
+          {
+            "node": "All Product Pages",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "All Product Pages": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicate Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicate Products": {
+      "main": [
+        [
+          {
+            "node": "Product Page Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Product Page Found?": {
+      "main": [
+        [
+          {
+            "node": "Scrape Price",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "All Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Scrape Price": {
+      "main": [
+        [
+          {
+            "node": "Read Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Price": {
+      "main": [
+        [
+          {
+            "node": "All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All Results": {
+      "main": [
+        [
+          {
+            "node": "Price Found?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Summarize Competitor Rows",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Price Change Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Price Found?": {
+      "main": [
+        [
+          {
+            "node": "Build Latest Price Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Latest Price Row": {
+      "main": [
+        [
+          {
+            "node": "Update Latest Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Latest Prices": {
+      "main": [
+        [
+          {
+            "node": "Build History Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build History Row": {
+      "main": [
+        [
+          {
+            "node": "Log Price History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Competitor Rows": {
+      "main": [
+        [
+          {
+            "node": "Update Competitor List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Price Change Email": {
+      "main": [
+        [
+          {
+            "node": "Send Price Change Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Competitor Prices API": {
+      "main": [
+        [
+          {
+            "node": "Read API Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read API Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read API Request": {
+      "main": [
+        [
+          {
+            "node": "Get Latest Prices for API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Latest Prices for API": {
+      "main": [
+        [
+          {
+            "node": "Get Price History for API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Price History for API": {
+      "main": [
+        [
+          {
+            "node": "Build API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build API Response": {
+      "main": [
+        [
+          {
+            "node": "Return Competitor Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
