@@ -1,0 +1,1427 @@
+{
+  "name": "Amazon Competitor Price Tracking API with Pumice AI",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "a9a8b6f4-7c2f-4e6d-b80c-5a260cc97abb",
+      "name": "Check Competitor Prices Daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "16cb1a33-a0fa-4bf8-b3fa-85490d15acd4",
+              "name": "default_max_products",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "5bc43331-356f-4f1d-a9d1-151e1c44a9e4",
+              "name": "alert_change_percent",
+              "value": 5,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ba89ad6e-6b87-4d05-9b27-ccecae06a434",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "e28d5b70-a2b5-44ff-8905-dddaa87f250e",
+      "name": "Get Competitor List",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Competitor List').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Latest Prices"
+        },
+        "options": {}
+      },
+      "id": "a373b743-07a4-4389-a6bd-ccdd4525a053",
+      "name": "Get Latest Prices",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -440,
+        300
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns each row of the competitor list into a price check.\n// A row can have a product (ASIN, Amazon URL, or product name), a competitor name, or both.\n// A row with only a competitor name searches Amazon for that competitor's products.\nconst settings = $('Settings').first().json;\nconst rows = $('Get Competitor List').all().map((i) => i.json);\n\nconst toInt = (value, fallback) => {\n  const n = parseInt(String(value ?? '').trim(), 10);\n  return Number.isFinite(n) ? n : fallback;\n};\nconst clamp = (n, min, max) => Math.min(Math.max(n, min), max);\nconst defaultMax = clamp(toInt(settings.default_max_products, 5), 1, 20);\n\nconst cleanMarketplace = (value) => String(value ?? '').trim().toLowerCase()\n  .replace(/^https?:\\/\\//, '').replace(/^www\\./, '').replace(/\\/.*$/, '');\n\nconst ASIN_IN_URL = /\\/(?:dp|gp\\/product|gp\\/aw\\/d|product)\\/([A-Z0-9]{10})(?=[/?#]|$)/i;\nconst out = [];\nconst competitorSearches = new Map();\n\nfor (const row of rows) {\n  const competitor = String(row.competitor ?? '').trim();\n  const product = String(row.product ?? '').trim();\n  if (!competitor && !product) continue;\n\n  let marketplace = cleanMarketplace(row.marketplace) || 'amazon.com';\n  const base = { list_row: row.row_number, competitor, input: product || competitor, marketplace };\n  const add = (json) => out.push({ json: { ...base, ...json }, pairedItem: { item: 0 } });\n  const fail = (code, error) => add({ lookup: 'error', ok: false, code, error });\n\n  if (!/^amazon\\.[a-z.]+$/.test(marketplace)) {\n    fail('invalid_request', `\"${row.marketplace}\" isn't an Amazon site. Use a domain such as amazon.com or amazon.co.uk.`);\n    continue;\n  }\n\n  // Only a competitor name: search Amazon for their products\n  if (!product) {\n    const key = `${competitor.toLowerCase()}|${marketplace}`;\n    if (competitorSearches.has(key)) {\n      fail('duplicate', `This competitor is already searched in row ${competitorSearches.get(key)}.`);\n      continue;\n    }\n    competitorSearches.set(key, row.row_number);\n    const maxProducts = clamp(toInt(row.max_products, defaultMax), 1, 20);\n    add({\n      lookup: 'competitor',\n      found_by: 'competitor search',\n      max_products: maxProducts,\n      searchUrl: `https://www.${marketplace}/s?k=${encodeURIComponent(competitor)}`,\n      searchPrompt:\n        `This is an Amazon search results page for \"${competitor}\". Find the products on this page that are made ` +\n        `or sold by \"${competitor}\" (check the brand and the product title). Skip products from other brands, ` +\n        `including sponsored products. Return up to ${maxProducts} products in the order they appear, as a JSON ` +\n        `object with a \"products\" array. For each product give: asin (the 10-character ASIN), title, and url ` +\n        `(the product page link).`,\n    });\n    continue;\n  }\n\n  // A product link\n  const link = product.match(/https?:\\/\\/\\S+/i)?.[0].replace(/[).,!?]+$/, '');\n  if (link) {\n    // (URL() isn't available in n8n's Code node, so read the host with a pattern)\n    const host = (link.match(/^https?:\\/\\/([^/?#:\\s]+)/i)?.[1] ?? '').toLowerCase().replace(/^www\\./, '');\n    const isAmazon = /^(smile\\.)?amazon\\.[a-z.]+$/.test(host);\n    const isShortLink = /^(amzn\\.(to|eu|asia)|a\\.co)$/.test(host);\n    if (!isAmazon && !isShortLink) {\n      fail('invalid_request', `Only Amazon links are supported, but this link is on ${host || 'an unknown site'}.`);\n      continue;\n    }\n    if (isAmazon) marketplace = host.replace(/^smile\\./, '');\n    const asin = link.match(ASIN_IN_URL)?.[1]?.toUpperCase() ?? '';\n    add({\n      marketplace,\n      lookup: 'url',\n      found_by: 'list',\n      asin,\n      // A clean /dp/ URL avoids tracking parameters; short links are passed on for Pumice to follow\n      amazonUrl: asin ? `https://www.${marketplace}/dp/${asin}` : link,\n    });\n    continue;\n  }\n\n  // An ASIN: 10 letters and digits with at least one digit\n  if (/^(?=.*\\d)[A-Z0-9]{10}$/i.test(product)) {\n    const asin = product.toUpperCase();\n    add({ lookup: 'url', found_by: 'list', asin, amazonUrl: `https://www.${marketplace}/dp/${asin}` });\n    continue;\n  }\n\n  // A product name that was already matched on an earlier run: price the saved ASIN\n  const savedAsin = String(row.matched_asin ?? '').trim().toUpperCase();\n  if (/^(?=.*\\d)[A-Z0-9]{10}$/.test(savedAsin)) {\n    add({ lookup: 'url', found_by: 'product search', asin: savedAsin, amazonUrl: `https://www.${marketplace}/dp/${savedAsin}` });\n    continue;\n  }\n\n  // A product name: search for it, adding the competitor name if the product name doesn't include it\n  const searchQuery = competitor && !product.toLowerCase().includes(competitor.toLowerCase())\n    ? `${competitor} ${product}`\n    : product;\n  add({ lookup: 'search', found_by: 'product search', asin: '', amazonUrl: '', searchQuery });\n}\n\nreturn out;\n"
+      },
+      "id": "5c07ee41-37b0-4be9-b423-425c095ac997",
+      "name": "Plan Daily Checks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "fb905925-3d71-4beb-8087-9d42690b7539",
+                    "leftValue": "={{ $json.lookup }}",
+                    "rightValue": "search",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Product name"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "843b40bf-3130-4fdd-aaf6-25dc4e5854e7",
+                    "leftValue": "={{ $json.lookup }}",
+                    "rightValue": "competitor",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Competitor name only"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "ASIN, link, or invalid row"
+        }
+      },
+      "id": "d568e09b-0430-4a20-989f-45bf91bd1f7e",
+      "name": "How to Find the Product?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/scraper/universal",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": {{ JSON.stringify($json.searchQuery + ' ' + $json.marketplace) }}\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "ab0724c3-458a-4234-a147-09fa5b2bef9d",
+      "name": "Find on Amazon",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        260,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Takes the top Amazon product pages from Pumice Universal Search for each product name row.\n// Each one is scraped and checked with Pumice product matching before it is used.\nconst MAX_CANDIDATES = 3;\nconst ASIN_IN_URL = /\\/(?:dp|gp\\/product|gp\\/aw\\/d)\\/([A-Z0-9]{10})(?=[/?#]|$)/i;\nconst out = [];\n\n$input.all().forEach((item, i) => {\n  let request;\n  try {\n    request = $('How to Find the Product?').itemMatching(i).json;\n  } catch (e) {\n    request = $('How to Find the Product?').all(0)[i].json;\n  }\n  const res = item.json;\n\n  // The response shape can vary, so check the common containers\n  let list = res.results ?? res.data ?? res.items ?? res.pages ?? res.urls ?? res.organic ?? [];\n  if (list && !Array.isArray(list) && Array.isArray(list.results)) list = list.results;\n  if (!Array.isArray(list)) list = [];\n\n  const seen = new Set();\n  const pages = [];\n  for (const r of list) {\n    const url = typeof r === 'string' ? r : (r?.url || r?.link || r?.source_url || r?.page_url || '');\n    // (URL() isn't available in n8n's Code node, so read the host with a pattern)\n    const host = (String(url).match(/^https?:\\/\\/([^/?#:\\s]+)/i)?.[1] ?? '').toLowerCase().replace(/^www\\./, '');\n    const asin = String(url).match(ASIN_IN_URL)?.[1]?.toUpperCase();\n    // Only product pages on the row's marketplace\n    if (host !== request.marketplace || !asin || seen.has(asin)) continue;\n    seen.add(asin);\n    pages.push(asin);\n    if (pages.length >= MAX_CANDIDATES) break;\n  }\n\n  if (!pages.length) {\n    const reason = typeof res.error === 'string' ? res.error : res.error?.message;\n    out.push({\n      json: {\n        ...request,\n        lookup: 'error',\n        ok: false,\n        code: reason ? 'scrape_failed' : 'not_found',\n        error: reason\n          ? `Pumice Universal Search failed (${reason}). It will be tried again on the next run.`\n          : `No ${request.marketplace} product page was found for \"${request.searchQuery}\". Use the ASIN or the Amazon product URL instead.`,\n      },\n      pairedItem: { item: i },\n    });\n    return;\n  }\n\n  pages.forEach((asin, rank) => {\n    out.push({\n      json: {\n        ...request,\n        asin,\n        amazonUrl: `https://www.${request.marketplace}/dp/${asin}`,\n        candidate_rank: rank + 1,\n        candidate_count: pages.length,\n      },\n      pairedItem: { item: i },\n    });\n  });\n});\n\nreturn out;\n"
+      },
+      "id": "7ffb9860-f217-4be8-bc20-dadfbcbeb17e",
+      "name": "Pick Amazon Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ec1380f0-7977-469d-9143-e574747beafa",
+              "leftValue": "={{ $json.ok !== false }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f1af1926-e23b-45db-badd-9c378ae85e2e",
+      "name": "Any Candidates?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/scraper/smart-scrape",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": \"This is an Amazon product page. Extract these fields and use null for anything that isn't shown on the page: title (the product title); asin; brand (the brand name); model_number (the manufacturer's model or part number); description (the feature bullets, as plain text).\",\n  \"source_url\": {{ JSON.stringify($json.amazonUrl) }}\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "558c82b1-5e5a-4ab2-9523-04abbe9a1c0c",
+      "name": "Scrape Candidate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        920,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Builds the two product records for Pumice product matching:\n// product_1 is the row you entered, product_2 is the Amazon page Smart Scrape just read.\nconst candidate = $('Pick Amazon Candidates').item.json;\nconst res = $input.item.json;\n\nlet d = res.data ?? res.result ?? res.output ?? res.extracted ?? res;\nif (typeof d === 'string') {\n  try { d = JSON.parse(d); } catch (e) { d = {}; }\n}\nif (Array.isArray(d)) d = d[0] ?? {};\nd = d && typeof d === 'object' ? d : {};\nconst text = (v) => (Array.isArray(v) ? v.join(' ') : String(v ?? '')).trim();\n\nconst scraped = {\n  title: text(d.title ?? d.product_title),\n  brand: text(d.brand),\n  mpn: text(d.model_number ?? d.mpn ?? d.model),\n  description: text(d.description ?? d.features).slice(0, 1500),\n};\n\nreturn {\n  json: {\n    ...candidate,\n    scraped_title: scraped.title,\n    // The product matching endpoint expects each product as a JSON string\n    product_1: JSON.stringify({ title: candidate.input, brand: candidate.competitor }),\n    product_2: JSON.stringify(scraped),\n  },\n};\n"
+      },
+      "id": "8020f26a-d888-4588-8fbc-7fae4cd547a0",
+      "name": "Prepare Match",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1140,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/v1/merchandising-api/product_matching",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ product_1: $json.product_1, product_2: $json.product_2, customer_rules: [], fields: '', examples: '' }) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "2ff98af1-407b-421d-9756-894c37eccb18",
+      "name": "Match Product",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1360,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Reads Pumice product matching's answer for one candidate: yes, no, or error.\nconst candidate = $('Prepare Match').item.json;\nconst res = $input.item.json;\nconst answer = String(res.answer ?? res.data?.answer ?? res.result?.answer ?? '').trim().toLowerCase();\nconst reason = typeof res.error === 'string' ? res.error : res.error?.message;\n\nconst { product_1, product_2, ...rest } = candidate;\nreturn {\n  json: {\n    ...rest,\n    match: answer === 'yes' ? 'yes' : answer === 'no' ? 'no' : 'error',\n    match_error: answer === 'yes' || answer === 'no' ? '' : (reason || 'No answer from product matching'),\n  },\n};\n"
+      },
+      "id": "c836b4cb-5fe5-4009-a035-6895b8107f03",
+      "name": "Read Match",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1580,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "383f9db1-6afd-43c8-bdc4-4761932b18de",
+      "name": "Name Search Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Picks, for each product name row, the highest-ranked search result that product matching\n// confirmed is the same product. Rows where no result matched get an error instead.\nconst rows = new Map();\nconst out = [];\n\n$input.all().forEach((item, i) => {\n  const r = item.json;\n  if (r.ok === false) {\n    out.push({ json: r, pairedItem: { item: i } });\n    return;\n  }\n  if (!rows.has(r.list_row)) rows.set(r.list_row, []);\n  rows.get(r.list_row).push({ r, i });\n});\n\nfor (const list of rows.values()) {\n  list.sort((a, b) => a.r.candidate_rank - b.r.candidate_rank);\n  const hit = list.find(({ r }) => r.match === 'yes');\n  const { r: first, i } = hit ?? list[0];\n  const { candidate_rank, candidate_count, match, match_error, scraped_title, ...base } = first;\n\n  if (hit) {\n    out.push({ json: { ...base, lookup: 'url' }, pairedItem: { item: i } });\n    continue;\n  }\n\n  const allFailed = list.every(({ r }) => r.match === 'error');\n  const checked = list\n    .map(({ r }) => `${r.asin}${r.scraped_title ? ` (${r.scraped_title.slice(0, 60)})` : ''}`)\n    .join(', ');\n  out.push({\n    json: {\n      ...base,\n      asin: '',\n      amazonUrl: '',\n      lookup: 'error',\n      ok: false,\n      code: allFailed ? 'match_failed' : 'no_match',\n      error: allFailed\n        ? `Pumice product matching failed (${first.match_error}). It will be tried again on the next run.`\n        : `None of the top ${list.length} Amazon results matched \"${base.input}\". Checked: ${checked}. Add the ASIN or product URL to the row instead.`,\n    },\n    pairedItem: { item: i },\n  });\n}\n\nreturn out;\n"
+      },
+      "id": "aee84932-e19a-4060-bc0b-225ff100bad9",
+      "name": "Pick Matched Product",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2020,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/scraper/smart-scrape",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": {{ JSON.stringify($json.searchPrompt) }},\n  \"source_url\": {{ JSON.stringify($json.searchUrl) }}\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "9d10a18d-2eb4-451c-ad88-b85d4d7660f5",
+      "name": "Find Competitor Products",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        260,
+        560
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reads the competitor's products from Pumice Smart Scrape's reading of the Amazon search page,\n// and outputs one item per product so each one can be priced.\nconst ASIN_RE = /^(?=.*\\d)[A-Z0-9]{10}$/;\nconst ASIN_IN_URL = /\\/(?:dp|gp\\/product|gp\\/aw\\/d)\\/([A-Z0-9]{10})(?=[/?#]|$)/i;\nconst out = [];\n\nconst parse = (value) => {\n  if (typeof value !== 'string') return value;\n  try { return JSON.parse(value); } catch (e) { return null; }\n};\n\n$input.all().forEach((item, i) => {\n  let request;\n  try {\n    request = $('How to Find the Product?').itemMatching(i).json;\n  } catch (e) {\n    request = $('How to Find the Product?').all(1)[i].json;\n  }\n  const res = item.json;\n  const fail = (code, error) =>\n    out.push({ json: { ...request, lookup: 'error', ok: false, code, error }, pairedItem: { item: i } });\n\n  if (res.error && res.data === undefined && res.result === undefined) {\n    const reason = typeof res.error === 'string' ? res.error : res.error?.message;\n    fail('scrape_failed', `Pumice couldn't read the Amazon search page${reason ? ` (${reason})` : ''}. It will be tried again on the next run.`);\n    return;\n  }\n\n  // The products can arrive as an array, or under products/items/results, as objects or a JSON string\n  let d = parse(res.data ?? res.result ?? res.output ?? res.extracted ?? res);\n  let list = Array.isArray(d) ? d : parse(d?.products ?? d?.items ?? d?.results ?? []);\n  if (!Array.isArray(list)) list = [];\n\n  const seen = new Set();\n  const found = [];\n  for (const p of list) {\n    if (!p) continue;\n    const obj = typeof p === 'string' ? { url: p } : p;\n    let asin = String(obj.asin ?? '').trim().toUpperCase();\n    if (!ASIN_RE.test(asin)) {\n      asin = String(obj.url ?? obj.link ?? obj.product_url ?? '').match(ASIN_IN_URL)?.[1]?.toUpperCase() ?? '';\n    }\n    if (!asin || seen.has(asin)) continue;\n    seen.add(asin);\n    found.push(asin);\n    if (found.length >= request.max_products) break;\n  }\n\n  if (!found.length) {\n    fail('not_found', `No products from \"${request.competitor}\" were found on ${request.marketplace}. Check the spelling, or add the competitor's ASINs as their own rows.`);\n    return;\n  }\n\n  for (const asin of found) {\n    out.push({\n      json: { ...request, lookup: 'url', asin, amazonUrl: `https://www.${request.marketplace}/dp/${asin}` },\n      pairedItem: { item: i },\n    });\n  }\n});\n\nreturn out;\n"
+      },
+      "id": "16fe52ad-7783-44e3-8afc-8f67e494134c",
+      "name": "List Competitor Products",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "id": "d1c5eb20-6c82-4d0a-9840-df303831b6e4",
+      "name": "All Product Pages",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keeps one price check per product and marketplace. Products listed by ASIN or URL come first,\n// then product name searches, then competitor searches, so the first one wins.\nconst firstRow = new Map();\n\nreturn $input.all().map((item, i) => {\n  const j = item.json;\n  if (j.ok === false || !j.asin) return { json: j, pairedItem: { item: i } };\n\n  const key = `${j.marketplace}:${j.asin}`;\n  if (firstRow.has(key)) {\n    return {\n      json: { ...j, ok: false, code: 'duplicate', error: `${j.asin} is already tracked from row ${firstRow.get(key)}.` },\n      pairedItem: { item: i },\n    };\n  }\n  firstRow.set(key, j.list_row);\n  return { json: j, pairedItem: { item: i } };\n});\n"
+      },
+      "id": "9a3f8a21-5f56-4547-8e0d-9a1e801e1209",
+      "name": "Remove Duplicate Products",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "df9d5e0e-931d-42f1-b93a-38e055492469",
+              "leftValue": "={{ $json.ok !== false }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "804d323c-363d-4568-a579-e9accea56d83",
+      "name": "Product Page Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.pumice.ai/api/scraper/smart-scrape",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": \"This is an Amazon product page. Extract these fields and use null for anything that isn't shown on the page: title (the product title); asin; price (the current Buy Box price a customer pays now, as a number without the currency symbol); currency (3-letter code such as USD); list_price (the crossed-out List Price or Typical Price, as a number); availability (the availability text, such as In Stock); in_stock (true or false); seller (the Buy Box seller name); rating (the average star rating out of 5, as a number); review_count (the number of ratings, as a number); image_url (the main product image URL).\",\n  \"source_url\": {{ JSON.stringify($json.amazonUrl) }}\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "bb07a03a-edea-4e70-9a11-49208bac8695",
+      "name": "Scrape Amazon Price",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2940,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pumice-api-key",
+          "name": "Pumice API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Turns Pumice Smart Scrape's output into a clean price record, and compares it with the\n// product's row in the Latest Prices tab to find price changes and stock changes.\nconst request = $('Remove Duplicate Products').item.json;\nconst res = $input.item.json;\nconst settings = $('Settings').first().json;\n\nconst fail = (code, error, extra = {}) => ({ json: { ...request, ...extra, ok: false, code, error } });\n\nif (res.error && res.data === undefined && res.result === undefined) {\n  const reason = typeof res.error === 'string' ? res.error : res.error?.message;\n  return fail('scrape_failed', `Pumice Smart Scrape failed${reason ? ` (${reason})` : ''}. It will be tried again on the next run.`);\n}\n\n// The extracted fields can arrive at the top level or nested, as an object or a JSON string\nlet d = res.data ?? res.result ?? res.output ?? res.extracted ?? res;\nif (typeof d === 'string') {\n  try { d = JSON.parse(d); } catch (e) { d = {}; }\n}\nif (Array.isArray(d)) d = d[0] ?? {};\nif (d && typeof d === 'object' && d.price === undefined && d.product && typeof d.product === 'object') d = d.product;\nd = d ?? {};\n\nconst pick = (...keys) => keys.map((k) => d[k]).find((v) => v !== undefined && v !== null && v !== '');\n\n// \"$1,299.99\", \"1.299,99 €\" and 1299.99 all become 1299.99\nconst parsePrice = (value) => {\n  if (typeof value === 'number') return Number.isFinite(value) ? value : null;\n  let s = String(value ?? '').match(/\\d[\\d.,]*/)?.[0] ?? '';\n  if (!s) return null;\n  const lastComma = s.lastIndexOf(',');\n  const lastDot = s.lastIndexOf('.');\n  if (lastComma > lastDot) {\n    s = /,\\d{1,2}$/.test(s) ? s.replace(/\\./g, '').replace(',', '.') : s.replace(/,/g, '');\n  } else if (/^\\d{1,3}(\\.\\d{3})+$/.test(s)) {\n    s = s.replace(/\\./g, '');\n  } else {\n    s = s.replace(/,/g, '');\n  }\n  const n = parseFloat(s);\n  return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;\n};\nconst parseNumber = (value) => {\n  const n = parseFloat(String(value ?? '').replace(/,/g, '').match(/\\d+(\\.\\d+)?/)?.[0] ?? '');\n  return Number.isFinite(n) ? n : null;\n};\n\nconst CURRENCY_BY_MARKETPLACE = {\n  'amazon.com': 'USD', 'amazon.ca': 'CAD', 'amazon.com.mx': 'MXN', 'amazon.com.br': 'BRL',\n  'amazon.co.uk': 'GBP', 'amazon.de': 'EUR', 'amazon.fr': 'EUR', 'amazon.it': 'EUR', 'amazon.es': 'EUR',\n  'amazon.nl': 'EUR', 'amazon.com.be': 'EUR', 'amazon.ie': 'EUR', 'amazon.se': 'SEK', 'amazon.pl': 'PLN',\n  'amazon.com.tr': 'TRY', 'amazon.ae': 'AED', 'amazon.sa': 'SAR', 'amazon.eg': 'EGP', 'amazon.in': 'INR',\n  'amazon.co.jp': 'JPY', 'amazon.sg': 'SGD', 'amazon.com.au': 'AUD',\n};\n\nconst price = parsePrice(pick('price', 'current_price', 'buy_box_price', 'sale_price', 'deal_price'));\nconst title = String(pick('title', 'product_title', 'name') ?? '').trim();\nconst availability = String(pick('availability', 'availability_text', 'stock') ?? '').trim();\n\n// No price and no title means the page wasn't read\nif (price === null && !title) {\n  return fail('no_price', 'Pumice could not read a price or title from the Amazon page. It will be tried again on the next run.');\n}\n\nconst scrapedCurrency = String(pick('currency', 'currency_code') ?? '').trim().toUpperCase();\nconst currency = /^[A-Z]{3}$/.test(scrapedCurrency)\n  ? scrapedCurrency\n  : (CURRENCY_BY_MARKETPLACE[request.marketplace] ?? 'USD');\n\nconst listPrice = parsePrice(pick('list_price', 'was_price', 'typical_price', 'original_price'));\nconst inStockField = pick('in_stock', 'is_in_stock');\nlet inStock = typeof inStockField === 'boolean'\n  ? inStockField\n  : /unavailable|out of stock|no disponible|nicht verfügbar/i.test(availability) ? false\n  : /in stock|only \\d+ left|available|auf lager|en stock|disponible/i.test(availability) ? true\n  : null;\n// A page with no Buy Box price is treated as not available to buy\nif (price === null && inStock === null) inStock = false;\n\nconst scrapedAsin = String(pick('asin') ?? '').trim().toUpperCase();\n// Keep the requested ASIN so the product always lands on the same Latest Prices row\nconst asin = request.asin || (/^[A-Z0-9]{10}$/.test(scrapedAsin) ? scrapedAsin : '');\nif (!asin) {\n  return fail('no_asin', 'The Amazon page was read, but its ASIN could not be found. Use the ASIN or the full product URL instead.');\n}\nconst productKey = `${request.marketplace}:${asin}`;\n\nconst money = (n) => {\n  try {\n    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(n);\n  } catch (e) {\n    return `${currency} ${n.toFixed(2)}`;\n  }\n};\n\n// Compare with the last check stored in the Latest Prices tab\nconst last = $('Get Latest Prices').all().map((i) => i.json).find((r) => String(r.product_key ?? '') === productKey);\nconst previous = last ? parsePrice(last.price) : null;\nconst lowestBefore = last ? parsePrice(last.lowest_price) : null;\nconst wasInStock = last ? (last.in_stock === 'yes' ? true : last.in_stock === 'no' ? false : null) : null;\n\nconst threshold = Math.max(Number(settings.alert_change_percent) || 0, 0);\nconst priceChange = previous !== null && price !== null ? Math.round((price - previous) * 100) / 100 : null;\nconst changePercent = priceChange !== null && previous > 0 ? Math.round((priceChange / previous) * 1000) / 10 : null;\nconst lowest = [lowestBefore, price].filter((n) => n !== null);\n\nconst alerts = [];\nif (priceChange !== null && priceChange !== 0 && Math.abs(changePercent ?? 0) >= threshold) {\n  const direction = priceChange < 0 ? 'Price dropped' : 'Price went up';\n  const newLow = priceChange < 0 && lowestBefore !== null && price < lowestBefore ? ', lowest price so far' : '';\n  alerts.push(`${direction} ${Math.abs(changePercent)}% from ${money(previous)}${newLow}`);\n}\nif (previous !== null && price === null) alerts.push('No Buy Box price on the page');\nif (wasInStock === true && inStock === false) alerts.push('Went out of stock');\nif (wasInStock === false && inStock === true) alerts.push('Back in stock');\n\nreturn {\n  json: {\n    ...request,\n    ok: true,\n    product_key: productKey,\n    asin,\n    title,\n    url: `https://www.${request.marketplace}/dp/${asin}`,\n    price,\n    price_display: price !== null ? money(price) : 'No price',\n    currency,\n    previous_price: previous,\n    previous_display: previous !== null ? money(previous) : '',\n    price_change: priceChange,\n    change_percent: changePercent,\n    lowest_price: lowest.length ? Math.min(...lowest) : null,\n    list_price: listPrice,\n    discount_percent: listPrice && price && listPrice > price ? Math.round((1 - price / listPrice) * 100) : null,\n    in_stock: inStock,\n    availability,\n    seller: String(pick('seller', 'buy_box_seller', 'sold_by', 'merchant') ?? '').trim(),\n    rating: parseNumber(pick('rating', 'stars', 'average_rating')),\n    review_count: parseNumber(pick('review_count', 'reviews', 'ratings_count', 'rating_count')),\n    image_url: String([pick('image_url', 'main_image', 'image', 'image_urls', 'images')].flat()[0] ?? ''),\n    alert: alerts.join('; '),\n    checked_at: $now.toFormat('yyyy-MM-dd HH:mm'),\n  },\n};\n"
+      },
+      "id": "0ee4b539-c2b5-41d2-a8c3-ae657ed92a9d",
+      "name": "Read Price",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3160,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "a9667d38-a36c-4108-bf5f-849c06932c43",
+      "name": "All Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f853ab2a-8cee-4137-bae9-77ae85dbeb89",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "38df3ca1-cddb-4426-beb0-815e736c9bc4",
+      "name": "Price Found?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        3640,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// One row per product in the Latest Prices tab, keyed by product_key (marketplace:ASIN)\nconst r = $input.item.json;\nconst blank = (v) => (v === null || v === undefined ? '' : v);\nreturn {\n  json: {\n    product_key: r.product_key,\n    competitor: r.competitor,\n    asin: r.asin,\n    marketplace: r.marketplace,\n    title: r.title,\n    price: blank(r.price),\n    currency: r.currency,\n    previous_price: blank(r.previous_price),\n    price_change: blank(r.price_change),\n    change_percent: blank(r.change_percent),\n    lowest_price: blank(r.lowest_price),\n    list_price: blank(r.list_price),\n    discount_percent: blank(r.discount_percent),\n    in_stock: r.in_stock === null ? '' : (r.in_stock ? 'yes' : 'no'),\n    seller: r.seller,\n    rating: blank(r.rating),\n    review_count: blank(r.review_count),\n    url: r.url,\n    found_by: r.found_by,\n    alert: r.alert,\n    last_checked: r.checked_at,\n  },\n};\n"
+      },
+      "id": "d0792098-a156-4db4-826e-46940ca6a149",
+      "name": "Build Latest Price Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3860,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Competitor List').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Latest Prices"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "product_key"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "1b7af5c3-ad33-40fb-92b2-f75752c5cf06",
+      "name": "Update Latest Prices",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4080,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// One row per check in the Price History tab\nconst r = $input.item.json;\nreturn {\n  json: {\n    checked_at: r.last_checked,\n    competitor: r.competitor,\n    asin: r.asin,\n    marketplace: r.marketplace,\n    title: r.title,\n    price: r.price,\n    currency: r.currency,\n    list_price: r.list_price,\n    in_stock: r.in_stock,\n    seller: r.seller,\n    rating: r.rating,\n    review_count: r.review_count,\n    url: r.url,\n  },\n};\n"
+      },
+      "id": "6b1fd686-60d6-4acd-a043-7c5be4653874",
+      "name": "Build History Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4300,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Competitor List').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Price History"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "0736cccf-5f3c-494d-8b17-1fe72dd7da04",
+      "name": "Log Price History",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4520,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds one status update per row of the competitor list: how many products were priced,\n// and any problems, so you can see in the sheet which rows need attention.\n// Product name rows also get the ASIN and title of the matched product, so later runs skip the search.\nconst now = $now.toFormat('yyyy-MM-dd HH:mm');\nconst rows = new Map();\n\nfor (const { json: r } of $input.all()) {\n  if (r.list_row === undefined || r.list_row === null || r.list_row === '') continue;\n  const s = rows.get(r.list_row) ?? { tracked: 0, errors: [], notes: [] };\n  if (r.ok === true) {\n    s.tracked += 1;\n    if (r.found_by === 'product search') s.matched = { matched_asin: r.asin, matched_title: r.title };\n  }\n  else if (r.code === 'duplicate') s.notes.push(r.error);\n  else s.errors.push(r.asin ? `${r.asin}: ${r.error}` : r.error);\n  rows.set(r.list_row, s);\n}\n\nreturn [...rows].map(([row, s]) => ({\n  json: {\n    row_number: row,\n    status: s.errors.length === 0 ? 'ok' : s.tracked > 0 ? 'partial' : 'error',\n    products_tracked: s.tracked,\n    note: [...new Set([...s.errors, ...s.notes])].join(' | ').slice(0, 1000),\n    last_checked: now,\n    ...(s.matched ?? {}),\n  },\n}));\n"
+      },
+      "id": "0def29de-3cf4-4b0a-9fa7-5c36264b3e87",
+      "name": "Summarize Competitor Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3640,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Competitor List').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ ((s) => (s.match(/gid=(\\d+)/) ?? s.match(/^(\\d+)$/) ?? [])[1] ?? '')(String($('Get Competitor List').params.sheetName.value ?? '')) }}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "3bcf92f6-44a0-4b94-95b6-a0969a912cc5",
+      "name": "Update Competitor List",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3860,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds one email with every competitor price change from this run, grouped by competitor.\n// Returns nothing when there are no changes, so no email is sent.\nconst changes = $input.all().map((i) => i.json).filter((r) => r.ok === true && r.alert);\nif (!changes.length) return [];\n\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst stock = (v) => (v === true ? 'In stock' : v === false ? 'Out of stock' : 'Unknown');\n\nconst byCompetitor = new Map();\nfor (const r of changes) {\n  const name = r.competitor || 'No competitor name';\n  if (!byCompetitor.has(name)) byCompetitor.set(name, []);\n  byCompetitor.get(name).push(r);\n}\n\nconst cell = 'style=\"padding:6px 8px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top\"';\nlet html = `<p>${changes.length} competitor price ${changes.length === 1 ? 'change' : 'changes'} on Amazon in today's check.</p>`;\nfor (const [name, list] of byCompetitor) {\n  html += `<h3 style=\"margin:20px 0 6px\">${esc(name)}</h3>`;\n  html += `<table cellspacing=\"0\" style=\"border-collapse:collapse;font-size:14px\">`;\n  html += `<tr><th ${cell}>Product</th><th ${cell}>Change</th><th ${cell}>Price</th><th ${cell}>Previous</th><th ${cell}>Stock</th><th ${cell}>Seller</th></tr>`;\n  for (const r of list) {\n    html += `<tr><td ${cell}><a href=\"${esc(r.url)}\">${esc((r.title || r.asin).slice(0, 80))}</a><br><small>${esc(r.asin)}</small></td>`\n      + `<td ${cell}><b>${esc(r.alert)}</b></td><td ${cell}>${esc(r.price_display)}</td>`\n      + `<td ${cell}>${esc(r.previous_display || 'First check')}</td><td ${cell}>${stock(r.in_stock)}</td>`\n      + `<td ${cell}>${esc(r.seller || 'Unknown')}</td></tr>`;\n  }\n  html += '</table>';\n}\n\nconst competitors = [...byCompetitor.keys()];\nreturn [{\n  json: {\n    subject: `Amazon competitor prices: ${changes.length} ${changes.length === 1 ? 'change' : 'changes'} (${competitors.slice(0, 3).join(', ')}${competitors.length > 3 ? ', and more' : ''})`,\n    html,\n  },\n}];\n"
+      },
+      "id": "be957da4-34bd-45f6-93ea-f19f915911c9",
+      "name": "Build Price Change Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3640,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "you@example.com",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "82401402-9176-413f-a90e-34431334d006",
+      "name": "Send Price Change Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3860,
+        540
+      ],
+      "webhookId": "e0ace10e-0d0f-4921-8f7d-a05d1960d95d"
+    },
+    {
+      "parameters": {
+        "multipleMethods": true,
+        "httpMethod": [
+          "GET",
+          "POST"
+        ],
+        "path": "amazon-competitor-prices",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f3d3bbaf-7798-4f17-a6a9-e971f023cf51",
+      "name": "Competitor Prices API",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1100,
+        1080
+      ],
+      "webhookId": "7c69f52e-3d92-447b-9ac5-2c3631c1e345"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Reads the API filters from the query string (GET) or JSON body (POST).\n// All filters are optional: with none, every tracked product is returned.\nconst item = $input.item.json;\nconst req = { ...(item.query ?? {}), ...(item.body && typeof item.body === 'object' ? item.body : {}) };\n\nconst list = (value) => (Array.isArray(value) ? value : String(value ?? '').split(','))\n  .map((s) => String(s).trim())\n  .filter(Boolean);\n\nconst competitors = list(req.competitor ?? req.competitors);\nconst asins = list(req.asin ?? req.asins).map((s) => s.toUpperCase());\nconst marketplace = String(req.marketplace ?? '').trim().toLowerCase()\n  .replace(/^https?:\\/\\//, '').replace(/^www\\./, '').replace(/\\/.*$/, '');\nconst rawDays = String(req.history_days ?? '').trim();\nconst historyDays = rawDays === '' ? 30 : Number(rawDays);\n\nconst bad = (error) => ({ json: { ok: false, status: 400, code: 'invalid_request', error } });\n\nconst badAsins = asins.filter((a) => !/^[A-Z0-9]{10}$/.test(a));\nif (badAsins.length) return bad(`Not a valid ASIN: ${badAsins.join(', ')}. ASINs are 10 letters and digits, like B0BXYCS74H.`);\nif (marketplace && !/^amazon\\.[a-z.]+$/.test(marketplace)) return bad(`\"${req.marketplace}\" isn't an Amazon site. Use a domain such as amazon.com.`);\nif (!Number.isInteger(historyDays) || historyDays < 0) return bad('history_days must be a whole number of days, 0 or more.');\n\nreturn {\n  json: {\n    ok: true,\n    competitors,\n    asins,\n    marketplace,\n    history_days: Math.min(historyDays, 365),\n  },\n};\n"
+      },
+      "id": "7fbd544b-d393-4938-a1d5-577e0ee2aa2a",
+      "name": "Read API Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        1080
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Competitor List').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Latest Prices"
+        },
+        "options": {}
+      },
+      "id": "2f7cdad0-49d5-45d1-9b50-84244dcb6ed9",
+      "name": "Get Latest Prices for API",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -660,
+        1080
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ String($('Get Competitor List').params.documentId.value ?? '').match(/[-\\w]{25,}/)?.[0] ?? '' }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Price History"
+        },
+        "options": {}
+      },
+      "id": "354355fc-bfcf-4b7a-ad3e-62e10f36069a",
+      "name": "Get Price History for API",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -440,
+        1080
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds the API response from the stored prices: the latest price of each matching product,\n// a summary per competitor, and each product's price history for the last history_days days.\nconst req = $('Read API Request').first().json;\nconst reply = (status, body) => [{ json: { status, body } }];\n\nif (!req.ok) return reply(req.status, { ok: false, code: req.code, error: req.error });\n\nconst latest = $('Get Latest Prices for API').all().map((i) => i.json);\nconst sheetError = latest.find((r) => r.error && !r.product_key);\nif (sheetError) {\n  const reason = typeof sheetError.error === 'string' ? sheetError.error : sheetError.error?.message ?? 'unknown error';\n  return reply(500, { ok: false, code: 'sheet_error', error: `Couldn't read the Latest Prices tab (${reason}).` });\n}\n\nconst stored = latest.filter((r) => r.product_key);\nif (!stored.length) {\n  return reply(404, {\n    ok: false,\n    code: 'no_data',\n    error: 'No competitor prices are stored yet. Run the daily check once to fill the Latest Prices tab.',\n  });\n}\n\nconst num = (v) => {\n  if (v === '' || v === null || v === undefined) return null;\n  const n = Number(v);\n  return Number.isFinite(n) ? n : null;\n};\nconst bool = (v) => (v === 'yes' || v === true ? true : v === 'no' || v === false ? false : null);\nconst wanted = new Set(req.competitors.map((c) => c.toLowerCase()));\n\nconst matches = stored.filter((r) =>\n  (!wanted.size || wanted.has(String(r.competitor ?? '').trim().toLowerCase())) &&\n  (!req.asins.length || req.asins.includes(String(r.asin ?? '').toUpperCase())) &&\n  (!req.marketplace || String(r.marketplace ?? '') === req.marketplace));\n\nif (!matches.length) {\n  return reply(404, {\n    ok: false,\n    code: 'not_found',\n    error: 'No tracked products match these filters.',\n    tracked_competitors: [...new Set(stored.map((r) => String(r.competitor ?? '').trim()).filter(Boolean))].sort(),\n  });\n}\n\n// Price history for the matching products, oldest first\nconst history = new Map();\nlet historyWarning = null;\nif (req.history_days > 0) {\n  const cutoff = $now.minus({ days: req.history_days }).toFormat('yyyy-MM-dd HH:mm');\n  let rows = [];\n  try {\n    rows = $('Get Price History for API').all().map((i) => i.json);\n  } catch (e) {\n    rows = [];\n  }\n  if (rows.some((r) => r.error && !r.asin)) historyWarning = \"Couldn't read the Price History tab, so history is empty.\";\n  for (const h of rows) {\n    if (!h.asin || String(h.checked_at ?? '') < cutoff) continue;\n    const key = `${h.marketplace}:${h.asin}`;\n    if (!history.has(key)) history.set(key, []);\n    history.get(key).push({ checked_at: h.checked_at, price: num(h.price), in_stock: bool(h.in_stock) });\n  }\n  for (const list of history.values()) list.sort((a, b) => String(a.checked_at).localeCompare(String(b.checked_at)));\n}\n\nconst products = matches\n  .map((r) => {\n    const p = {\n      competitor: String(r.competitor ?? ''),\n      asin: String(r.asin ?? ''),\n      marketplace: String(r.marketplace ?? ''),\n      title: String(r.title ?? ''),\n      url: String(r.url ?? ''),\n      price: num(r.price),\n      currency: String(r.currency ?? ''),\n      previous_price: num(r.previous_price),\n      price_change: num(r.price_change),\n      change_percent: num(r.change_percent),\n      lowest_price: num(r.lowest_price),\n      list_price: num(r.list_price),\n      discount_percent: num(r.discount_percent),\n      in_stock: bool(r.in_stock),\n      seller: String(r.seller ?? ''),\n      rating: num(r.rating),\n      review_count: num(r.review_count),\n      found_by: String(r.found_by ?? ''),\n      alert: r.alert ? String(r.alert) : null,\n      last_checked: String(r.last_checked ?? ''),\n    };\n    if (req.history_days > 0) p.history = history.get(String(r.product_key)) ?? [];\n    return p;\n  })\n  .sort((a, b) => a.competitor.localeCompare(b.competitor) || a.title.localeCompare(b.title));\n\n// One summary line per competitor\nconst summary = new Map();\nfor (const p of products) {\n  const s = summary.get(p.competitor) ?? { competitor: p.competitor, products: 0, in_stock: 0, prices: [], currencies: new Set() };\n  s.products += 1;\n  if (p.in_stock === true) s.in_stock += 1;\n  if (p.price !== null) {\n    s.prices.push(p.price);\n    s.currencies.add(p.currency);\n  }\n  summary.set(p.competitor, s);\n}\n// Price ranges are only given when a competitor's prices share one currency\nconst competitors = [...summary.values()].map(({ prices, currencies, ...s }) => {\n  const one = currencies.size === 1 && prices.length;\n  return {\n    ...s,\n    currency: one ? [...currencies][0] : null,\n    lowest_price: one ? Math.min(...prices) : null,\n    highest_price: one ? Math.max(...prices) : null,\n    average_price: one ? Math.round((prices.reduce((a, b) => a + b, 0) / prices.length) * 100) / 100 : null,\n  };\n});\n\nconst body = {\n  ok: true,\n  count: products.length,\n  as_of: products.map((p) => p.last_checked).sort().pop() ?? null,\n  competitors,\n  products,\n};\nif (historyWarning) body.warning = historyWarning;\n\nreturn reply(200, body);\n"
+      },
+      "id": "7369594c-0fc2-4b75-bfeb-c0e331bb32ed",
+      "name": "Build API Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220,
+        1080
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body }}",
+        "options": {
+          "responseCode": "={{ $json.status }}"
+        }
+      },
+      "id": "9a04dd65-c0a7-47e2-b6f4-bf99e8378bc9",
+      "name": "Return Competitor Prices",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        1080
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Amazon Competitor Price Tracking API with Pumice AI\n\nKeep a list of competitors and their Amazon products in Google Sheets. Every morning, Pumice AI reads the live price of each product, the results are saved to the sheet, and you get one email with every competitor price change. Your own apps read the stored prices from a simple API.\n\n### What you can list\nEach row of the **Competitors** tab has a `competitor` name, a `product`, or both:\n- **A competitor and a product:** the product is an ASIN, an Amazon URL, or a product name. A product name is searched, and **Pumice product matching** confirms the Amazon page is the same product before it is tracked.\n- **Only a competitor name:** their products are found from an Amazon search and the top few are tracked (`max_products`, default 5).\n\n### Competitor price API\nReturns the stored prices from the daily run, with no new scrape:\n```\nGET  /webhook/amazon-competitor-prices?competitor=Acme\nGET  /webhook/amazon-competitor-prices?asin=B0BXYCS74H&history_days=90\nPOST /webhook/amazon-competitor-prices\n{\"competitor\": [\"Acme\", \"Globex\"]}\n```\n\n### Setup\n1. Create an **HTTP Header Auth** credential named `Pumice API` with **Name** `x-api-key` and your Pumice API key as the **Value**.\n2. Create a Google Sheet with a **Competitors** tab (columns `competitor`, `product`, and optionally `marketplace` and `max_products`) and two empty tabs named exactly `Latest Prices` and `Price History`.\n3. Connect Google Sheets in the seven Sheets nodes and pick the spreadsheet and Competitors tab in **Get Competitor List**. The other Sheets nodes use the same spreadsheet.\n4. Connect Gmail in **Send Price Change Email** and replace `you@example.com`.\n5. Publish the workflow.",
+        "height": 1500,
+        "width": 640,
+        "color": 5
+      },
+      "id": "542f9e6d-0baf-47c9-a589-7ccffeaee143",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1820,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Read the competitor list\n**Check Competitor Prices Daily** starts the run at 8:00. **Settings** holds the default number of products to track per competitor and the smallest price change, in percent, that goes in the email.\n\n**Get Latest Prices** reads the last saved price of every product so today's price can be compared with it.\n\n**Plan Daily Checks** turns each row into a check: an ASIN or Amazon link, a product name to search for, or a competitor name to search for. A product name that was matched on an earlier run is priced by its saved `matched_asin`, with no new search.",
+        "height": 940,
+        "width": 1280,
+        "color": 7
+      },
+      "id": "5b0c8856-40d6-46db-a3d6-27643589fc76",
+      "name": "Section 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1160,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Find each product page\n### Product names: search, scrape, and match\n**Pumice Universal Search** finds the top 3 product pages on the row's Amazon site. **Pumice Smart Scrape** reads each page's title, brand, model number, and features, and **Pumice product matching** compares it with the row's product name and competitor. The highest-ranked page that matches is used. If none match, the row gets an error instead of tracking the wrong product.\n\n### Competitor names\nFor a competitor name, **Pumice Smart Scrape** reads the Amazon search results for that name and returns the competitor's products, up to `max_products`.\n\n### All products\n**All Product Pages** combines ASINs, links, matched product names, and competitor products. **Remove Duplicate Products** keeps one check per product, so a product listed twice is only priced once.",
+        "height": 940,
+        "width": 2720,
+        "color": 6
+      },
+      "id": "18d9f1c0-9c7d-4597-8c16-7c777e907134",
+      "name": "Section 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        140,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Scrape the live Amazon price with Pumice\n**Pumice Smart Scrape** reads each product page and returns the Buy Box price, list price, availability, seller, rating, and review count. Pumice handles proxies, CAPTCHAs, and page changes.\n\n**Read Price** cleans up the values and compares the price and stock status with the last saved check.",
+        "height": 940,
+        "width": 680,
+        "color": 4
+      },
+      "id": "a158130a-8a9a-45a5-a303-17d178eb2c2a",
+      "name": "Section 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Save prices and send one email\n**Update Latest Prices** keeps one row per product with its latest price, previous price, change, and lowest price. **Log Price History** adds one row per check.\n\n**Update Competitor List** writes a `status`, `products_tracked`, `note`, and `last_checked` to each row of your list. Product name rows also get the `matched_asin` and `matched_title` of the matched product, and later runs use that ASIN. Clear `matched_asin` to match again.\n\n**Send Price Change Email** sends one email with every price change and stock change from this run. No changes, no email.",
+        "height": 940,
+        "width": 1180,
+        "color": 3
+      },
+      "id": "d6ec931d-bd1f-4a2f-9b96-3f0611ed6415",
+      "name": "Section 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3580,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 5. Competitor price API\n**Competitor Prices API** accepts `GET` or `POST` with optional filters: `competitor`, `asin` (one or a comma-separated list), `marketplace`, and `history_days` (default 30, 0 for none).\n\nIt reads the **Latest Prices** and **Price History** tabs and returns each matching product's latest price, a summary per competitor, and the price history. Errors return `400` (bad filter), `404` (nothing stored or nothing matches), or `500` (the sheet couldn't be read).",
+        "height": 520,
+        "width": 1280,
+        "color": 2
+      },
+      "id": "f9417fa6-22d3-417f-9a0e-424d27a8b5f6",
+      "name": "Section 5",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1160,
+        800
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Check Competitor Prices Daily": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Get Competitor List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Competitor List": {
+      "main": [
+        [
+          {
+            "node": "Get Latest Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Latest Prices": {
+      "main": [
+        [
+          {
+            "node": "Plan Daily Checks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Daily Checks": {
+      "main": [
+        [
+          {
+            "node": "How to Find the Product?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "How to Find the Product?": {
+      "main": [
+        [
+          {
+            "node": "Find on Amazon",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Competitor Products",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "All Product Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find on Amazon": {
+      "main": [
+        [
+          {
+            "node": "Pick Amazon Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Amazon Candidates": {
+      "main": [
+        [
+          {
+            "node": "Any Candidates?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Candidates?": {
+      "main": [
+        [
+          {
+            "node": "Scrape Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Name Search Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Scrape Candidate": {
+      "main": [
+        [
+          {
+            "node": "Prepare Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Match": {
+      "main": [
+        [
+          {
+            "node": "Match Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Product": {
+      "main": [
+        [
+          {
+            "node": "Read Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Match": {
+      "main": [
+        [
+          {
+            "node": "Name Search Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Name Search Results": {
+      "main": [
+        [
+          {
+            "node": "Pick Matched Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Matched Product": {
+      "main": [
+        [
+          {
+            "node": "All Product Pages",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Find Competitor Products": {
+      "main": [
+        [
+          {
+            "node": "List Competitor Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Competitor Products": {
+      "main": [
+        [
+          {
+            "node": "All Product Pages",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "All Product Pages": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicate Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicate Products": {
+      "main": [
+        [
+          {
+            "node": "Product Page Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Product Page Found?": {
+      "main": [
+        [
+          {
+            "node": "Scrape Amazon Price",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "All Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Scrape Amazon Price": {
+      "main": [
+        [
+          {
+            "node": "Read Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Price": {
+      "main": [
+        [
+          {
+            "node": "All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All Results": {
+      "main": [
+        [
+          {
+            "node": "Price Found?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Summarize Competitor Rows",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Price Change Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Price Found?": {
+      "main": [
+        [
+          {
+            "node": "Build Latest Price Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Latest Price Row": {
+      "main": [
+        [
+          {
+            "node": "Update Latest Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Latest Prices": {
+      "main": [
+        [
+          {
+            "node": "Build History Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build History Row": {
+      "main": [
+        [
+          {
+            "node": "Log Price History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Competitor Rows": {
+      "main": [
+        [
+          {
+            "node": "Update Competitor List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Price Change Email": {
+      "main": [
+        [
+          {
+            "node": "Send Price Change Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Competitor Prices API": {
+      "main": [
+        [
+          {
+            "node": "Read API Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read API Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read API Request": {
+      "main": [
+        [
+          {
+            "node": "Get Latest Prices for API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Latest Prices for API": {
+      "main": [
+        [
+          {
+            "node": "Get Price History for API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Price History for API": {
+      "main": [
+        [
+          {
+            "node": "Build API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build API Response": {
+      "main": [
+        [
+          {
+            "node": "Return Competitor Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

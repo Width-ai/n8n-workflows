@@ -17,6 +17,8 @@ AI product description generation via Pumice, with description rules, examples, 
 
 Amazon price tracker API via Pumice, with a live price lookup endpoint, a daily Google Sheets watchlist, price history, and Gmail price drop alerts: https://github.com/Width-ai/n8n-workflows/blob/main/pumice-amazon-price-tracker-api-workflow-n8n.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/pumice-amazon-price-tracker-api-workflow-n8n.md)
 
+Amazon competitor price tracking API via Pumice, with a Google Sheets list of competitor ASINs, products, or competitor names priced daily, product matching to confirm products found by name, latest prices and price history, an API that returns stored competitor prices, and a daily Gmail summary of price and stock changes: https://github.com/Width-ai/n8n-workflows/blob/main/pumice-amazon-competitor-price-tracking-api-workflow-n8n.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/pumice-amazon-competitor-price-tracking-api-workflow-n8n.md)
+
 Blog post to social media posts: https://github.com/Width-ai/n8n-workflows/blob/main/blog-to-social-ai-free.json
 
 Multi-platform social media content creation with context documents, blog summaries, and Instagram performance rules: https://github.com/Width-ai/n8n-workflows/blob/main/n8n-social-media-content-creation.json
