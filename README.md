@@ -21,6 +21,8 @@ Amazon competitor price tracking API via Pumice, with a Google Sheets list of co
 
 Track competitor prices API via Pumice for any website, with site: searches by SKU, UPC, or MPN, product matching to confirm each competitor page, daily prices and price history in Google Sheets, an API that compares stored prices across competitors, and a daily Gmail summary of price and stock changes: https://github.com/Width-ai/n8n-workflows/blob/main/pumice-track-competitor-prices-api-workflow-n8n.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/pumice-track-competitor-prices-api-workflow-n8n.md)
 
+AI content humanizer for blog posts, using the content-humanizer skill with Claude to remove AI writing patterns in draft, audit, and final passes, with checks that keep headings, links, keywords, and code intact, and an optional Google Doc: https://github.com/Width-ai/n8n-workflows/blob/main/ai-content-humanizer-blog-workflow-n8n.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/ai-content-humanizer-blog-workflow-n8n.md)
+
 Blog post to social media posts: https://github.com/Width-ai/n8n-workflows/blob/main/blog-to-social-ai-free.json
 
 Multi-platform social media content creation with context documents, blog summaries, and Instagram performance rules: https://github.com/Width-ai/n8n-workflows/blob/main/n8n-social-media-content-creation.json

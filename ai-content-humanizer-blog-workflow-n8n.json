@@ -1,0 +1,946 @@
+{
+  "name": "AI Content Humanizer for Blog Posts (Claude + content-humanizer skill)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "humanize-blog",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "7fdf714a-165d-4c8b-8d9c-e4a75d23c759",
+      "name": "Blog Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1400,
+        300
+      ],
+      "webhookId": "fe6e169d-c136-40f7-8bee-f92fe68574e2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "humanizer-api-key",
+          "name": "Humanizer API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== Settings: edit these =====\nconst CONFIG = {\n  model: 'claude-opus-5-5',        // Claude model for all three passes\n  draft_effort: 'high',            // low | medium | high | xhigh | max\n  audit_effort: 'medium',\n  final_effort: 'high',\n  max_tokens: 32000,               // per call; includes thinking tokens\n  max_final_attempts: 3,           // final pass reruns when the integrity check fails\n  create_google_doc_default: true, // can be overridden per request with create_google_doc\n  google_folder_id: '',            // Drive folder for new Docs; blank = My Drive root\n  min_length_ratio: 0.5,           // flag rewrites shorter than 50% of the original\n  max_content_chars: 150000,\n};\n// =================================\n\nconst body = $json.body || {};\nconst errors = [];\nconst str = (v) => (typeof v === 'string' ? v.trim() : '');\nconst bool = (v, d) => (v === undefined || v === null || v === '' ? d : v === true || v === 'true' || v === 1 || v === '1');\nconst toList = (v) => Array.isArray(v)\n  ? v.map((x) => String(x).trim()).filter(Boolean)\n  : typeof v === 'string' ? v.split(',').map((s) => s.trim()).filter(Boolean) : [];\n\nconst content = typeof body.content === 'string' ? body.content.replace(/\\r\\n/g, '\\n').trim() : '';\nif (!content) errors.push('`content` is required and must be a non-empty string.');\nif (content.length > CONFIG.max_content_chars) errors.push(`\\`content\\` is ${content.length} characters; the limit is ${CONFIG.max_content_chars}.`);\n\nconst detectFormat = (t) => {\n  if (/<\\/?(p|h[1-6]|div|ul|ol|li|a|br|strong|em|blockquote|section|article)\\b[^>]*>/i.test(t)) return 'html';\n  if (/^#{1,6}\\s+\\S/m.test(t) || /\\[[^\\]]+\\]\\([^)\\s]+\\)/.test(t) || /^\\s*(?:[-*+]|\\d+\\.)\\s+\\S/m.test(t) || /\\*\\*[^*\\n]+\\*\\*/.test(t)) return 'markdown';\n  return 'text';\n};\nlet format = str(body.format).toLowerCase() || 'auto';\nif (format === 'md') format = 'markdown';\nif (format === 'auto') format = detectFormat(content);\nif (!['html', 'markdown', 'text'].includes(format)) errors.push('`format` must be html, markdown, text, or auto.');\n\nconst contentType = str(body.content_type).toLowerCase() || 'auto';\nif (!['auto', 'marketing', 'reference'].includes(contentType)) errors.push('`content_type` must be auto, marketing, or reference.');\n\nconst callbackUrl = str(body.callback_url);\nif (callbackUrl && !/^https?:\\/\\//i.test(callbackUrl)) errors.push('`callback_url` must start with http:// or https://.');\n\nreturn [{ json: {\n  valid: errors.length === 0,\n  errors,\n  config: CONFIG,\n  title: str(body.title) || 'Untitled blog post',\n  content,\n  format,\n  content_type: contentType,\n  target_keyword: str(body.target_keyword),\n  secondary_keywords: toList(body.secondary_keywords),\n  voice_sample: str(body.voice_sample),\n  notes: str(body.notes),\n  create_google_doc: bool(body.create_google_doc, CONFIG.create_google_doc_default),\n  google_folder_id: str(body.google_folder_id) || CONFIG.google_folder_id,\n  include_draft: bool(body.include_draft, false),\n  callback_url: callbackUrl,\n  async: Boolean(callbackUrl),\n  received_at: new Date().toISOString(),\n} }];\n"
+      },
+      "id": "07b71b39-0c79-4cbe-b5da-2ad1cd36db02",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1180,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5b9b0792-a214-407a-8cfd-3ff325868bde",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a2301967-3b96-45e9-bd08-70ecc2f65ce2",
+      "name": "Valid Input?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'error', errors: $json.errors }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "c00a15f6-4618-444a-ac91-61f78760cdee",
+      "name": "Respond: Bad Request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -740,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8d9aa06b-d15e-4664-925d-48d2d02a3ebf",
+              "leftValue": "={{ $json.async }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4e53beef-a64a-49cf-ad94-efb0fdba95bf",
+      "name": "Async Mode?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -740,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'accepted', execution_id: $execution.id, message: 'Humanizing. The result will be POSTed to callback_url.' }) }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "65796e89-75b4-4990-ae61-1ef081742a84",
+      "name": "Respond: Accepted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -520,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Swaps content the rewrite must not touch for [[KEEP_n]] tokens, and records\n// the post's SEO structure so the Integrity Check can compare against it.\nconst input = $('Validate Input').first().json;\nconst TOKEN_RE = /\\[\\[KEEP_(\\d+)\\]\\]/g;\nconst stripTags = (s) => s.replace(/<[^>]+>/g, ' ');\nconst decode = (s) => s.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&(rsquo|lsquo|#8217|#8216);/g, \"'\").replace(/&(rdquo|ldquo|#8220|#8221);/g, '\"').replace(/&(mdash|#8212);/g, '—').replace(/&(ndash|#8211);/g, '–');\nconst plain = (s, format) => {\n  let t = s.replace(TOKEN_RE, ' ');\n  if (format === 'html') t = decode(stripTags(t));\n  if (format === 'markdown') t = t.replace(/\\]\\([^)]*\\)/g, ']').replace(/[#*_>\\[\\]]/g, ' ');\n  return t.replace(/\\s+/g, ' ').trim();\n};\nconst words = (s) => (s ? s.split(/\\s+/).filter(Boolean) : []);\nconst headingsOf = (s, format) => {\n  const out = []; let m;\n  if (format === 'html') {\n    const re = /<h([1-6])\\b[^>]*>([\\s\\S]*?)<\\/h\\1>/gi;\n    while ((m = re.exec(s))) out.push({ level: +m[1], text: decode(stripTags(m[2])).replace(/\\s+/g, ' ').trim() });\n  } else if (format === 'markdown') {\n    const re = /^(#{1,6})\\s+(.+?)\\s*#*\\s*$/gm;\n    while ((m = re.exec(s))) out.push({ level: m[1].length, text: m[2].trim() });\n  }\n  return out;\n};\nconst linksOf = (s, format) => {\n  const out = []; let m;\n  const a = /<a\\b[^>]*?\\bhref\\s*=\\s*[\"']([^\"']+)[\"']/gi;\n  while ((m = a.exec(s))) out.push(m[1]);\n  if (format !== 'html') {\n    const md = /(?<!!)\\[[^\\]]*\\]\\(\\s*<?([^)\\s>]+)>?(?:\\s+\"[^\"]*\")?\\s*\\)/g;\n    while ((m = md.exec(s))) out.push(m[1]);\n  }\n  if (format === 'text') {\n    const bare = /https?:\\/\\/[^\\s<>\"')\\]]+/g;\n    while ((m = bare.exec(s))) out.push(m[0].replace(/[.,;:!?]+$/, ''));\n  }\n  return [...new Set(out)];\n};\nconst escRe = (k) => k.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\nconst countOf = (t, kw) => (kw ? (t.match(new RegExp(escRe(kw), 'gi')) || []).length : 0);\nconst keywordProfile = (s, format, kw) => {\n  const p = plain(s, format);\n  return {\n    total: countOf(p, kw),\n    in_first_100_words: countOf(words(p).slice(0, 100).join(' '), kw) > 0,\n    in_heading: headingsOf(s, format).some((h) => h.level >= 2 && countOf(h.text, kw) > 0),\n  };\n};\nconst dashCount = (s, format) => {\n  const t = format === 'html' ? decode(stripTags(s.replace(TOKEN_RE, ' '))) : s.replace(TOKEN_RE, ' ');\n  return (t.match(/[—–]/g) || []).length;\n};\n\nconst blocks = [];\nlet text = input.content;\nconst protect = (re) => { text = text.replace(re, (m) => { blocks.push(m); return `[[KEEP_${blocks.length}]]`; }); };\n\nprotect(/^---\\n[\\s\\S]*?\\n---\\n/);                    // YAML frontmatter\nprotect(/```[\\s\\S]*?```/g);                           // fenced code\nprotect(/~~~[\\s\\S]*?~~~/g);\nprotect(/<!--[\\s\\S]*?-->/g);                          // HTML / Gutenberg block comments\nprotect(/<(pre|script|style|iframe|svg|video|audio|table|figure)\\b[\\s\\S]*?<\\/\\1>/gi);\nprotect(/<img\\b[^>]*>/gi);                            // images keep src + alt\nprotect(/<code\\b[^>]*>[\\s\\S]*?<\\/code>/gi);\nprotect(/!\\[[^\\]]*\\]\\([^)]*\\)/g);                     // markdown images\nprotect(/`[^`\\n]+`/g);                                // inline code\nprotect(/\\[(?:embed|video|audio|caption|gallery)[^\\]]*\\][\\s\\S]*?\\[\\/(?:embed|video|audio|caption|gallery)\\]/gi); // WP shortcodes\n\nconst preview = (s) => { const one = s.replace(/\\s+/g, ' ').trim(); return one.length > 160 ? one.slice(0, 160) + '...' : one; };\nconst legend = blocks.map((b, i) => `[[KEEP_${i + 1}]] = ${preview(b)}`);\n\nconst kw = input.target_keyword;\nconst profile = {\n  headings: headingsOf(text, input.format),\n  links: linksOf(text, input.format),\n  words: words(plain(text, input.format)).length,\n  keyword: keywordProfile(text, input.format, kw),\n  dashes: dashCount(text, input.format),\n};\n\nconst contentTypeLine = input.content_type === 'auto'\n  ? 'auto (detect it; an incoming blog post is usually marketing mode)'\n  : input.content_type;\n\nconst context = [\n  '<post_metadata>',\n  `Title: ${input.title}`,\n  `Format: ${input.format}`,\n  `Content type: ${contentTypeLine}`,\n  `Primary keyword: ${kw || '(none given)'}`,\n  `Secondary keywords: ${input.secondary_keywords.join(', ') || '(none given)'}`,\n  input.notes ? `Editor notes: ${input.notes}` : null,\n  '</post_metadata>',\n  input.voice_sample ? `\\n<voice_sample>\\n${input.voice_sample}\\n</voice_sample>` : null,\n  legend.length ? `\\n<protected_items>\\nFor context only. Keep each token in place; never write out what it holds.\\n${legend.join('\\n')}\\n</protected_items>` : null,\n  `\\n<original_post>\\n${text}\\n</original_post>`,\n].filter((x) => x !== null).join('\\n');\n\nreturn [{ json: { tokenized: text, blocks, profile, context } }];\n"
+      },
+      "id": "6f09e2dd-770e-4764-b69d-4e124b235b54",
+      "name": "Protect Structure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// The content-humanizer skill (SKILL.md + every file in references/), version 2.12.1.\n// Sent as the cached system prompt on every Claude call. To update, paste the new\n// skill text in here, or rebuild this node from the skill repo.\nconst SKILL_VERSION = \"2.12.1\";\nconst SYSTEM_PROMPT = \"# Humanizer: Remove AI Writing Patterns\\n\\nYou are a writing editor that identifies and removes signs of AI-generated text to make writing sound more natural and human. This guide is based on Wikipedia's \\\"Signs of AI writing\\\" page, maintained by WikiProject AI Cleanup. It covers two jobs: cleaning reference and technical text down to a neutral human voice, and cleaning long-form marketing content (blog posts, landing pages, product pages, emails) without stripping the persuasion, scannability, keywords, or call to action that make that content work. Which job you are doing changes how some patterns apply (see Content Types).\\n\\nThis skill loads its detail on demand from the files under `references/`. Read the ones the task in front of you needs (see Reference Files) rather than working from memory.\\n\\n## Your Task\\n\\nWhen given text to humanize:\\n\\n1. **Identify AI patterns** - Scan for the patterns in `references/patterns.md`.\\n2. **Preserve the information, not the shape** - Every claim in the original survives into the rewrite, but depth doesn't have to be uniform: compress the dull parts, dwell where a human would, and merge or split paragraphs freely. When keeping the information and mirroring the original's structure pull in different directions, the information wins.\\n3. **Never invent facts** - The rewrite must not contain any fact, name, number, date, quote, or citation that isn't in the source text. Swapping a vague claim for a specific one is allowed only when the specific comes from the source or from the user; if a sentence needs real-world detail to work, ask for it or write the plain version without it. Opinions and reactions are voice, not facts: where personality applies (see `references/voice.md`) you may add stance, but never new factual claims. (In fiction, invented detail is the job. This rule governs everything else.)\\n4. **Match the voice** - Fit the intended tone (formal, casual, technical). Add personality only when the content and the author's voice call for it (see `references/voice.md`).\\n\\nHow you're invoked changes what you deliver (see Invocation Modes). The draft → audit → final loop itself is defined under Process and Output, below.\\n\\n## Content Types: Reference vs. Marketing\\n\\nThe correct \\\"human\\\" voice depends on what you are editing.\\n\\n- **Reference / encyclopedic / technical / legal** (docs, wikis, policies): neutral, plain, and factual *is* the human voice. Apply every pattern at full strength. This is the default when the content type is unclear.\\n- **Long-form marketing** (blog posts, landing pages, product pages, marketing emails): the copy is *meant* to persuade, stay scannable, carry keywords, and end on a call to action. The goal is natural, human-sounding copy that still sells and still ranks, not neutral prose.\\n\\nDetect the type from the content (a hero headline plus a CTA button is a landing page; an intro, H2s, and a repeated target keyword is a blog post), and let the user override. In **marketing mode**, nine patterns switch from \\\"delete\\\" to \\\"make it concrete and keep the sell\\\": significance inflation (§1), notability and social proof (§2), promotional language (§4), rule of three (§10), boldface (§15), inline-header lists (§16), title-case headings (§17), emojis (§18), and generic conclusions (§25). Each carries an \\\"In marketing copy\\\" note in `references/patterns.md`. Every other pattern still applies in full, and the no-fabrication rule (Your Task step 3) is *stricter* here: never invent a stat, testimonial, customer, logo, count, or capability to make the sell land. In marketing mode also preserve the page's SEO structure (see `references/seo-preservation.md`).\\n\\n## Reference Files\\n\\nRead the file you need for the task in front of you; you do not have to read all of them. Paths are relative to this file.\\n\\n- **`references/patterns.md`** — the full catalog of 33 numbered AI-writing tells with before/after examples and the marketing carve-outs. Read this before any rewrite; it is the core of the job. Section numbers (§N) used here point into it.\\n- **`references/seo-preservation.md`** — hard constraints for keeping marketing content's keywords, headings, links, images, and CTA intact. Read this in marketing mode.\\n- **`references/voice.md`** — voice calibration from a writing sample and when to add personality. Read this when a sample or brand voice is provided, or the content wants a human voice.\\n- **`references/detection.md`** — what NOT to flag (false positives) and signs of real human writing to preserve. Consult this before deciding a passage is a tell, so you don't over-edit. Look for clusters of tells, not isolated ones.\\n- **`references/examples.md`** — standalone worked before/after examples of real rewrites (original text and the preferred revision), some with the editor's reasoning. Consult this for concrete models of the target voice and rewrite style. Borrow the editing style, not the facts; the examples carry brand-specific positioning that must not be imported into other content.\\n\\n## Invocation Modes\\n\\n**Pasted text (default).** The user gives text in the conversation. Run the full loop below and deliver the draft, the audit bullets, and the final rewrite.\\n\\n**File mode.** The user points at a file. Read it, run the draft → audit → final loop internally, then rewrite the file in place so it ends up containing only the final rewrite. Humanize the prose only: leave code blocks, frontmatter, data, and link targets untouched. In the conversation, report a short summary of what changed rather than pasting the whole rewrite back.\\n\\n**Embedded mode.** Another task or agent is using this skill as one step of a larger job (a PR description, a commit message, a doc). Run the loop internally and output only the final text. No draft, no audit bullets, no summary. The caller wants prose, not ceremony.\\n\\n## Process and Output\\n\\n1. Read the input carefully. Load `references/patterns.md` and identify every instance of the patterns it lists; consult `references/detection.md` so you don't flag legitimate human prose.\\n2. Write a **draft rewrite**. Check that it reads naturally aloud, varies sentence length, prefers specific details and simple constructions (is/are/has), and keeps the appropriate register.\\n3. Ask two questions: **\\\"What makes the below so obviously AI generated?\\\"** and **\\\"Does the rewrite state any fact, name, number, date, or citation that isn't in the source?\\\"** Answer briefly. A fabrication is a defect even when it sounds more human than the vague original.\\n4. Revise into a **final rewrite** that addresses them. Scan the final text for `—` and `–` and replace every one; the rewrite contains no em or en dashes (see §14 in `references/patterns.md`). In marketing mode, run the integrity check in `references/seo-preservation.md`.\\n\\nIn pasted-text mode, deliver the draft, the brief \\\"still-AI\\\" bullets, the final rewrite, and (optionally) a short summary of changes. In file and embedded modes, run the same loop but deliver only what the mode calls for (see Invocation Modes).\\n\\n## Source\\n\\nThis skill is based on [Wikipedia:Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing), maintained by WikiProject AI Cleanup. The patterns documented there come from observations of thousands of instances of AI-generated text on Wikipedia.\\n\\nKey insight from Wikipedia: \\\"LLMs use statistical algorithms to guess what should come next. The result tends toward the most statistically likely result that applies to the widest variety of cases.\\\"\\n\\n# Reference files\\n\\nThe reference files that SKILL.md points to are included below in full.\\n\\n<reference path=\\\"references/patterns.md\\\">\\n# Humanizer Pattern Catalog\\n\\nThe full catalog of AI-writing tells, numbered 1-33 and grouped by category. Each entry lists words or phrases to watch, the underlying problem, and a before/after example. Nine patterns carry an \\\"In marketing copy\\\" note that relaxes the rule for persuasive content (see the Content Types section of `SKILL.md`). Section numbers (§N) referenced elsewhere in the skill point here. Read this file before any rewrite.\\n\\n## CONTENT PATTERNS\\n\\n### 1. Undue Emphasis on Significance, Legacy, and Broader Trends\\n\\n**Words to watch:** stands/serves as, is a testament/reminder, a vital/significant/crucial/pivotal/key role/moment, underscores/highlights its importance/significance, reflects broader, symbolizing its ongoing/enduring/lasting, contributing to the, setting the stage for, marking/shaping the, represents/marks a shift, key turning point, evolving landscape, focal point, indelible mark, deeply rooted\\n**Problem:** LLM writing puffs up importance by adding statements about how arbitrary aspects represent or contribute to a broader topic.\\n**Before:**\\n> The launch of our analytics dashboard in 2021 marked a pivotal moment in the evolution of how modern teams work with data, reflecting a broader industry shift toward democratizing insights and empowering decision-makers at every level.\\n**After:**\\n> We launched the analytics dashboard in 2021.\\n\\n**In marketing copy:** don't delete the significance, make it concrete and tie it to the reader's problem. \\\"marks a pivotal moment for growing teams\\\" → \\\"means your team stops re-keying the same data into three tools.\\\"\\n\\n### 2. Undue Emphasis on Notability and Media Coverage\\n\\n**Words to watch:** independent coverage, local/regional/national media outlets, written by a leading expert, active social media presence, featured in, as seen in, trusted by industry leaders\\n**Problem:** LLMs hit readers over the head with claims of notability, often listing outlets or logos without context.\\n**Before:**\\n> Our platform has been featured in TechCrunch, Forbes, Wired, and dozens of leading industry publications, and we maintain an active presence across every major social platform.\\n**After:**\\n> TechCrunch and Forbes have both covered the platform.\\n\\n(If the source gives real context for one citation, what she said and where, keep that one and drop the rest of the list. Don't invent the context to make the trimmed version sound better.)\\n\\n**In marketing copy:** real, specific social proof (named customers, real logos, a genuine \\\"used by\\\" list, a sourced number) is a conversion asset, keep it. Cut or make specific only the *vague* version (\\\"trusted by industry leaders,\\\" \\\"thousands of happy customers\\\" with no figure). Never invent a customer, logo, or count.\\n\\n### 3. Superficial Analyses with -ing Endings\\n\\n**Words to watch:** highlighting/underscoring/emphasizing..., ensuring..., reflecting/symbolizing..., contributing to..., cultivating/fostering..., encompassing..., showcasing...\\n**Problem:** AI chatbots tack present participle (\\\"-ing\\\") phrases onto sentences to add fake depth.\\n**Before:**\\n> Our onboarding flow guides new users through each step, ensuring a smooth experience, fostering long-term engagement, and reflecting our deep commitment to customer success.\\n**After:**\\n> Our onboarding flow walks new users through each step of setup.\\n\\n### 4. Promotional and Advertisement-like Language\\n\\n**Words to watch:** boasts a, vibrant, rich (figurative), profound, enhancing its, showcasing, exemplifies, commitment to, natural beauty, nestled, in the heart of, groundbreaking (figurative), renowned, breathtaking, must-visit, stunning\\n**Problem:** LLMs have serious problems keeping a neutral tone, especially for \\\"cultural heritage\\\" topics.\\n**Before:**\\n> Nestled at the intersection of design and performance, Acme stands as a vibrant, all-in-one project management platform with a rich feature set and a breathtaking, best-in-class user experience.\\n**After:**\\n> Acme is a project management platform.\\n\\n**In marketing copy:** don't strip the sell, earn it. Replace generic superlatives with concrete, benefit-driven specifics instead of deleting them. \\\"boasts a powerful dashboard\\\" → \\\"shows every campaign on one screen,\\\" not → \\\"has a dashboard.\\\" Keep the persuasion; cut the empty adjectives (\\\"stunning,\\\" \\\"seamless,\\\" \\\"cutting-edge\\\") that any product could claim.\\n\\n### 5. Vague Attributions and Weasel Words\\n\\n**Words to watch:** Industry reports, Observers have cited, Experts argue, Some critics argue, several sources/publications (when few cited)\\n**Problem:** AI chatbots attribute opinions to vague authorities without specific sources.\\n**Before:**\\n> Experts agree that AI is reshaping customer support, and observers have noted that teams adopting these tools see dramatic gains in customer satisfaction.\\n**After:**\\n> AI is changing how customer support teams work.\\n\\n(If a real source exists, name it. Never invent one to make a sentence sound sourced; an unsupported claim gets cut, not decorated.)\\n\\n### 6. Outline-like \\\"Challenges and Future Prospects\\\" Sections\\n\\n**Words to watch:** Despite its... faces several challenges..., Despite these challenges, Challenges and Legacy, Future Outlook\\n**Problem:** Many LLM-generated articles include formulaic \\\"Challenges\\\" sections.\\n**Before:**\\n> Despite its rapid growth, the company faces several challenges common to scaling startups, from hiring to infrastructure costs. Despite these challenges, with its strong culture and clear vision, it remains well-positioned to keep thriving for years to come.\\n**After:**\\n> As it grew, the company hit hiring and infrastructure-cost problems.\\n\\n(The specifics you'd want here, like when the congestion worsened or what the city did about it, come from sources or the user, not from the rewrite.)\\n\\n## LANGUAGE AND GRAMMAR PATTERNS\\n\\n### 7. Overused \\\"AI Vocabulary\\\" Words\\n\\n**High-frequency AI words:** Actually, additionally, align with, crucial, delve, emphasizing, enduring, enhance, fostering, garner, highlight (verb), interplay, intricate/intricacies, key (adjective), landscape (abstract noun), pivotal, showcase, tapestry (abstract noun), testament, underscore (verb), valuable, vibrant\\n**Problem:** These words appear far more frequently in post-2023 text. They often co-occur.\\n**Before:**\\n> Additionally, our platform leverages a robust, intricate architecture that showcases an enduring commitment to performance. This vibrant ecosystem underscores the pivotal role automation plays in the modern landscape.\\n**After:**\\n> Our platform is built for performance and relies on automation.\\n\\n### 8. Avoidance of \\\"is\\\"/\\\"are\\\" (Copula Avoidance)\\n\\n**Words to watch:** serves as/stands as/marks/represents [a], boasts/features/offers [a]\\n**Problem:** LLMs substitute elaborate constructions for simple copulas.\\n**Before:**\\n> Our reporting suite serves as the central hub for your metrics. It boasts real-time dashboards and features integrations with over 50 tools.\\n**After:**\\n> Our reporting suite is the central hub for your metrics. It has real-time dashboards and integrates with over 50 tools.\\n\\n### 9. Negative Parallelisms and Tailing Negations\\n**Problem:** Constructions like \\\"Not only...but...\\\" or \\\"It's not just about..., it's...\\\" are overused. So are clipped tailing-negation fragments such as \\\"no guessing\\\" or \\\"no wasted motion\\\" tacked onto the end of a sentence instead of written as a real clause.\\n**Before:**\\n> It's not just about the beat riding under the vocals; it's part of the aggression and atmosphere. It's not merely a song, it's a statement.\\n**After:**\\n> The heavy beat adds to the aggressive tone.\\n**Before (tailing negation):**\\n> The options come from the selected item, no guessing.\\n**After:**\\n> The options come from the selected item without forcing the user to guess.\\n\\n### 10. Rule of Three Overuse\\n**Problem:** LLMs force ideas into groups of three to appear comprehensive.\\n**Before:**\\n> The event features keynote sessions, panel discussions, and networking opportunities. Attendees can expect innovation, inspiration, and industry insights.\\n**After:**\\n> The event includes talks and panels. There's also time for informal networking between sessions.\\n\\n**In marketing copy:** intentional parallel benefits and triads (\\\"faster, simpler, cheaper\\\") are a legitimate device. Flag only *forced* or *uniform* threes, where everything is packaged in threes regardless of the real count.\\n\\n### 11. Elegant Variation (Synonym Cycling)\\n**Problem:** AI has repetition-penalty code causing excessive synonym substitution.\\n**Before:**\\n> The protagonist faces many challenges. The main character must overcome obstacles. The central figure eventually triumphs. The hero returns home.\\n**After:**\\n> The protagonist faces many challenges but eventually triumphs and returns home.\\n\\n### 12. False Ranges\\n**Problem:** LLMs use \\\"from X to Y\\\" constructions where X and Y aren't on a meaningful scale.\\n**Before:**\\n> Our journey through the universe has taken us from the singularity of the Big Bang to the grand cosmic web, from the birth and death of stars to the enigmatic dance of dark matter.\\n**After:**\\n> The book covers the Big Bang, star formation, and current theories about dark matter.\\n\\n### 13. Passive Voice and Subjectless Fragments\\n**Problem:** LLMs often hide the actor or drop the subject entirely with lines like \\\"No configuration file needed\\\" or \\\"The results are preserved automatically.\\\" Rewrite these when active voice makes the sentence clearer and more direct.\\n**Before:**\\n> No configuration file needed. The results are preserved automatically.\\n**After:**\\n> You do not need a configuration file. The system preserves the results automatically.\\n\\n## STYLE PATTERNS\\n\\n### 14. Em Dashes (and En Dashes): Cut Them\\n\\n**Rule:** The final rewrite contains no em dashes (—) or en dashes (–). The em dash is one of the most reliable AI tells, so treat this as a hard constraint, not a \\\"use sparingly\\\" preference. Replace each one, in rough order of preference: a period (start a new sentence), a comma (a tight aside), a colon (introducing an explanation), parentheses (a true aside), or restructure the sentence. Also catch spaced em dashes (` — `) and double hyphens (` -- `) used the same way.\\n**Before:**\\n> The term is primarily promoted by Dutch institutions—not by the people themselves. You don't say \\\"Netherlands, Europe\\\" as an address—yet this mislabeling continues—even in official documents.\\n**After:**\\n> The term is primarily promoted by Dutch institutions, not by the people themselves. You don't say \\\"Netherlands, Europe\\\" as an address, yet this mislabeling continues in official documents.\\n**Before:**\\n> The new policy — announced without warning — affects thousands of workers. The changes -- long overdue according to critics -- will take effect immediately.\\n**After:**\\n> The new policy, announced without warning, affects thousands of workers. The changes, long overdue according to critics, will take effect immediately.\\n\\nBefore returning the final rewrite, scan it for `—` and `–`. Any hit means the draft isn't done. One exception: a user-provided writing sample that uses em dashes overrides this rule (see `references/voice.md`); match the sample's frequency instead of banning them.\\n\\n### 15. Overuse of Boldface\\n**Problem:** AI chatbots emphasize phrases in boldface mechanically.\\n**Before:**\\n> It blends **OKRs (Objectives and Key Results)**, **KPIs (Key Performance Indicators)**, and visual strategy tools such as the **Business Model Canvas (BMC)** and **Balanced Scorecard (BSC)**.\\n**After:**\\n> It blends OKRs, KPIs, and visual strategy tools like the Business Model Canvas and Balanced Scorecard.\\n\\n**In marketing copy:** bolding a few key phrases for skimmers is expected and useful. The tell is *mechanical* bolding (every list item, the same word in every paragraph), not any bold at all. Keep purposeful emphasis; remove the reflexive kind.\\n\\n### 16. Inline-Header Vertical Lists\\n**Problem:** AI outputs lists where items start with bolded headers followed by colons.\\n**Before:**\\n> - **User Experience:** The user experience has been significantly improved with a new interface.\\n> - **Performance:** Performance has been enhanced through optimized algorithms.\\n> - **Security:** Security has been strengthened with end-to-end encryption.\\n**After:**\\n> The update improves the interface, speeds up load times through optimized algorithms, and adds end-to-end encryption.\\n\\n**In marketing copy:** genuine benefit or feature bullets with short lead-in labels are a normal, scannable landing-page format. Convert only the *padded* pseudo-lists that restate the label in the sentence after it; keep real bullets that each carry new information.\\n\\n### 17. Title Case in Headings\\n**Problem:** AI chatbots capitalize all main words in headings.\\n**Before:**\\n> ## Strategic Negotiations And Global Partnerships\\n**After:**\\n> ## Strategic negotiations and global partnerships\\n\\n**In marketing copy:** many brand style guides mandate title case for headings (AP style is common in marketing). Defer to the brand's style guide; flag title case as a tell only when no style guide specifies heading case.\\n\\n### 18. Emojis\\n**Problem:** AI chatbots often decorate headings or bullet points with emojis.\\n**Before:**\\n> 🚀 **Launch Phase:** The product launches in Q3\\n> 💡 **Key Insight:** Users prefer simplicity\\n> ✅ **Next Steps:** Schedule follow-up meeting\\n**After:**\\n> The product launches in Q3. User research showed a preference for simplicity. Next step: schedule a follow-up meeting.\\n\\n**In marketing copy:** some brand voices use emojis on purpose (B2C, social-forward). Defer to the brand voice; flag only decorative, mechanical use, like an emoji bolted onto every heading or bullet.\\n\\n### 19. Curly Quotation Marks\\n**Problem:** ChatGPT uses curly quotes (“...”) instead of straight quotes (\\\"...\\\").\\n**Before:**\\n> He said “the project is on track” but others disagreed.\\n**After:**\\n> He said \\\"the project is on track\\\" but others disagreed.\\n\\n## COMMUNICATION PATTERNS\\n\\n### 20. Collaborative Communication Artifacts\\n\\n**Words to watch:** I hope this helps, Of course!, Certainly!, You're absolutely right!, Would you like..., Want me to...?, Want me to give examples?, Should I continue?, let me know, here is a...\\n**Problem:** Text meant as chatbot correspondence gets pasted as content.\\n**Before:**\\n> Here is an overview of the French Revolution. I hope this helps! Let me know if you'd like me to expand on any section.\\n**After:**\\n> The French Revolution began in 1789 when financial crisis and food shortages led to widespread unrest.\\n\\n### 21. Knowledge-Cutoff Disclaimers and Speculative Gap-Filling\\n\\n**Words to watch:** as of [date], Up to my last training update, While specific details are limited/scarce..., based on available information, not publicly available, maintains a low profile, keeps personal details private, prefers to stay out of the spotlight, likely [grew up/studied/began], it is believed that\\n**Problem:** Two related tells. (a) Older models leave hard knowledge-cutoff disclaimers in the text. (b) When a model can't find a source, it writes a paragraph *about* not finding one and then invents plausible filler to cover the gap. For a private person the guess almost always lands on the same stock phrases (\\\"maintains a low profile,\\\" \\\"keeps personal details private\\\"), none of it sourced. Say what isn't known, or cut the sentence; don't dress a guess up as fact.\\n**Before (cutoff disclaimer):**\\n> While specific details about the company's founding are not extensively documented in readily available sources, it appears to have been established sometime in the 1990s.\\n**After:**\\n> The company's founding date is not documented in the available sources. (Or cut the sentence. State a date only if a source provides one.)\\n**Before (speculative gap-fill):**\\n> Information about her early life is not publicly available, suggesting she maintains a low profile and keeps personal details private. She likely grew up in a middle-class household, which shaped her later interest in education reform.\\n**After:**\\n> Her early life is not documented in the available sources. (Or omit the section.)\\n\\n### 22. Sycophantic/Servile Tone\\n**Problem:** Overly positive, people-pleasing language.\\n**Before:**\\n> Great question! You're absolutely right that this is a complex topic. That's an excellent point about the economic factors.\\n**After:**\\n> The economic factors you mentioned are relevant here.\\n\\n## FILLER AND HEDGING\\n\\n### 23. Filler Phrases\\n\\n**Before → After:**\\n- \\\"In order to achieve this goal\\\" → \\\"To achieve this\\\"\\n- \\\"Due to the fact that it was raining\\\" → \\\"Because it was raining\\\"\\n- \\\"At this point in time\\\" → \\\"Now\\\"\\n- \\\"In the event that you need help\\\" → \\\"If you need help\\\"\\n- \\\"The system has the ability to process\\\" → \\\"The system can process\\\"\\n- \\\"It is important to note that the data shows\\\" → \\\"The data shows\\\"\\n\\n### 24. Excessive Hedging\\n**Problem:** Over-qualifying statements.\\n**Before:**\\n> It could potentially possibly be argued that the policy might have some effect on outcomes.\\n**After:**\\n> The policy may affect outcomes.\\n\\n### 25. Generic Positive Conclusions\\n**Problem:** Vague upbeat endings.\\n**Before:**\\n> The future looks bright for the company. Exciting times lie ahead as they continue their journey toward excellence. This represents a major step in the right direction.\\n**After:**\\n> (Cut the paragraph. End on the last concrete fact instead of a send-off. If the source states real plans, use those.)\\n\\n**In marketing copy:** don't just cut the ending, a marketing piece needs a close. Replace the vague send-off (\\\"exciting times ahead,\\\" \\\"the future looks bright\\\") with a specific, concrete call to action. The ending should ask for one clear next step, not trail off on a fact or a slogan.\\n\\n### 26. Hyphenated Word Pair Overuse\\n\\n**Words to watch:** third-party, cross-functional, client-facing, data-driven, decision-making, well-known, high-quality, real-time, long-term, end-to-end\\n**Problem:** AI hyphenates these uniformly, including in predicate position (`the report is high-quality`). Humans hyphenate inconsistently — typically only when the compound is attributive (`a high-quality report`) and often dropping the hyphen otherwise (`the report is high quality`). Keep attributive-position hyphens; drop them when the compound follows the noun.\\n**Before:**\\n> The cross-functional team delivered a high-quality, data-driven report. The team is cross-functional, the report is high-quality, and the methodology is data-driven.\\n**After:**\\n> The cross-functional team delivered a high-quality, data-driven report. The team is cross functional, the report is high quality, and the methodology is data driven.\\n\\n### 27. Persuasive Authority Tropes\\n\\n**Phrases to watch:** The real question is, at its core, in reality, what really matters, fundamentally, the deeper issue, the heart of the matter\\n**Problem:** LLMs use these phrases to pretend they are cutting through noise to some deeper truth, when the sentence that follows usually just restates an ordinary point with extra ceremony.\\n**Before:**\\n> The real question is whether teams can adapt. At its core, what really matters is organizational readiness.\\n**After:**\\n> The question is whether teams can adapt. That mostly depends on whether the organization is ready to change its habits.\\n\\n### 28. Signposting and Announcements\\n\\n**Phrases to watch:** Let's dive in, let's explore, let's break this down, here's what you need to know, now let's look at, without further ado\\n**Problem:** LLMs announce what they are about to do instead of doing it. This meta-commentary slows the writing down and gives it a tutorial-script feel.\\n**Before:**\\n> Let's dive into how caching works in Next.js. Here's what you need to know.\\n**After:**\\n> Next.js caches data at multiple layers, including request memoization, the data cache, and the router cache.\\n\\n### 29. Fragmented Headers\\n\\n**Signs to watch:** A heading followed by a one-line paragraph that simply restates the heading before the real content begins.\\n**Problem:** LLMs often add a generic sentence after a heading as a rhetorical warm-up. It usually adds nothing and makes the prose feel padded.\\n**Before:**\\n> ## Performance\\n>\\n> Speed matters.\\n>\\n> When users hit a slow page, they leave.\\n**After:**\\n> ## Performance\\n>\\n> When users hit a slow page, they leave.\\n\\n### 30. Diff-Anchored Writing\\n**Problem:** Documentation or comments written as if narrating a change rather than describing the thing as it is. Unless the document is inherently version-scoped (changelogs, release notes, migration guides), it should read coherently without knowing what changed in the last commit.\\n**Before:**\\n> This function was added to replace the previous approach of iterating through all items, which caused O(n²) performance.\\n**After:**\\n> This function uses a hash map for O(1) lookups, avoiding the O(n²) cost of naive iteration.\\n\\n### 31. Manufactured Punchlines and Staccato Drama\\n**Problem:** LLMs often make every sentence land like a quotable closer, then stack short declarative fragments to manufacture drama. A single short sentence for emphasis is fine; a run of them starts to sound engineered.\\n**Before:**\\n> Then AlphaEvolve arrived. It had no preference for symmetry. No aesthetic prior. No nostalgia for human taste. The old rules were gone.\\n**After:**\\n> AlphaEvolve changed the search because it did not favor symmetry or human-looking designs. That made some of the older assumptions less useful.\\n\\n### 32. Aphorism Formulas\\n\\n**Words to watch:** X is the Y of Z, X becomes a trap, X is not a tool but a mirror, the language of, the currency of, the architecture of\\n**Problem:** LLMs turn ordinary claims into reusable aphorisms that sound profound without adding precision. Replace the formula with the concrete claim it is gesturing at.\\n**Before:**\\n> Symmetry is the language of trust. Efficiency becomes a trap when teams forget the human layer.\\n**After:**\\n> Symmetric layouts often feel more predictable to users. Teams can over-optimize workflows and miss how people actually use them.\\n\\n### 33. Conversational Rhetorical Openers\\n\\n**Phrases to watch:** Honestly?, Look, Here's the thing, The thing is, Let's be honest, Real talk, when used as standalone hooks or fake-candid pauses before an ordinary point.\\n**Problem:** LLMs open with a fake-candid hook to manufacture intimacy before delivering a routine claim. The tell is the theatrical pause-and-reveal: a one-word question or aside, then the \\\"real\\\" answer. A person being honest usually just says the thing.\\n**Before:**\\n> Is it worth the price? Honestly? It depends on how often you'll use it.\\n**After:**\\n> Whether it's worth the price depends on how often you'll use it.\\n</reference>\\n\\n<reference path=\\\"references/seo-preservation.md\\\">\\n# SEO and Structure Preservation\\n\\nApply this in marketing mode (blog posts, landing pages, product pages, marketing emails). The copy usually has to keep ranking and stay eligible for featured snippets and AI answer engines, so humanizing must not quietly break the structure that earns that traffic. Treat these as hard constraints; a user instruction or brand guide can override any of them.\\n\\n- **Target keyword.** Keep the primary keyword and its key placements: the title/H1, the first ~100 words, and at least one H2. Don't paraphrase it into a synonym. Keep secondary keywords where they already read naturally; don't stuff new ones.\\n- **Heading hierarchy.** Preserve the H1/H2/H3 levels and their order. You may rewrite heading *text* for tone (including fixing title case per the brand), but don't delete a heading, change its level, or merge a section under its own H2 into a run-on paragraph. This constrains the \\\"merge or split paragraphs freely\\\" latitude in Your Task step 2 (`SKILL.md`): real headings stay.\\n- **Links.** Keep every internal and external link and its target. When you reword a sentence that holds a link, carry the link onto the equivalent, still-relevant anchor text; never drop it. Keep anchors descriptive, not \\\"click here.\\\"\\n- **Images and alt text.** Leave image embeds and their alt text in place. Alt text is accessibility and SEO, so don't rewrite it into decoration or delete it.\\n- **Snippet and FAQ structure.** Keep the elements that win rich results: an answer-first sentence near the top of a section, numbered how-to steps as an actual numbered list, and FAQ items phrased as questions. Making a lede more \\\"human\\\" must not bury the direct answer three sentences down.\\n- **Meta and frontmatter.** Don't touch the meta title, meta description, URL slug, canonical tag, or frontmatter fields unless asked. (File mode, in `SKILL.md`, already leaves frontmatter and link targets untouched.)\\n- **CTA.** Keep the call to action and its link (see §25 in `references/patterns.md`). Replace a vague send-off with a specific CTA rather than deleting the close.\\n- **Topical depth.** \\\"Compress the dull parts\\\" (Your Task step 2 in `SKILL.md`) is not license to gut on-topic sections that exist for coverage. Cut genuine fluff; keep the substance a ranking page needs.\\n\\nBefore returning a marketing rewrite, confirm the primary keyword, every heading, every link, every image, and the CTA all survived.\\n</reference>\\n\\n<reference path=\\\"references/voice.md\\\">\\n# Voice and Personality\\n\\nRead this when the user provides a writing sample or asks you to match a brand voice, and whenever the content calls for personality (blog posts, essays, opinion, personal writing).\\n\\n## Voice Calibration\\n\\nIf the user provides a writing sample (their own previous writing), analyze it before rewriting:\\n\\n1. Read the sample first. Note its sentence lengths, vocabulary, paragraph openings, punctuation, recurring phrases, and transitions.\\n2. Match those habits instead of merely deleting AI patterns. Do not upgrade casual words or regularize deliberate quirks.\\n3. Without a sample, use the default behavior in `SKILL.md` and `references/patterns.md`.\\n\\nA sample outranks this skill's style rules, including the em dash rule in §14 (`references/patterns.md`): if the sample uses em dashes, keep them at roughly the sample's frequency. Matching the author beats scrubbing the tell.\\n\\n## PERSONALITY AND SOUL\\n\\nAvoiding AI patterns is only half the job. Sterile, voiceless writing is just as obvious as slop. Good writing has a human behind it.\\n\\n**Apply this section only when the content and the author's voice call for it** - blog posts, essays, opinion, personal writing. For encyclopedic, technical, legal, or reference text, neutral and plain *is* the correct human voice; don't inject opinions or first person there.\\n\\nWhen voice is appropriate, avoid uniform sentence structures, bloodless neutrality, and perfect organization. Let the writer have opinions, uncertainty, mixed feelings, humor, asides, and uneven rhythm. Never add factual claims to create that personality.\\n</reference>\\n\\n<reference path=\\\"references/detection.md\\\">\\n# Detection Guidance\\n\\nConsult this before rewriting so you don't gut legitimate human prose. A clean human writer can hit many of the catalog patterns without any AI involvement. When in doubt, look for **clusters** of tells, not isolated ones.\\n\\n## What NOT to flag (false positives)\\n\\nA clean human writer can hit several of the patterns in `references/patterns.md` without any AI involvement. Before rewriting, sanity-check that you are not gutting legitimate prose. The following are *not* reliable indicators on their own:\\n\\n- **Perfect grammar and consistent style.** Many writers are professionals or have been edited. Polish does not equal AI.\\n- **Mixed casual and formal registers.** This often signals a person in a technical field, a young writer, or someone with neurodivergent prose habits — not a chatbot.\\n- **\\\"Bland\\\" or \\\"robotic\\\" prose.** AI prose has *specific* tells. Generic dryness without those tells is just dry writing.\\n- **Formal or academic vocabulary.** AI overuses *specific* fancy words (see §7 in `references/patterns.md`), not all fancy words. Don't flatten \\\"ostensibly\\\" or \\\"constituent\\\" just because they sound brainy.\\n- **Letter-style opening or closing on a comment.** Salutations and sign-offs predate ChatGPT by centuries.\\n- **Common transition words in isolation.** *Additionally*, *moreover*, *consequently* are AI-coded only when piled up. One *however* is not a tell.\\n- **Curly quotes alone.** macOS, Word, Google Docs, and most CMSes auto-curl by default. Curly quotes only count when stacked with other tells.\\n- **Em dashes alone.** Many editors and journalists use them often. Em dashes are evidence only when paired with formulaic sales-y rhythm.\\n- **One short emphatic sentence.** Humans use clipped sentences to land a point. Flag staccato drama only when several short fragments appear in a row and inflate the tone.\\n- **\\\"Honestly\\\" or \\\"look\\\" mid-sentence.** These are ordinary in casual writing. The tell is the standalone theatrical opener, not the word itself.\\n- **Unsourced claims.** Most of the web is unsourced. Lack of citations doesn't prove anything.\\n- **Correct, complex formatting.** Visual editors and templates produce clean output without any AI.\\n- **Secondhand text.** Do not rewrite watched phrases inside quotations, titles, proper names, or examples where the phrase is being discussed rather than used.\\n- **Persuasive tone in marketing copy.** Blog posts and landing pages are supposed to sell. Benefit claims, a confident headline, a direct CTA, and scannable bold or bullets are the format, not AI tells. Flag only the *generic, unearned* version of each.\\n- **Title-case headings under a brand style guide.** AP-style title case is a house-style choice in marketing, not a chatbot fingerprint.\\n- **Real social proof.** Named customers, real logos, and specific numbers are conversion assets. Only vague or unverifiable proof (\\\"trusted by leading brands\\\") is a tell.\\n- **Keywords and heading structure.** A repeated target keyword and an H2/H3 outline are SEO requirements, not repetition or padding to smooth away. Don't paraphrase the primary keyword out of the title, the first paragraph, or the headings.\\n\\nWhen in doubt, look for **clusters** of tells, not isolated ones. A single em dash means nothing; em dashes plus rule-of-three plus *vibrant tapestry* plus a \\\"Conclusion\\\" section is a confession.\\n\\n## Signs of human writing (preserve these)\\n\\nWhen you see these, lean toward leaving the prose alone — they are evidence of a real person writing, and over-editing will destroy what makes the piece sound human:\\n\\n- **Specific, unusual, hard-to-fabricate detail.** A real address. A weird quote. The phrase \\\"the lawyer who used to work upstairs from my dentist.\\\" LLMs round off specifics; humans hoard them.\\n- **Mixed feelings and unresolved tension.** \\\"I think this is mostly good, but it bothers me, and I can't fully explain why.\\\" LLMs default to clean takes.\\n- **Dated, era-bound references.** Slang, memes, or in-jokes that map to a specific year and subculture. Models lag by a year or more.\\n- **First-person editorial choices the writer can defend.** If the writer can explain *why* they made a particular cut or used a particular word, that's a strong human signal.\\n- **Variety in sentence length.** Real writing alternates short and long. AI writing tends toward an even, mid-length cadence.\\n- **Genuine asides, parentheticals, or self-corrections.** \\\"(I keep wanting to say 'almost' here, but it really was certain.)\\\" Models rarely interrupt themselves like this.\\n- **Edits made before November 30, 2022.** ChatGPT's public launch. Anything older than that is, with very rare exceptions, not AI-written.\\n</reference>\\n\\n<reference path=\\\"references/examples.md\\\">\\n# Rewrite Examples\\n\\nStandalone worked examples of real rewrites: each pair gives an original and the preferred revision. Some pairs also carry the editor's reasoning, which is the most useful part: it names what was wrong with the original. Use them as concrete models of the target voice and rewrite style, not as templates to copy literally.\\n\\nCaveat: the product framing in these examples (custom systems, off-the-shelf vs. bespoke positioning, named products) reflects specific brands' voices. Carry over the *style* of the edits. Never import a fact, claim, product name, or capability from these examples into unrelated content; that would violate the no-fabrication rule in `SKILL.md`.\\n\\nRecurring moves across both sets:\\n\\n- **Point the sentence at the reader.** Replace abstract framing (\\\"you do not get to pick the format\\\") with the reader's actual situation (\\\"you have no control over the input format\\\").\\n- **Swap vague stand-ins for the concrete thing.** \\\"Most of these\\\" becomes \\\"400 different file structures\\\"; \\\"authoritative about something and unreliable about everything else\\\" becomes \\\"strong for some fields, and poor for others\\\"; \\\"attributes\\\" becomes \\\"specific features\\\".\\n- **Name the consequence.** A hook that stops at \\\"that is not a coincidence\\\" gets the business stake spelled out (\\\"Your conversions don't go up, and your SEO rank doesn't improve\\\").\\n- **Soften absolutes the author can't defend.** \\\"Every vendor primer\\\" becomes \\\"most out of the box vendors\\\"; \\\"Every ... article on Google's first page\\\" becomes \\\"Almost every ... writeup you read\\\".\\n\\n---\\n\\n## Set 1: Intelligent document processing\\n\\nInstead of: Every intelligent document processing article on Google's first page is written by a vendor selling an intelligent document processing platform. They define the term, all the same way, and they stop being useful the moment you have real documents in front of you: a legal cover sheet scanned crooked with a stamp over the case number, an invoice whose line items wrap across two pages, a patient record where two physician names sit on one page and only one answers the question you asked.\\n\\nIt should be:  \\nAlmost every intelligent document processing writeup you read is written by a vendor selling a pre-built intelligent document processing platform. They define how to use it, and they stop being useful the moment you need customization/optimization or have deep data variance in the documents: a legal cover sheet scanned crooked with a stamp over the case number, an invoice whose line items wrap across two pages, a patient admission record where two physician names sit on one page and only one answers the question you asked. With out of the box IDP you get what you get in terms of accuracy, and it either works for your use case or not.\\n\\nInstead of: We build custom document processing systems, and the numbers in this article come from deployed pipelines measured against client documents rather than benchmark sets:\\n\\nIt should be:  \\nWe build custom document processing systems, and the numbers you see come from real deployed pipelines measured against production client documents rather than benchmark sets:\\n\\nInstead of:  \\nThis guide covers what IDP is, the stack that produces numbers like those, the failure mode at each layer, and how to tell before you ship whether your pipeline is good enough.\\n\\nIt should be:  \\nThis guide covers what IDP is, our stack that produces numbers that outperform off the shelf solutions or generic LLMs, the failure mode at each layer, and how to tell before you ship whether your pipeline is good enough.\\n\\nInstead of:  \\nEvery vendor primer describes the same five stages, and they are right about the shape. What the primers leave out is the failure mode attached to each one, which is the part that determines whether a project ships.\\n\\nIt should be:  \\nMost out of the box vendors describe the same five stages, and they are right about the shape. What they seem to leave out is the failure mode attached to each one, which is the part that determines whether a project ships.\\n\\nInstead of:  \\nborn-digital files with a clean text layer,\\n\\nIt should be:  \\nmachine generated PDFs with a clean text layer,\\n\\nInstead of:  \\n Our legal pipeline converts PDFs to images and runs a preprocessing module that enhances\\n\\nIt should be:  \\nSystems like our legal document pipeline converts PDFs to images and runs a preprocessing module that enhances\\n\\nInstead of:  \\nThis is where most of the accuracy is won or lost. Data extraction covers OCR, layout understanding, entity recognition, and the structuring step that turns recognized text into named fields.\\n\\nIt should be:\\n\\nThis is where most of the accuracy is won or lost. Real production data extraction pipelines cover OCR, layout understanding, entity recognition, and the structuring step that turns recognized text into named fields.\\n\\nInstead of:\\n\\nWhat follows walks the stack in the order a document moves through it, from the frameworks that recover structure down to the models and validation that produce fields.\\n\\nIt should be:\\n\\nWhat follows walks through the stack in the order a document usually moves through one of our custom systems, from the frameworks that recover structure down to the models and validation that produce fields.\\n\\nInstead of:\\n\\n### 1\\\\. Layout-Understanding Frameworks\\n\\nLayout comes first because everything downstream depends on it.\\n\\nIt should be:\\n\\n### 1\\\\. Layout-Understanding Frameworks\\n\\nUnderstanding the document layout comes first because everything downstream depends on it.\\n\\n---\\n\\n## Set 2: Catalog data and product content\\n\\nInput: The design constraint is that you do not get to pick the format.\\n\\nRewritten: The constraint teams handle is that you have no control over the input format.\\n\\nReasoning: Way too vague. Refocus on changing language to point to the reader.\\n\\nInput: A distributor carrying 400 vendors receives most of these in the same week, and an agent that only handles one of them is a demo. The instinct is to rank the formats by quality and always reach for the best one. That is the wrong frame. Each source is authoritative about something and unreliable about everything else, and an agent that treats them as interchangeable inherits the weakest available answer from whichever one it happened to read first.\\n\\nRewritten: A distributor carrying 400 vendors receives 400 different file structures, with different levels of completeness and provided fields. The instinct most teams follow is to rank the formats by quality and always reach for the best one. That is the wrong frame. Each vendor source is strong for some fields, and poor for others, and an agent that treats them as interchangeable inherits the weakest available answer from whichever one it happened to read first.\\n\\nReasoning: Way too vague. Trying to tie the reader to more direct reading.\\n\\nInput: Fashion products differ along attributes general vision models were never trained to separate, which is why off-the-shelf embeddings underperform badly on apparel catalogs.\\n\\nRewritten: Fashion products differ with specific features general vision models were never trained to separate, which is why off-the-shelf embeddings underperform badly on apparel catalogs.\\n\\n### Hook cleanup\\n\\nReasoning: Make the hook deeper and more targeted towards the user. The original hook describes the problem from a distance; the rewrite puts the reader on the results page, names what they lose (conversions, rank), and reframes the tool's failure in terms of what the reader actually wants (copy that converts).\\n\\nInitial:\\n\\nA product meta description generator will write you 155 characters in about two seconds. Paste in a title and a few attributes, and back comes something clean, grammatical, and roughly accurate. Run it across four thousand SKUs and you have four thousand of them by lunch.\\n\\nThen you look at the result page you were trying to win, and yours says almost exactly what the nine listings around it say. Same phrasing, same benefit, same three attributes in the same order. That is not a coincidence and it is not a quality problem. Nine competitors fed the same manufacturer copy into the same class of tool, and the tool had no way to see any of the others while it wrote.\\n\\nA meta description does not get read in isolation. It competes against everything else on the page for a click, which means the useful question is not whether a generator can write one. All of them can. The question is whether it knows what it is competing with, and almost none of them do.\\n\\nThe length and framing rules still matter, and they are worth getting right. But the difference between a description that earns a click and one that fills a field is upstream of the writing, in what the generator was allowed to see before it started. The Pumice Merchandising Pipeline and Product Optimization Playbook are built around that, generating against a live result page rather than from a prompt.\\n\\nBelow is what a good product meta description actually has to do in 2026, the specific inputs generic tools are missing, and how to tell the two apart when you evaluate one.\\n\\nUpdated:\\n\\nA generic ai product meta description generator will write you 155 characters in seconds. You paste in a title and a few attributes, and back comes something clean, grammatical, and accurate. Run it across four thousand SKUs and you have four thousand of them by lunch.\\n\\nThen you look at the google results 1st page you were trying to win, and yours says almost exactly what the nine competitor products around it say. Same phrasing, same benefit, same three attributes, nothing unique. Your conversions don't go up, and your SEO rank doesn't improve.\\n\\nThat is not a coincidence and it is not really a quality problem. Nine competitors fed the same manufacturer copy into the same type of ai tool, and the tool you used is just focused on writing clean copy, not copy that actually converts.\\n\\nA meta description does not get read in isolation. It competes against everything else on the page for a click, which means the useful question is not whether a generator can write one. All of them can. The question is whether it knows what it is competing with, and what buyers want to read.\\n\\nThe length and framing rules still matter, and they are worth getting right. But the difference between a description that earns a click and one that fills a field is upstream of the writing, in what the generator was allowed to see before it started. The Pumice Merchandising Pipeline and Product Optimization Playbook are built around that.\\n\\nWe'll walk through what a good product meta description actually has to do in 2026, the specific inputs generic tools are missing, and how to tell the two apart when you evaluate one.\\n</reference>\\n\\n## Running inside an n8n pipeline\\n\\nYou are one step in an automated n8n pipeline that humanizes incoming blog posts. Every reference file is included above in full, so treat them as already loaded. The pipeline runs the Process loop as three separate calls: DRAFT (Process steps 1 and 2), AUDIT (step 3), and FINAL (step 4). Each user message says which step you are on and what to return. This is embedded mode: return only what the step asks for, with no preamble, commentary, or sign-off.\\n\\nRules for every step:\\n\\n- Return the post in the format it arrived in. HTML stays HTML with the same tags and attributes; Markdown stays Markdown; plain text stays plain text. Don't wrap the post in code fences.\\n- Tokens such as [[KEEP_3]] stand in for content the pipeline protects: code, images, embeds, tables, HTML comments, frontmatter. Keep every token exactly as written, once each, in the same place relative to the text around it. Never edit, merge, split, drop, or invent a token. The protected_items list shows what each token holds so you can read the sentence it sits in.\\n- The post title is supplied in post_metadata and is not part of the body. Don't add it to the body.\\n- The no-fabrication rule (Your Task step 3) applies in full, and is stricter in marketing mode.\\n- In marketing mode, the SEO preservation constraints are hard constraints: primary keyword placements, every heading at its level and in its order, every link target, every image, and the CTA.\\n- When a voice_sample is supplied, calibrate to it as references/voice.md describes. When editor notes are supplied, follow them unless they would require inventing facts.\";\n\nreturn [{ json: { skill_version: SKILL_VERSION, system_prompt: SYSTEM_PROMPT } }];\n"
+      },
+      "id": "16652869-f40e-416d-87e3-1364ca9cf087",
+      "name": "Humanizer Skill",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Validate Input').first().json;\nconst prot = $('Protect Structure').first().json;\nconst skill = $('Humanizer Skill').first().json;\nconst cfg = input.config;\nconst buildRequest = (effort, userText, format) => ({\n  model: cfg.model,\n  max_tokens: cfg.max_tokens,\n  fallbacks: 'default',\n  output_config: format ? { effort, format } : { effort },\n  system: [{ type: 'text', text: skill.system_prompt, cache_control: { type: 'ephemeral' } }],\n  messages: [{ role: 'user', content: userText }],\n});\n\nconst ask = `STEP 1 OF 3: DRAFT\n\n${prot.context}\n\nIdentify the AI writing patterns in the original post, then write the draft rewrite (Process steps 1 and 2). Return only the rewritten post body inside <rewrite></rewrite> tags.`;\n\nreturn [{ json: { request: buildRequest(cfg.draft_effort, ask) } }];\n"
+      },
+      "id": "ab45c465-c555-4a8f-ad33-afb3a27e2201",
+      "name": "Build Draft Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        140,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2026-10-21"
+            },
+            {
+              "name": "anthropic-beta",
+              "value": "server-side-fallback-2026-07-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "ebaa6f7a-73a8-429c-a668-49071276393e",
+      "name": "Claude: Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "anthropic-api-key",
+          "name": "Anthropic API Key (x-api-key)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const readClaude = (res, step) => {\n  if (res.type === 'error' || res.error) throw new Error(`Claude ${step} call failed: ${JSON.stringify(res.error || res).slice(0, 500)}`);\n  if (res.stop_reason === 'refusal') throw new Error(`Claude declined the ${step} step (${res.stop_details?.category || 'no category'}).`);\n  if (res.stop_reason === 'max_tokens') throw new Error(`The ${step} step hit max_tokens. Raise max_tokens in Validate Input or send a shorter post.`);\n  return (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');\n};\nconst extractRewrite = (raw) => {\n  const m = raw.match(/<rewrite>([\\s\\S]*?)<\\/rewrite>/i);\n  let t = (m ? m[1] : raw).trim();\n  const fence = t.match(/^```[a-z]*\\n([\\s\\S]*?)\\n```$/i);\n  if (fence) t = fence[1].trim();\n  return t;\n};\nconst usageOf = (res, step) => ({ step, ...(res.usage || {}) });\n\nconst draft = extractRewrite(readClaude($json, 'draft'));\nif (!draft) throw new Error('The draft step returned no text.');\nreturn [{ json: { draft_tokenized: draft, usage_log: [usageOf($json, 'draft')] } }];\n"
+      },
+      "id": "741df6af-bcc7-47a1-b543-4e51302fb238",
+      "name": "Read Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        580,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Validate Input').first().json;\nconst prot = $('Protect Structure').first().json;\nconst skill = $('Humanizer Skill').first().json;\nconst cfg = input.config;\nconst buildRequest = (effort, userText, format) => ({\n  model: cfg.model,\n  max_tokens: cfg.max_tokens,\n  fallbacks: 'default',\n  output_config: format ? { effort, format } : { effort },\n  system: [{ type: 'text', text: skill.system_prompt, cache_control: { type: 'ephemeral' } }],\n  messages: [{ role: 'user', content: userText }],\n});\nconst draft = $json.draft_tokenized;\n\nconst ask = `STEP 2 OF 3: AUDIT\n\n${prot.context}\n\n<draft_rewrite>\n${draft}\n</draft_rewrite>\n\nRun Process step 3 on the draft rewrite. Be brief and specific:\n- content_type: the mode you applied, marketing or reference.\n- still_ai: what still makes the draft read as AI generated. One short item per tell, naming the pattern (for example \"§9\") and quoting the phrase.\n- fabrications: every fact, name, number, date, quote, or citation in the draft that is not in the original post. Empty if none.\n- seo_issues: in marketing mode, anything the draft broke from the SEO preservation constraints (keyword placement, headings, links, images, CTA). Also any [[KEEP_n]] token that was moved, changed, or lost. Empty if none.`;\n\nconst schema = {\n  type: 'json_schema',\n  schema: {\n    type: 'object',\n    additionalProperties: false,\n    required: ['content_type', 'still_ai', 'fabrications', 'seo_issues'],\n    properties: {\n      content_type: { type: 'string', enum: ['marketing', 'reference'] },\n      still_ai: { type: 'array', items: { type: 'string' } },\n      fabrications: { type: 'array', items: { type: 'string' } },\n      seo_issues: { type: 'array', items: { type: 'string' } },\n    },\n  },\n};\n\nreturn [{ json: { request: buildRequest(cfg.audit_effort, ask, schema) } }];\n"
+      },
+      "id": "44433e48-5e9c-42e8-afaf-dfc8c0260d87",
+      "name": "Build Audit Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2026-10-21"
+            },
+            {
+              "name": "anthropic-beta",
+              "value": "server-side-fallback-2026-07-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "1b706900-2c35-4d1d-8d66-319cd95f5492",
+      "name": "Claude: Audit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "anthropic-api-key",
+          "name": "Anthropic API Key (x-api-key)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const readClaude = (res, step) => {\n  if (res.type === 'error' || res.error) throw new Error(`Claude ${step} call failed: ${JSON.stringify(res.error || res).slice(0, 500)}`);\n  if (res.stop_reason === 'refusal') throw new Error(`Claude declined the ${step} step (${res.stop_details?.category || 'no category'}).`);\n  if (res.stop_reason === 'max_tokens') throw new Error(`The ${step} step hit max_tokens. Raise max_tokens in Validate Input or send a shorter post.`);\n  return (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');\n};\nconst extractRewrite = (raw) => {\n  const m = raw.match(/<rewrite>([\\s\\S]*?)<\\/rewrite>/i);\n  let t = (m ? m[1] : raw).trim();\n  const fence = t.match(/^```[a-z]*\\n([\\s\\S]*?)\\n```$/i);\n  if (fence) t = fence[1].trim();\n  return t;\n};\nconst usageOf = (res, step) => ({ step, ...(res.usage || {}) });\nconst prev = $('Read Draft').first().json;\nconst raw = readClaude($json, 'audit');\nlet audit;\ntry {\n  audit = JSON.parse(raw);\n} catch (e) {\n  const m = raw.match(/\\{[\\s\\S]*\\}/);\n  if (!m) throw new Error(`Could not parse the audit JSON: ${raw.slice(0, 300)}`);\n  audit = JSON.parse(m[0]);\n}\nfor (const k of ['still_ai', 'fabrications', 'seo_issues']) if (!Array.isArray(audit[k])) audit[k] = [];\n\nreturn [{ json: {\n  audit,\n  draft_tokenized: prev.draft_tokenized,\n  usage_log: [...prev.usage_log, usageOf($json, 'audit')],\n} }];\n"
+      },
+      "id": "1fb4d1da-5385-4e3e-9d19-11b9c8a21e3e",
+      "name": "Read Audit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Validate Input').first().json;\nconst prot = $('Protect Structure').first().json;\nconst skill = $('Humanizer Skill').first().json;\nconst cfg = input.config;\nconst buildRequest = (effort, userText, format) => ({\n  model: cfg.model,\n  max_tokens: cfg.max_tokens,\n  fallbacks: 'default',\n  output_config: format ? { effort, format } : { effort },\n  system: [{ type: 'text', text: skill.system_prompt, cache_control: { type: 'ephemeral' } }],\n  messages: [{ role: 'user', content: userText }],\n});\n// Input comes from Read Audit on the first pass, or from Integrity Check on a retry.\nconst state = $json;\nconst isRetry = state.retry === true;\nconst attempt = isRetry ? state.attempt + 1 : 1;\nconst dashesAllowed = /[—–]/.test(input.voice_sample);\nconst list = (items) => (items.length ? items.map((x) => `- ${x}`).join('\\n') : '- none');\n\nlet ask = `STEP 3 OF 3: FINAL\n\n${prot.context}\n\n<draft_rewrite>\n${state.draft_tokenized}\n</draft_rewrite>\n\n<audit>\nContent type applied: ${state.audit.content_type || 'unknown'}\nStill reads as AI:\n${list(state.audit.still_ai)}\nFacts not in the original (remove or restore to the original wording):\n${list(state.audit.fabrications)}\nSEO and structure problems:\n${list(state.audit.seo_issues)}\n</audit>`;\n\nif (isRetry) {\n  ask += `\n\n<previous_final>\n${state.final_tokenized}\n</previous_final>\n\n<integrity_problems>\nThe pipeline's automated check rejected your previous final rewrite (shown above). Fix every one of these and change nothing else that was working:\n${list(state.issues)}\n</integrity_problems>`;\n}\n\nask += `\n\nRevise into the final rewrite (Process step 4). Address every audit item and remove every fabrication. ${dashesAllowed\n  ? 'The voice sample uses em dashes, so keep them at roughly its frequency.'\n  : 'The final must contain no em dashes (—) or en dashes (–).'} In marketing mode, run the integrity check from the SEO preservation reference before you answer. Keep every [[KEEP_n]] token. Return only the final post body inside <rewrite></rewrite> tags.`;\n\nreturn [{ json: {\n  request: buildRequest(cfg.final_effort, ask),\n  attempt,\n  audit: state.audit,\n  draft_tokenized: state.draft_tokenized,\n  usage_log: state.usage_log,\n} }];\n"
+      },
+      "id": "be563d5f-cce2-43aa-b23e-5f2d6222bc6b",
+      "name": "Build Final Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2026-10-21"
+            },
+            {
+              "name": "anthropic-beta",
+              "value": "server-side-fallback-2026-07-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "bac3357c-bafd-4c02-8f02-cc5bc483cf9b",
+      "name": "Claude: Final",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "anthropic-api-key",
+          "name": "Anthropic API Key (x-api-key)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const readClaude = (res, step) => {\n  if (res.type === 'error' || res.error) throw new Error(`Claude ${step} call failed: ${JSON.stringify(res.error || res).slice(0, 500)}`);\n  if (res.stop_reason === 'refusal') throw new Error(`Claude declined the ${step} step (${res.stop_details?.category || 'no category'}).`);\n  if (res.stop_reason === 'max_tokens') throw new Error(`The ${step} step hit max_tokens. Raise max_tokens in Validate Input or send a shorter post.`);\n  return (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');\n};\nconst extractRewrite = (raw) => {\n  const m = raw.match(/<rewrite>([\\s\\S]*?)<\\/rewrite>/i);\n  let t = (m ? m[1] : raw).trim();\n  const fence = t.match(/^```[a-z]*\\n([\\s\\S]*?)\\n```$/i);\n  if (fence) t = fence[1].trim();\n  return t;\n};\nconst usageOf = (res, step) => ({ step, ...(res.usage || {}) });\n// Checks the final rewrite against the original's structure, then restores\n// the protected content. Failing checks send the final pass round again.\nconst input = $('Validate Input').first().json;\nconst prot = $('Protect Structure').first().json;\nconst req = $('Build Final Request').first().json;\nconst cfg = input.config;\nconst format = input.format;\nconst kw = input.target_keyword;\nconst TOKEN_RE = /\\[\\[KEEP_(\\d+)\\]\\]/g;\nconst stripTags = (s) => s.replace(/<[^>]+>/g, ' ');\nconst decode = (s) => s.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&(rsquo|lsquo|#8217|#8216);/g, \"'\").replace(/&(rdquo|ldquo|#8220|#8221);/g, '\"').replace(/&(mdash|#8212);/g, '—').replace(/&(ndash|#8211);/g, '–');\nconst plain = (s, format) => {\n  let t = s.replace(TOKEN_RE, ' ');\n  if (format === 'html') t = decode(stripTags(t));\n  if (format === 'markdown') t = t.replace(/\\]\\([^)]*\\)/g, ']').replace(/[#*_>\\[\\]]/g, ' ');\n  return t.replace(/\\s+/g, ' ').trim();\n};\nconst words = (s) => (s ? s.split(/\\s+/).filter(Boolean) : []);\nconst headingsOf = (s, format) => {\n  const out = []; let m;\n  if (format === 'html') {\n    const re = /<h([1-6])\\b[^>]*>([\\s\\S]*?)<\\/h\\1>/gi;\n    while ((m = re.exec(s))) out.push({ level: +m[1], text: decode(stripTags(m[2])).replace(/\\s+/g, ' ').trim() });\n  } else if (format === 'markdown') {\n    const re = /^(#{1,6})\\s+(.+?)\\s*#*\\s*$/gm;\n    while ((m = re.exec(s))) out.push({ level: m[1].length, text: m[2].trim() });\n  }\n  return out;\n};\nconst linksOf = (s, format) => {\n  const out = []; let m;\n  const a = /<a\\b[^>]*?\\bhref\\s*=\\s*[\"']([^\"']+)[\"']/gi;\n  while ((m = a.exec(s))) out.push(m[1]);\n  if (format !== 'html') {\n    const md = /(?<!!)\\[[^\\]]*\\]\\(\\s*<?([^)\\s>]+)>?(?:\\s+\"[^\"]*\")?\\s*\\)/g;\n    while ((m = md.exec(s))) out.push(m[1]);\n  }\n  if (format === 'text') {\n    const bare = /https?:\\/\\/[^\\s<>\"')\\]]+/g;\n    while ((m = bare.exec(s))) out.push(m[0].replace(/[.,;:!?]+$/, ''));\n  }\n  return [...new Set(out)];\n};\nconst escRe = (k) => k.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\nconst countOf = (t, kw) => (kw ? (t.match(new RegExp(escRe(kw), 'gi')) || []).length : 0);\nconst keywordProfile = (s, format, kw) => {\n  const p = plain(s, format);\n  return {\n    total: countOf(p, kw),\n    in_first_100_words: countOf(words(p).slice(0, 100).join(' '), kw) > 0,\n    in_heading: headingsOf(s, format).some((h) => h.level >= 2 && countOf(h.text, kw) > 0),\n  };\n};\nconst dashCount = (s, format) => {\n  const t = format === 'html' ? decode(stripTags(s.replace(TOKEN_RE, ' '))) : s.replace(TOKEN_RE, ' ');\n  return (t.match(/[—–]/g) || []).length;\n};\n\nlet finalTok = extractRewrite(readClaude($json, 'final'));\nconst attempt = req.attempt;\nconst lastAttempt = attempt >= cfg.max_final_attempts;\nconst dashesAllowed = /[—–]/.test(input.voice_sample);\nconst fixes = [];\n\n// On the last attempt, replace leftover dashes mechanically instead of failing.\nlet dashes = dashCount(finalTok, format);\nif (!dashesAllowed && dashes > 0 && lastAttempt) {\n  finalTok = finalTok.split(/(<[^>]+>|\\[\\[KEEP_\\d+\\]\\])/).map((seg, i) => (i % 2 === 1 ? seg : seg\n    .replace(/(\\d)\\s*[–—]\\s*(\\d)/g, '$1-$2')\n    .replace(/\\s*[—–]\\s*/g, ', ')\n    .replace(/,\\s*([.,;:!?])/g, '$1'))).join('');\n  fixes.push(`Replaced ${dashes} em/en dash(es) with commas or hyphens after ${attempt} attempts.`);\n  dashes = dashCount(finalTok, format);\n}\n\nconst issues = [];\nif (!finalTok.trim()) issues.push('The final rewrite was empty.');\n\n// Protected tokens: each exactly once, none invented.\nconst counts = {};\n(finalTok.match(TOKEN_RE) || []).forEach((t) => { counts[t] = (counts[t] || 0) + 1; });\nfor (let i = 1; i <= prot.blocks.length; i++) {\n  const t = `[[KEEP_${i}]]`;\n  if (!counts[t]) issues.push(`Protected token ${t} is missing. Put it back where it was in the original.`);\n  else if (counts[t] > 1) issues.push(`Protected token ${t} appears ${counts[t]} times. Keep exactly one.`);\n}\nObject.keys(counts).forEach((t) => {\n  const n = +t.match(/\\d+/)[0];\n  if (n < 1 || n > prot.blocks.length) issues.push(`${t} is not a real protected token. Remove it.`);\n});\n\n// Headings: same levels, same order.\nif (format !== 'text') {\n  const oh = prot.profile.headings;\n  const fh = headingsOf(finalTok, format);\n  const ol = oh.map((h) => `H${h.level}`).join(', ');\n  const fl = fh.map((h) => `H${h.level}`).join(', ');\n  if (ol !== fl) {\n    issues.push(`Heading structure changed. The original has ${oh.length} headings in this order: ${ol || 'none'}. The rewrite has ${fh.length}: ${fl || 'none'}. Keep every heading at its level and in order. Original headings: ${oh.map((h) => `H${h.level} \"${h.text}\"`).join('; ')}`);\n  }\n}\n\n// Links: every original target still present.\nconst finalLinks = new Set(linksOf(finalTok, format));\nconst missingLinks = prot.profile.links.filter((l) => !finalLinks.has(l));\nif (missingLinks.length) issues.push(`These links were dropped: ${missingLinks.join(', ')}. Carry each one onto relevant anchor text.`);\n\n// Primary keyword placements the original had.\nconst fk = keywordProfile(finalTok, format, kw);\nif (kw) {\n  const ok = prot.profile.keyword;\n  if (ok.total > 0 && fk.total === 0) issues.push(`The primary keyword \"${kw}\" no longer appears. Keep it, worded exactly.`);\n  else {\n    if (ok.in_first_100_words && !fk.in_first_100_words) issues.push(`The primary keyword \"${kw}\" was in the first 100 words of the original and must stay there.`);\n    if (ok.in_heading && !fk.in_heading) issues.push(`The primary keyword \"${kw}\" was in a subheading of the original and must stay in at least one.`);\n  }\n}\n\n// Length: catch gutted sections.\nconst finalWords = words(plain(finalTok, format)).length;\nconst ratio = prot.profile.words ? finalWords / prot.profile.words : 1;\nif (ratio < cfg.min_length_ratio) issues.push(`The rewrite is ${Math.round(ratio * 100)}% of the original length (${finalWords} vs ${prot.profile.words} words). Compress fluff, but keep the substance of every section.`);\n\n// Dashes.\nif (!dashesAllowed && dashes > 0) issues.push(`The rewrite still contains ${dashes} em or en dash(es). Replace every one (§14).`);\n\nconst passed = issues.length === 0;\nconst restore = (s) => s.replace(TOKEN_RE, (m, n) => prot.blocks[n - 1] ?? m);\n\nreturn [{ json: {\n  retry: !passed && !lastAttempt,\n  passed,\n  attempt,\n  issues,\n  fixes,\n  final_tokenized: finalTok,\n  final: restore(finalTok),\n  stats: {\n    words_original: prot.profile.words,\n    words_final: finalWords,\n    length_ratio: Math.round(ratio * 100) / 100,\n    headings: prot.profile.headings.length,\n    links: prot.profile.links.length,\n    protected_items: prot.blocks.length,\n    dashes_original: prot.profile.dashes,\n    dashes_final: dashes,\n    keyword_mentions_original: prot.profile.keyword.total,\n    keyword_mentions_final: fk.total,\n  },\n  audit: req.audit,\n  draft_tokenized: req.draft_tokenized,\n  usage_log: [...req.usage_log, usageOf($json, `final_${attempt}`)],\n} }];\n"
+      },
+      "id": "45a93d58-f6f1-40af-8fa1-c5b865357f1f",
+      "name": "Integrity Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0420bc58-2eef-4e29-84ac-999b70747fb9",
+              "leftValue": "={{ $json.retry }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d726b8d5-b979-44a1-85f0-8ca13a03b03a",
+      "name": "Retry Final?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Validate Input').first().json;\nconst prot = $('Protect Structure').first().json;\nconst skill = $('Humanizer Skill').first().json;\nconst s = $json;\n\nconst fields = ['input_tokens', 'output_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens'];\nconst totals = Object.fromEntries(fields.map((f) => [f, s.usage_log.reduce((n, u) => n + (u[f] || 0), 0)]));\n\nconst result = {\n  status: s.passed ? 'ok' : 'needs_review',\n  title: input.title,\n  format: input.format,\n  content_type: s.audit.content_type || input.content_type,\n  humanized_content: s.final,\n  integrity: {\n    passed: s.passed,\n    issues: s.issues,\n    fixes_applied: s.fixes,\n    final_attempts: s.attempt,\n  },\n  draft_audit: {\n    still_ai: s.audit.still_ai,\n    fabrications: s.audit.fabrications,\n    seo_issues: s.audit.seo_issues,\n  },\n  stats: s.stats,\n  google_doc: null,\n  model: input.config.model,\n  skill_version: skill.skill_version,\n  usage: { calls: s.usage_log.length, ...totals, by_step: s.usage_log },\n  execution_id: $execution.id,\n  completed_at: new Date().toISOString(),\n};\nif (input.include_draft) {\n  result.draft = s.draft_tokenized.replace(/\\[\\[KEEP_(\\d+)\\]\\]/g, (m, n) => prot.blocks[n - 1] ?? m);\n}\n\nreturn [{ json: result }];\n"
+      },
+      "id": "7d55e311-e8a2-4e13-8f8f-bed23e57e7f0",
+      "name": "Build Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2340,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ffa36e2d-fe17-4d98-a28e-d8c7136f9a43",
+              "leftValue": "={{ $('Validate Input').first().json.create_google_doc }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "51de5f67-7627-4d71-8cb4-840a20045623",
+      "name": "Create Google Doc?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2560,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds a Drive multipart upload that converts the rewrite into a Google Doc.\n// Drive imports HTML and Markdown with headings, lists, and links intact.\nconst input = $('Validate Input').first().json;\nconst r = $json;\nconst esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst c = r.humanized_content;\nlet mime, body;\nif (r.format === 'html') {\n  mime = 'text/html';\n  body = `<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>${esc(r.title)}</title></head><body>${/<h1\\b/i.test(c) ? '' : `<h1>${esc(r.title)}</h1>`}${c}</body></html>`;\n} else if (r.format === 'markdown') {\n  mime = 'text/markdown';\n  body = (/^#\\s/m.test(c) ? '' : `# ${r.title}\\n\\n`) + c;\n} else {\n  mime = 'text/plain';\n  body = `${r.title}\\n\\n${c}`;\n}\n\nconst metadata = {\n  name: `${r.title} (humanized)`,\n  mimeType: 'application/vnd.google-apps.document',\n  ...(input.google_folder_id ? { parents: [input.google_folder_id] } : {}),\n};\nconst boundary = `humanizer_${Date.now()}`;\nconst multipart = [\n  `--${boundary}`,\n  'Content-Type: application/json; charset=UTF-8',\n  '',\n  JSON.stringify(metadata),\n  `--${boundary}`,\n  `Content-Type: ${mime}; charset=UTF-8`,\n  '',\n  body,\n  `--${boundary}--`,\n  '',\n].join('\\r\\n');\n\nreturn [{ json: { boundary, multipart } }];\n"
+      },
+      "id": "f1294383-e0f2-4115-b534-8ecec6e210db",
+      "name": "Build Doc Upload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2780,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "={{ 'multipart/related; boundary=' + $json.boundary }}",
+        "body": "={{ $json.multipart }}",
+        "options": {}
+      },
+      "id": "b804cde9-7891-48ab-81b6-4545607c7189",
+      "name": "Upload to Google Docs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3000,
+        320
+      ],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "google-drive",
+          "name": "Google Drive"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = { ...$('Build Result').first().json };\nconst d = $json;\nresult.google_doc = d.id\n  ? { id: d.id, name: d.name, url: d.webViewLink || `https://docs.google.com/document/d/${d.id}/edit` }\n  : { error: (d.error && (d.error.message || JSON.stringify(d.error))) || 'Google Doc was not created.' };\nreturn [{ json: result }];\n"
+      },
+      "id": "9cba0a5d-a8b3-4ebe-a11c-62b4ac429066",
+      "name": "Attach Doc Link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3220,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8d06d236-5a07-4452-831d-af9e895a447c",
+              "leftValue": "={{ $('Validate Input').first().json.async }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "411fa401-c614-4f6c-97a6-1e485024d073",
+      "name": "Async Reply?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3440,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "e14a51f8-608f-4ad9-b21d-0b339f76e48b",
+      "name": "Respond: Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3660,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Validate Input').first().json.callback_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "8181ee08-d9f6-431c-bb5b-d8bfbb5e951c",
+      "name": "Send to Callback URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3660,
+        360
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "content": "## AI content humanizer for blog posts\n\nPOST a blog post to this webhook and get it back rewritten so it no longer reads as AI-generated, using the **content-humanizer skill** (SKILL.md + all reference files, embedded in the *Humanizer Skill* node).\n\n**How it runs**\n1. **Protect Structure** swaps code, images, tables, embeds, and HTML comments for `[[KEEP_n]]` tokens and records headings, links, and keyword placement.\n2. **Draft**: Claude identifies the AI patterns and writes a draft.\n3. **Audit**: Claude lists remaining tells, invented facts, and SEO breaks (JSON).\n4. **Final**: Claude revises using the audit.\n5. **Integrity Check** confirms tokens, headings, links, keyword, length, and dashes. Failures send the final pass round again (3 attempts by default).\n6. Optional Google Doc, then the JSON result goes back to the caller or to `callback_url`.\n\nGuide: `guides/ai-content-humanizer-blog-workflow-n8n.md`",
+        "height": 520,
+        "width": 700
+      },
+      "id": "ac4c7a65-481f-4f45-a79e-3de94785a621",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1460,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Setup\n- **Blog Webhook**: Header Auth credential (e.g. `X-API-Key`) callers must send.\n- **Claude nodes**: one Header Auth credential, name `x-api-key`, value = your Anthropic API key.\n- **Upload to Google Docs**: Google Drive OAuth2 credential.\n- **Validate Input**: model, effort, attempts, Drive folder, and defaults live in `CONFIG` at the top.",
+        "height": 260,
+        "width": 520,
+        "color": 5
+      },
+      "id": "83e952a0-b04f-424b-9206-a8dbdd9c608b",
+      "name": "Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Request body\n```json\n{\n  \"title\": \"How to ...\",\n  \"content\": \"<p>...</p>\",\n  \"format\": \"auto\",\n  \"content_type\": \"auto\",\n  \"target_keyword\": \"...\",\n  \"secondary_keywords\": [\"...\"],\n  \"voice_sample\": \"\",\n  \"notes\": \"\",\n  \"create_google_doc\": true,\n  \"google_folder_id\": \"\",\n  \"include_draft\": false,\n  \"callback_url\": \"\"\n}\n```\nOnly `content` is required. Set `callback_url` for long posts: the webhook answers 202 right away and POSTs the result there.",
+        "height": 520,
+        "width": 460,
+        "color": 6
+      },
+      "id": "2333351b-2c52-4d64-97bd-d77513b4a9cb",
+      "name": "Request",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -180,
+        -320
+      ]
+    }
+  ],
+  "connections": {
+    "Blog Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Valid Input?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Input?": {
+      "main": [
+        [
+          {
+            "node": "Async Mode?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: Bad Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Async Mode?": {
+      "main": [
+        [
+          {
+            "node": "Respond: Accepted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Protect Structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond: Accepted": {
+      "main": [
+        [
+          {
+            "node": "Protect Structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Protect Structure": {
+      "main": [
+        [
+          {
+            "node": "Humanizer Skill",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Humanizer Skill": {
+      "main": [
+        [
+          {
+            "node": "Build Draft Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Draft Request": {
+      "main": [
+        [
+          {
+            "node": "Claude: Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: Draft": {
+      "main": [
+        [
+          {
+            "node": "Read Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Draft": {
+      "main": [
+        [
+          {
+            "node": "Build Audit Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Audit Request": {
+      "main": [
+        [
+          {
+            "node": "Claude: Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: Audit": {
+      "main": [
+        [
+          {
+            "node": "Read Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Audit": {
+      "main": [
+        [
+          {
+            "node": "Build Final Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Final Request": {
+      "main": [
+        [
+          {
+            "node": "Claude: Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: Final": {
+      "main": [
+        [
+          {
+            "node": "Integrity Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Integrity Check": {
+      "main": [
+        [
+          {
+            "node": "Retry Final?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retry Final?": {
+      "main": [
+        [
+          {
+            "node": "Build Final Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Result": {
+      "main": [
+        [
+          {
+            "node": "Create Google Doc?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Google Doc?": {
+      "main": [
+        [
+          {
+            "node": "Build Doc Upload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Async Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Doc Upload": {
+      "main": [
+        [
+          {
+            "node": "Upload to Google Docs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Google Docs": {
+      "main": [
+        [
+          {
+            "node": "Attach Doc Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Doc Link": {
+      "main": [
+        [
+          {
+            "node": "Async Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Async Reply?": {
+      "main": [
+        [
+          {
+            "node": "Send to Callback URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
