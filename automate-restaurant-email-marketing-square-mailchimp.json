@@ -1,0 +1,2361 @@
+{
+  "name": "AI Restaurant Email Marketing Automation (Square + Mailchimp)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "id": "2140f469-2374-46f5-97e1-0b8dd119f1d7",
+      "name": "Daily Guest Scan",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1100,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "Plan a Restaurant Email Campaign",
+        "formDescription": "Tell the AI what you want this campaign to do. It reads your Square sales and guests and your past Mailchimp campaigns, builds a draft in Mailchimp, sends you a test email, and asks for approval in Slack.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "What should this campaign do?",
+              "fieldName": "brief",
+              "fieldType": "textarea",
+              "requiredField": true,
+              "placeholder": "Fill our slow Tuesday and Wednesday dinners next week"
+            },
+            {
+              "fieldLabel": "Dishes or theme to feature (optional)",
+              "fieldName": "focus",
+              "fieldType": "text",
+              "placeholder": "Our new fall menu, the braised short rib"
+            },
+            {
+              "fieldLabel": "Who should get it? (optional)",
+              "fieldName": "audience",
+              "fieldType": "text",
+              "placeholder": "Regulars, or guests who mostly order takeout"
+            },
+            {
+              "fieldLabel": "Offer to include (optional)",
+              "fieldName": "offer",
+              "fieldType": "text",
+              "placeholder": "Free dessert with any entree, Tuesday to Thursday this week"
+            }
+          ]
+        },
+        "responseMode": "onReceived",
+        "options": {
+          "path": "restaurant-email-campaign",
+          "buttonLabel": "Plan campaign",
+          "respondWithOptions": {
+            "values": {
+              "respondWith": "text",
+              "formSubmittedText": "Got it. The AI is planning your campaign. You'll get a Slack message with the draft and a test email in a few minutes."
+            }
+          }
+        }
+      },
+      "id": "5895f180-e7e5-4c94-bf4c-5584136e35e1",
+      "name": "Campaign Request Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -1100,
+        680
+      ],
+      "webhookId": "0112785a-ab03-468d-9085-e20ee63e6997"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "a6586f8d-1678-45e7-a836-3da71a78d03d",
+      "name": "Weekly Campaign Planner",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1100,
+        900
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "42b21307-2334-4a67-ad60-ee2bf09357a6",
+      "name": "Set Up Mailchimp Fields",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1100,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cc0b5270-2dbd-4f6d-8fd3-ec02cf754b75",
+              "name": "restaurant_name",
+              "value": "Your Restaurant",
+              "type": "string"
+            },
+            {
+              "id": "d4065059-b773-44e9-be82-8053728576c9",
+              "name": "cuisine",
+              "value": "modern American",
+              "type": "string"
+            },
+            {
+              "id": "d4bd1575-5d84-4836-8fbf-41955b528153",
+              "name": "website_url",
+              "value": "https://yourrestaurant.com",
+              "type": "string"
+            },
+            {
+              "id": "dbe5966f-6167-4220-8100-c05a7e5839e7",
+              "name": "reservation_url",
+              "value": "https://yourrestaurant.com/reservations",
+              "type": "string"
+            },
+            {
+              "id": "82b7f850-f790-4038-b969-26c041af7193",
+              "name": "order_online_url",
+              "value": "https://yourrestaurant.com/order",
+              "type": "string"
+            },
+            {
+              "id": "a7fbe454-10b7-414a-af03-894e9418d106",
+              "name": "google_review_url",
+              "value": "https://g.page/r/YOUR_PLACE_ID/review",
+              "type": "string"
+            },
+            {
+              "id": "b22090ab-f238-4a24-af0a-c30749b0b0b3",
+              "name": "brand_voice",
+              "value": "Warm and welcoming, like a host who remembers you. Short sentences. Talk about the food in a way that makes people hungry. No hype and no ALL CAPS.",
+              "type": "string"
+            },
+            {
+              "id": "aecb966f-0690-42f6-889a-8f46051192ad",
+              "name": "timezone",
+              "value": "America/New_York",
+              "type": "string"
+            },
+            {
+              "id": "cf894557-fda7-4637-b0d2-d9a2790cbf35",
+              "name": "square_location_ids",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "58f9d2b9-3457-45d0-b5d6-ed32f7953278",
+              "name": "history_days",
+              "value": 120,
+              "type": "number"
+            },
+            {
+              "id": "3e7a1990-d3eb-4015-9e84-1e653ad0dbbb",
+              "name": "mailchimp_server",
+              "value": "us21",
+              "type": "string"
+            },
+            {
+              "id": "be0f13c7-dc51-4187-849e-b6a86f9aee71",
+              "name": "mailchimp_list_id",
+              "value": "YOUR_AUDIENCE_ID",
+              "type": "string"
+            },
+            {
+              "id": "e151e6c0-4e37-4698-8703-be1f9b81b4f2",
+              "name": "mailchimp_event_name",
+              "value": "ai_guest_email",
+              "type": "string"
+            },
+            {
+              "id": "ac317635-ca79-48bd-924e-4184a7c8c201",
+              "name": "from_name",
+              "value": "Your Restaurant",
+              "type": "string"
+            },
+            {
+              "id": "ec3032e7-dffe-4072-b6b8-7f00539f272d",
+              "name": "reply_to",
+              "value": "hello@yourrestaurant.com",
+              "type": "string"
+            },
+            {
+              "id": "7ec2846a-48bd-4c61-88b4-d5d057da4e22",
+              "name": "approver_email",
+              "value": "you@yourrestaurant.com",
+              "type": "string"
+            },
+            {
+              "id": "d9d3d5b0-3d6b-4b21-9b29-24627771a604",
+              "name": "slack_channel_id",
+              "value": "C0123456789",
+              "type": "string"
+            },
+            {
+              "id": "69736e8f-d1bd-402c-9463-f032a84e5499",
+              "name": "logo_url",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "047b5d4f-ed0a-4406-b6d9-a397b3002475",
+              "name": "brand_color",
+              "value": "#7c2d12",
+              "type": "string"
+            },
+            {
+              "id": "2f965703-49bb-40a8-82a7-8f4b27fc56af",
+              "name": "lapsed_after_days",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "b1d8df22-fa14-4731-8219-ed721b05a4a7",
+              "name": "birthday_offer",
+              "value": "A free dessert on us during your birthday week",
+              "type": "string"
+            },
+            {
+              "id": "7a2a91a1-3a18-43d3-9f73-3679d224e325",
+              "name": "we_miss_you_offer",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "adf9fb81-eb5e-48aa-9caa-937b1d61cb4e",
+              "name": "max_emails_per_run",
+              "value": 40,
+              "type": "number"
+            },
+            {
+              "id": "2a2e6f18-9b3b-4614-98b8-989a7ab9d8f4",
+              "name": "cooldown_days",
+              "value": 14,
+              "type": "number"
+            },
+            {
+              "id": "0bbb6756-04de-4277-9907-2d67fa331d1d",
+              "name": "max_revisions",
+              "value": 3,
+              "type": "number"
+            },
+            {
+              "id": "026bac32-62e5-4727-8885-990969692c3e",
+              "name": "weekly_brief",
+              "value": "Plan the one campaign most likely to bring in more guests this week. Look at our slowest shifts, dishes that are selling well or are new, and what worked in past campaigns.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "55eae104-e672-4396-a9fc-7f4ea186a409",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -880,
+        790
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a2f967c4-d0cb-4039-a96a-e18124737bc8",
+                    "leftValue": "={{ $('Set Up Mailchimp Fields').isExecuted }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Set up fields"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Read Square"
+        }
+      },
+      "id": "76822e95-5b25-42db-871d-c6d3f321a87e",
+      "name": "Which Path?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -660,
+        790
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// The Mailchimp audience fields the guest emails use. Run \"Set Up Mailchimp Fields\" once to create them.\n// Fields that already exist return an error from Mailchimp, which is ignored.\nconst FIELDS = [\n  ['AI_SUBJECT', 'AI subject line'],\n  ['AI_PREVIEW', 'AI preview text'],\n  ['AI_HEAD', 'AI headline'],\n  ['AI_BODY1', 'AI paragraph 1'],\n  ['AI_BODY2', 'AI paragraph 2'],\n  ['AI_DISHES', 'AI featured dishes'],\n  ['AI_CTA', 'AI button text'],\n  ['AI_LINK', 'AI button link'],\n  ['AI_OFFER', 'AI offer'],\n  ['AI_TYPE', 'AI email type'],\n  ['AI_SENT', 'AI email sent date'],\n];\n\nreturn FIELDS.map(([tag, name], i) => ({\n  json: { tag, name, type: 'text', required: false, public: false, display_order: 50 + i },\n}));\n"
+      },
+      "id": "0aed8353-348f-4253-9412-56a1585d73fa",
+      "name": "Mailchimp Field List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -360,
+        1240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/lists/{{ $('Settings').first().json.mailchimp_list_id }}/merge-fields",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "76d639b1-437c-4089-85cc-8593ccf76194",
+      "name": "Create Mailchimp Field",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -140,
+        1240
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://connect.squareup.com/v2/locations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Square-Version",
+              "value": "2026-09-16"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "70110f7a-4e7d-4cb2-8546-46efd9e8e642",
+      "name": "Get Square Locations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -360,
+        790
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "square-api",
+          "name": "Square API"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://connect.squareup.com/v2/orders/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Square-Version",
+              "value": "2026-09-16"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ location_ids: (($json.locations || []).filter(l => l.status === 'ACTIVE').map(l => l.id).filter(id => !$('Settings').first().json.square_location_ids || $('Settings').first().json.square_location_ids.split(',').map(x => x.trim()).includes(id)).slice(0, 10)), query: { filter: { state_filter: { states: ['COMPLETED'] }, date_time_filter: { closed_at: { start_at: $now.minus({ days: Number($('Settings').first().json.history_days) || 120 }).toUTC().toISO({ suppressMilliseconds: true }) } } }, sort: { sort_field: 'CLOSED_AT', sort_order: 'DESC' } }, limit: 1000 }) }}",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "cursor",
+                    "value": "={{ $response.body.cursor }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.cursor }}",
+              "limitPagesFetched": true,
+              "maxRequests": 50
+            }
+          }
+        }
+      },
+      "id": "e7d8f03f-0eb6-4abb-8fa2-bbcf211bc3ca",
+      "name": "Get Square Orders",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -140,
+        790
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "square-api",
+          "name": "Square API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://connect.squareup.com/v2/catalog/search-catalog-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Square-Version",
+              "value": "2026-09-16"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ limit: 100, archived_state: 'ARCHIVED_STATE_NOT_ARCHIVED' }) }}",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "cursor",
+                    "value": "={{ $response.body.cursor }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.cursor }}",
+              "limitPagesFetched": true,
+              "maxRequests": 20
+            }
+          }
+        }
+      },
+      "id": "4ef1dec7-2f7e-4eca-a467-35fd7a1d5c15",
+      "name": "Get Menu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        80,
+        790
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "square-api",
+          "name": "Square API"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collects the Square customer id of every guest who placed an order in the history window,\n// in batches of 100 for Square's bulk customer lookup.\nconst ids = new Set();\nfor (const page of $('Get Square Orders').all()) {\n  for (const order of page.json.orders ?? []) {\n    if (order.customer_id) ids.add(order.customer_id);\n  }\n}\n\nconst all = [...ids];\nconst batches = [];\nfor (let i = 0; i < all.length; i += 100) batches.push(all.slice(i, i + 100));\n// Always output one item, so the rest of the run continues even with no known guests\nif (!batches.length) batches.push([]);\n\nreturn batches.map((customer_ids) => ({ json: { customer_ids } }));\n"
+      },
+      "id": "6c2cf57b-413e-4eb1-8ac5-03aab92c3aee",
+      "name": "List Guests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        790
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://connect.squareup.com/v2/customers/bulk-retrieve",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Square-Version",
+              "value": "2026-09-16"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ customer_ids: $json.customer_ids }) }}",
+        "options": {}
+      },
+      "id": "e1bebcb7-5ec0-431e-8f87-2208cb73b645",
+      "name": "Get Guest Profiles",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        520,
+        790
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "square-api",
+          "name": "Square API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns Square orders, customer profiles, and the menu into one guest list:\n// each guest's visits, usual days and times, dine-in or takeout, favorite dishes, and average check.\nconst settings = $('Settings').first().json;\n\nconst tzByLocation = new Map((($('Get Square Locations').first().json.locations) ?? []).map((l) => [l.id, l.timezone || settings.timezone]));\nconst money = (m) => (m && Number.isFinite(Number(m.amount)) ? Number(m.amount) / 100 : 0);\nconst WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];\nconst daypart = (hour) => (hour >= 5 && hour < 11 ? 'breakfast' : hour >= 11 && hour < 16 ? 'lunch' : hour >= 16 && hour < 22 ? 'dinner' : 'late night');\nconst orderType = (o) => {\n  const t = o.fulfillments?.[0]?.type;\n  if (t === 'DELIVERY' || /doordash|uber ?eats|grubhub|postmates/i.test(o.source?.name ?? '')) return 'delivery';\n  if (t === 'PICKUP') return 'takeout';\n  return 'dine-in';\n};\n\n// ---------- Visits (one per guest per day; several orders on one day count as one visit)\nconst visitsByGuest = new Map();\nfor (const page of $('Get Square Orders').all()) {\n  for (const o of page.json.orders ?? []) {\n    if (!o.customer_id || !o.closed_at) continue;\n    const local = DateTime.fromISO(o.closed_at).setZone(tzByLocation.get(o.location_id) || settings.timezone);\n    const date = local.toISODate();\n    const items = (o.line_items ?? [])\n      .filter((li) => li.name && li.item_type !== 'CUSTOM_AMOUNT')\n      .map((li) => ({ name: li.name.trim(), qty: parseFloat(li.quantity) || 1 }));\n    const guest = visitsByGuest.get(o.customer_id) ?? new Map();\n    const v = guest.get(date) ?? { date, weekday: WEEKDAYS[local.weekday - 1], daypart: daypart(local.hour), type: orderType(o), total: 0, items: [] };\n    v.total += money(o.total_money);\n    v.items.push(...items);\n    guest.set(date, v);\n    visitsByGuest.set(o.customer_id, guest);\n  }\n}\n\n// ---------- Customer profiles from Square\nconst profiles = new Map();\nfor (const page of $('Get Guest Profiles').all()) {\n  for (const [id, r] of Object.entries(page.json.responses ?? {})) {\n    if (r?.customer) profiles.set(id, r.customer);\n  }\n}\n\nconst top = (counts, n) => [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, n);\nconst median = (arr) => {\n  if (!arr.length) return null;\n  const s = [...arr].sort((a, b) => a - b);\n  const m = Math.floor(s.length / 2);\n  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;\n};\n\nconst guests = [];\nfor (const [id, byDay] of visitsByGuest) {\n  const c = profiles.get(id);\n  if (!c) continue;\n  const visits = [...byDay.values()].sort((a, b) => a.date.localeCompare(b.date));\n  const gaps = visits.slice(1).map((v, i) => DateTime.fromISO(v.date).diff(DateTime.fromISO(visits[i].date), 'days').days);\n  const dishes = new Map();\n  const parts = new Map();\n  const days = new Map();\n  const types = new Map();\n  for (const v of visits) {\n    for (const it of v.items) dishes.set(it.name, (dishes.get(it.name) ?? 0) + it.qty);\n    parts.set(v.daypart, (parts.get(v.daypart) ?? 0) + 1);\n    days.set(v.weekday, (days.get(v.weekday) ?? 0) + 1);\n    types.set(v.type, (types.get(v.type) ?? 0) + 1);\n  }\n  const total = visits.reduce((s, v) => s + v.total, 0);\n  guests.push({\n    id,\n    email: String(c.email_address ?? '').trim().toLowerCase(),\n    first_name: String(c.given_name ?? '').trim(),\n    birthday: String(c.birthday ?? ''),\n    created_at: c.created_at ?? '',\n    unsubscribed: c.preferences?.email_unsubscribed === true,\n    visit_count: visits.length,\n    first_visit: visits[0].date,\n    last_visit: visits[visits.length - 1].date,\n    median_gap_days: median(gaps),\n    usual_daypart: top(parts, 1)[0]?.[0] ?? '',\n    usual_days: top(days, 2).map(([d]) => d),\n    usual_type: top(types, 1)[0]?.[0] ?? 'dine-in',\n    share: {\n      weeknight_dinner: visits.filter((v) => v.daypart === 'dinner' && ['Monday', 'Tuesday', 'Wednesday', 'Thursday'].includes(v.weekday)).length / visits.length,\n      weekend: visits.filter((v) => ['Friday', 'Saturday', 'Sunday'].includes(v.weekday)).length / visits.length,\n      lunch: visits.filter((v) => v.daypart === 'lunch').length / visits.length,\n      takeout: visits.filter((v) => v.type !== 'dine-in').length / visits.length,\n    },\n    favorite_dishes: top(dishes, 3).map(([name, count]) => ({ name, count })),\n    avg_check: Math.round((total / visits.length) * 100) / 100,\n    total_spent: Math.round(total * 100) / 100,\n    visits: visits.map((v) => ({ date: v.date, weekday: v.weekday, daypart: v.daypart, type: v.type, total: Math.round(v.total * 100) / 100 })),\n  });\n}\n\n// ---------- Menu (active items with their first price)\nconst menu = [];\nfor (const page of $('Get Menu').all()) {\n  for (const item of page.json.items ?? []) {\n    const d = item.item_data ?? {};\n    if (!d.name || d.is_archived) continue;\n    const price = d.variations?.map((v) => v.item_variation_data?.price_money).find((m) => m && m.amount !== undefined);\n    menu.push({\n      name: d.name.trim(),\n      price: price ? Number(price.amount) / 100 : null,\n      currency: price?.currency ?? 'USD',\n      description: String(d.description_plaintext ?? d.description ?? '').trim().slice(0, 160),\n    });\n  }\n}\n\nreturn [{ json: { guests, menu, guest_count: guests.length, menu_count: menu.length } }];\n"
+      },
+      "id": "4638995d-e2ee-4230-b243-9267f9c4b92a",
+      "name": "Build Guest Stats",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        790
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "26888dc7-602a-41b5-92a3-deb647d16cec",
+                    "leftValue": "={{ $('Daily Guest Scan').isExecuted }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Guest emails"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Campaign"
+        }
+      },
+      "id": "d1003d5d-2123-485c-be62-a448c575fb86",
+      "name": "Guests or Campaign?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        790
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://connect.squareup.com/v2/customers/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Square-Version",
+              "value": "2026-09-16"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ limit: 100, query: { filter: { created_at: { start_at: $now.minus({ days: 1 }).toUTC().toISO({ suppressMilliseconds: true }) } } } }) }}",
+        "options": {}
+      },
+      "id": "1c201819-a996-4f75-a1a1-592c0ca805e3",
+      "name": "Find New Guests",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1240,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "square-api",
+          "name": "Square API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// GUEST EMAIL PLAYBOOK: who gets which email, and what each email should do. Edit to match your restaurant.\n// Each guest gets at most one email per run, in this order of priority: birthday, thank_you, we_miss_you, welcome.\nconst PLAYBOOK = {\n  birthday: {\n    name: 'Birthday',\n    goal: 'Wish them a happy birthday and invite them in to celebrate.',\n    instructions: 'Warm and personal. Mention a favorite dish if they have one. If there is a birthday offer, mention it once in the body.',\n    link: 'their usual way to visit: reservations for dine-in guests, online ordering for takeout and delivery guests',\n  },\n  thank_you: {\n    name: 'Thank you for your first visit',\n    goal: 'Thank a first-time guest and ask for a Google review.',\n    instructions: 'Thank them for coming in, mention what they ordered, and ask for an honest Google review in one sentence. Do not offer anything in exchange for a review.',\n    link: 'your Google review page',\n  },\n  we_miss_you: {\n    name: 'We miss you',\n    goal: 'Bring back a regular who is overdue for a visit.',\n    instructions: 'Notice that it has been a while without guilt-tripping. Mention their favorite dish by name and something on the menu they have not tried. If there is a we-miss-you offer, mention it once.',\n    link: 'their usual way to visit: reservations for dine-in guests, online ordering for takeout and delivery guests',\n  },\n  welcome: {\n    name: 'Welcome',\n    goal: 'Welcome a new guest who just joined and invite them for a first visit.',\n    instructions: 'Say what the restaurant is known for and recommend 2 or 3 of the most popular dishes.',\n    link: 'reservations, or the website if there is no reservations link',\n  },\n};\n\nconst s = $('Settings').first().json;\nconst { guests } = $('Build Guest Stats').first().json;\nconst newGuests = $('Find New Guests').first().json.customers ?? [];\nconst today = $now.setZone(s.timezone).startOf('day');\nconst yesterday = today.minus({ days: 1 }).toISODate();\nconst daysSince = (date) => Math.round(today.diff(DateTime.fromISO(date, { zone: s.timezone }).startOf('day'), 'days').days);\nconst validEmail = (e) => /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(e);\n\n// Days until the next birthday (Square stores YYYY-MM-DD or MM-DD)\nconst daysToBirthday = (b) => {\n  const m = String(b).match(/(\\d{2})-(\\d{2})$/);\n  if (!m) return null;\n  let next = DateTime.fromObject({ year: today.year, month: Number(m[1]), day: Number(m[2]) }, { zone: s.timezone });\n  if (!next.isValid) return null;\n  if (next < today) next = next.plus({ years: 1 });\n  return Math.round(next.diff(today, 'days').days);\n};\n\nconst linkFor = (type, usualType) => {\n  if (type === 'thank_you') return s.google_review_url || s.website_url;\n  if (type === 'welcome') return s.reservation_url || s.website_url;\n  return (usualType === 'dine-in' ? s.reservation_url : s.order_online_url) || s.website_url;\n};\nconst offerFor = (type) => (type === 'birthday' ? s.birthday_offer : type === 'we_miss_you' ? s.we_miss_you_offer : '') || '';\n\nconst candidates = [];\nconst seen = new Set();\nfor (const g of guests) {\n  if (!validEmail(g.email) || g.unsubscribed || seen.has(g.email)) continue;\n  const toBirthday = daysToBirthday(g.birthday);\n  const since = daysSince(g.last_visit);\n  const isNew = g.created_at && DateTime.fromISO(g.created_at) >= today.minus({ days: 30 });\n  const overdueAfter = Math.max(Number(s.lapsed_after_days) || 30, Math.ceil(2 * (g.median_gap_days ?? 15)));\n\n  let type = null;\n  if (toBirthday !== null && toBirthday <= 7) type = 'birthday';\n  else if (g.visit_count === 1 && g.last_visit === yesterday && isNew) type = 'thank_you';\n  else if (g.visit_count >= 3 && since >= overdueAfter) type = 'we_miss_you';\n  if (!type) continue;\n  seen.add(g.email);\n  candidates.push({ g, type, since, toBirthday, overdueAfter });\n}\n\n// New sign-ups from the last day who haven't ordered yet (guests who already ordered get the thank-you email tomorrow)\nconst ordered = new Set(guests.map((g) => g.id));\nfor (const c of newGuests) {\n  const email = String(c.email_address ?? '').trim().toLowerCase();\n  if (!validEmail(email) || c.preferences?.email_unsubscribed === true || seen.has(email) || ordered.has(c.id)) continue;\n  seen.add(email);\n  candidates.push({\n    g: { id: c.id, email, first_name: String(c.given_name ?? '').trim(), visit_count: 0, favorite_dishes: [], usual_type: 'dine-in', total_spent: 0 },\n    type: 'welcome',\n  });\n}\n\nconst order = ['birthday', 'thank_you', 'we_miss_you', 'welcome'];\ncandidates.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type) || (b.g.total_spent ?? 0) - (a.g.total_spent ?? 0));\n\n// Up to 3 times the daily cap, because some will be filtered out by Mailchimp status and cooldown\nconst cap = (Number(s.max_emails_per_run) || 40) * 3;\n\nreturn candidates.slice(0, cap).map(({ g, type, since, toBirthday, overdueAfter }, i) => {\n  const p = PLAYBOOK[type];\n  const lines = [\n    `First name: ${g.first_name || 'unknown (do not use a name)'}`,\n    g.visit_count\n      ? `Visits in the last ${s.history_days} days: ${g.visit_count} (first ${g.first_visit}, last ${g.last_visit}, ${since} days ago)`\n      : 'Has not visited yet (just joined).',\n  ];\n  if (g.visit_count) {\n    lines.push(`Usually comes for ${g.usual_daypart} on ${g.usual_days.join(' and ')}, mostly ${g.usual_type}. Average check ${g.avg_check}.`);\n    if (g.median_gap_days) lines.push(`Usually comes back every ${Math.round(g.median_gap_days)} days.`);\n  }\n  if (g.favorite_dishes?.length) lines.push(`Favorite dishes: ${g.favorite_dishes.map((d) => `${d.name} (${d.count}x)`).join('; ')}`);\n  if (type === 'birthday') lines.push(toBirthday === 0 ? 'Their birthday is today.' : `Their birthday is in ${toBirthday} days.`);\n  if (type === 'we_miss_you') lines.push(`Overdue: we expected them back after about ${overdueAfter} days.`);\n\n  return {\n    json: {\n      email: g.email,\n      first_name: g.first_name,\n      email_type: type,\n      email_name: p.name,\n      goal: p.goal,\n      instructions: p.instructions,\n      link_description: p.link,\n      cta_url: linkFor(type, g.usual_type),\n      offer: offerFor(type),\n      last_visit: g.last_visit ?? '',\n      guest_brief: lines.join('\\n'),\n      // Kept for the optional Width.ai send-time prediction\n      square_customer_id: g.id,\n      visit_history: g.visits ?? [],\n    },\n    pairedItem: { item: 0 },\n  };\n});\n"
+      },
+      "id": "9a490ea3-0902-45a5-9b11-1e37325f8258",
+      "name": "Pick Guests to Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/lists/{{ $('Settings').first().json.mailchimp_list_id }}/members/{{ encodeURIComponent($json.email) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "status,merge_fields"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c41a025b-3532-4162-90bb-f8b0b1de06fb",
+      "name": "Check Mailchimp Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1680,
+        300
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keeps only guests who are subscribed in Mailchimp and haven't had an AI email too recently.\n// Mailchimp is the source of marketing consent; Square only supplies the visit history.\nconst s = $('Settings').first().json;\nconst candidates = $('Pick Guests to Email').all();\nconst today = $now.setZone(s.timezone).startOf('day');\nconst cooldown = Number(s.cooldown_days) || 14;\nconst cap = Number(s.max_emails_per_run) || 40;\n\nconst out = [];\n$input.all().forEach((item, i) => {\n  if (out.length >= cap) return;\n  const guest = candidates[i]?.json;\n  const member = item.json;\n  if (!guest || member.status !== 'subscribed') return;\n\n  const lastSent = String(member.merge_fields?.AI_SENT ?? '').trim();\n  const lastType = String(member.merge_fields?.AI_TYPE ?? '').trim();\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(lastSent)) {\n    const days = Math.round(today.diff(DateTime.fromISO(lastSent, { zone: s.timezone }), 'days').days);\n    // One AI email per guest per cooldown period\n    if (days < cooldown) return;\n    // One birthday email a year\n    if (guest.email_type === 'birthday' && lastType === 'birthday' && days < 300) return;\n    // A second \"we miss you\" only after they have come back since the last one\n    if (guest.email_type === 'we_miss_you' && lastType === 'we_miss_you' && lastSent >= guest.last_visit) return;\n  }\n  out.push({ json: guest, pairedItem: { item: i } });\n});\n\nreturn out;\n"
+      },
+      "id": "a85b1144-2530-49b9-a502-aadb85185d87",
+      "name": "Keep Subscribed Guests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write the \"{{ $json.email_name }}\" email for this guest.\n\nGoal: {{ $json.goal }}\nThis email: {{ $json.instructions }}\nThe button goes to: {{ $json.link_description }}\nOffer shown in the email: {{ $json.offer || 'none. Do not mention any discount or deal.' }}\n\nGUEST (from Square)\n{{ $json.guest_brief }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You write short, personal emails for {{ $('Settings').first().json.restaurant_name }}, a {{ $('Settings').first().json.cuisine }} restaurant ({{ $('Settings').first().json.website_url }}). Each email goes to one guest and is based on their real visits from Square, the restaurant's point of sale.\n\nBrand voice: {{ $('Settings').first().json.brand_voice }}\n\n## How to work\n1. Read the guest brief: how often they come, when, dine-in or takeout, and what they order.\n2. Call Search_Menu to check any dish before you mention it, and to find something new for them to try. Search with a dish name, an ingredient, or a category, such as short rib, mushroom, or dessert. Only mention dishes that Search_Menu returned or that are in the brief, and copy their exact names into featured_dishes.\n3. Write the email.\n\n## Rules\n- subject: under 45 characters. No ALL CAPS, at most one emoji.\n- preview_text: under 90 characters. It adds to the subject instead of repeating it.\n- headline: under 50 characters.\n- body_1: 1 to 3 sentences, under 50 words. Do not start with a greeting; the email template already says hi with their first name.\n- body_2: 1 or 2 sentences, under 40 words, or empty.\n- featured_dishes: 0 to 3 exact dish names from the menu, the ones the email talks about. The template shows them with their prices.\n- cta_text: 2 to 4 words that match where the button goes.\n- The template shows the offer, if there is one, in its own box. You can refer to it in a few words, but never invent an offer or change its terms.\n- Never invent facts: no prices, specials, events, hours, or deadlines unless they are in the brief or the search results.\n- Write like a host who remembers them, not like a database. Never mention how much they spent, exact visit counts, or that their visits are tracked. \"Your usual Friday dinner\" is fine; \"you have visited 7 times\" is not.\n- Plain text only: no HTML, markdown, curly braces, or *| |* characters.\n- reasoning: one sentence on which guest data shaped the email.",
+          "maxIterations": 6
+        }
+      },
+      "id": "2cf85f11-121c-4a1a-a4d8-58e2b1d8c128",
+      "name": "Guest Email Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2140,
+        300
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "options": {}
+      },
+      "id": "3e0c523c-df04-4b7a-bd32-af0a78e0cdb2",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        2060,
+        560
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-api",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Searches the restaurant's menu in Square. Send a dish name, an ingredient, or a category word, such as short rib, mushroom, or dessert. Returns up to 10 menu items. Each has item_data.name (copy this exact name), item_data.description_plaintext, and item_data.variations[].item_variation_data.price_money (amount in cents).",
+        "method": "POST",
+        "url": "https://connect.squareup.com/v2/catalog/search-catalog-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Square-Version",
+              "value": "2026-09-16"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text_filter: $fromAI('search', 'A dish name, ingredient, or category to search the menu for', 'string'), limit: 10, archived_state: 'ARCHIVED_STATE_NOT_ARCHIVED' }) }}",
+        "options": {}
+      },
+      "id": "d616000d-a832-4584-8ce1-35d1d37d8980",
+      "name": "Search Menu",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        2220,
+        560
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "square-api",
+          "name": "Square API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"subject\": {\n      \"type\": \"string\",\n      \"description\": \"Subject line, under 45 characters\"\n    },\n    \"preview_text\": {\n      \"type\": \"string\",\n      \"description\": \"Preview text, under 90 characters\"\n    },\n    \"headline\": {\n      \"type\": \"string\",\n      \"description\": \"Headline, under 50 characters\"\n    },\n    \"body_1\": {\n      \"type\": \"string\",\n      \"description\": \"1 to 3 sentences, under 50 words, plain text, no greeting\"\n    },\n    \"body_2\": {\n      \"type\": \"string\",\n      \"description\": \"1 or 2 sentences, under 40 words, or empty\"\n    },\n    \"featured_dishes\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"0 to 3 exact dish names from the menu\"\n    },\n    \"cta_text\": {\n      \"type\": \"string\",\n      \"description\": \"Button text, 2 to 4 words\"\n    },\n    \"reasoning\": {\n      \"type\": \"string\",\n      \"description\": \"One sentence on which guest data shaped the email\"\n    }\n  },\n  \"required\": [\n    \"subject\",\n    \"preview_text\",\n    \"headline\",\n    \"body_1\",\n    \"featured_dishes\",\n    \"cta_text\"\n  ]\n}"
+      },
+      "id": "83d32bbb-8dd6-4d9c-87e5-6470874c1b33",
+      "name": "Guest Email Format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2380,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Checks the agent's email and turns it into Mailchimp audience fields (each up to 255 characters).\n// Dishes are only included if they match an item on your Square menu, with its real price.\nconst s = $('Settings').first().json;\nconst guest = $('Keep Subscribed Guests').item.json;\nconst ai = $json.output ?? {};\nconst menu = $('Build Guest Stats').first().json.menu;\n\n// Plain text only: no HTML, and no *| |* that Mailchimp would read as a merge tag\nconst clean = (v, max = 255) => String(v ?? '')\n  .replace(/<[^>]*>/g, '')\n  .replace(/\\*\\||\\|\\*/g, '')\n  .replace(/\\s+/g, ' ')\n  .trim()\n  .slice(0, max);\nconst price = (d) => {\n  if (d.price === null) return '';\n  try {\n    return new Intl.NumberFormat('en-US', { style: 'currency', currency: d.currency || 'USD' }).format(d.price);\n  } catch (e) {\n    return d.price.toFixed(2);\n  }\n};\n\nconst byName = new Map(menu.map((d) => [d.name.toLowerCase(), d]));\nconst dishes = (Array.isArray(ai.featured_dishes) ? ai.featured_dishes : [])\n  .map((n) => byName.get(String(n).trim().toLowerCase()))\n  .filter(Boolean)\n  .slice(0, 3)\n  .map((d) => (price(d) ? `${d.name} (${price(d)})` : d.name));\n\nconst fallback = {\n  birthday: 'Happy birthday from all of us',\n  thank_you: 'Thanks for coming in',\n  we_miss_you: 'It has been a while',\n  welcome: `Welcome to ${s.restaurant_name}`,\n}[guest.email_type];\n\nreturn {\n  json: {\n    email: guest.email,\n    email_type: guest.email_type,\n    merge_fields: {\n      AI_SUBJECT: clean(ai.subject, 150) || fallback,\n      AI_PREVIEW: clean(ai.preview_text, 150),\n      AI_HEAD: clean(ai.headline, 150) || fallback,\n      AI_BODY1: clean(ai.body_1),\n      AI_BODY2: clean(ai.body_2),\n      AI_DISHES: dishes.join(' · ').slice(0, 255),\n      AI_CTA: clean(ai.cta_text, 40) || 'Visit us',\n      AI_LINK: guest.cta_url,\n      AI_OFFER: clean(guest.offer),\n      AI_TYPE: guest.email_type,\n      AI_SENT: $now.setZone(s.timezone).toISODate(),\n    },\n    ai_reasoning: clean(ai.reasoning, 300),\n  },\n};\n"
+      },
+      "id": "4ad2d320-f900-4a3f-ab48-2cc65649ebe2",
+      "name": "Build Mailchimp Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2460,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Used when the AI agent fails: fills the same Mailchimp fields with simple copy for the email type,\n// so the guest still gets a friendly email.\nconst s = $('Settings').first().json;\nconst guest = $('Keep Subscribed Guests').item.json;\nconst name = s.restaurant_name;\nconst COPY = {\n  birthday: ['Happy birthday from all of us', `Happy birthday from everyone at ${name}. We would love to help you celebrate.`, 'Book a table'],\n  thank_you: ['Thanks for coming in', `Thank you for visiting ${name}. If you enjoyed it, a quick Google review helps us a lot.`, 'Leave a review'],\n  we_miss_you: ['It has been a while', `We have missed you at ${name}. Come back and see what is on the menu this week.`, 'Plan a visit'],\n  welcome: [`Welcome to ${name}`, `Thanks for joining us. We look forward to cooking for you soon.`, 'Plan a visit'],\n}[guest.email_type];\n\nreturn {\n  json: {\n    email: guest.email,\n    email_type: guest.email_type,\n    merge_fields: {\n      AI_SUBJECT: COPY[0],\n      AI_PREVIEW: '',\n      AI_HEAD: COPY[0],\n      AI_BODY1: COPY[1],\n      AI_BODY2: '',\n      AI_DISHES: '',\n      AI_CTA: COPY[2],\n      AI_LINK: guest.cta_url,\n      AI_OFFER: String(guest.offer ?? '').slice(0, 255),\n      AI_TYPE: guest.email_type,\n      AI_SENT: $now.setZone(s.timezone).toISODate(),\n    },\n    ai_reasoning: `The AI agent failed, so fallback copy was used: ${String($json.error?.message ?? $json.error ?? 'unknown error').slice(0, 200)}`,\n  },\n};\n"
+      },
+      "id": "ddb946e3-b382-4b0c-a133-8e16e2cf5497",
+      "name": "Fallback Copy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2460,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/lists/{{ $('Settings').first().json.mailchimp_list_id }}/members/{{ encodeURIComponent($json.email) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "skip_merge_validation",
+              "value": "true"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ merge_fields: $json.merge_fields }) }}",
+        "options": {}
+      },
+      "id": "659dacbc-3735-4c6f-b614-b78085f6902e",
+      "name": "Update Mailchimp Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2700,
+        300
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f4a6e1f1-0c47-4498-9210-542e48dac7f0",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2604706f-33b4-42e0-9ef9-c00a438b3bc2",
+      "name": "Saved in Mailchimp?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        2920,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/lists/{{ $('Settings').first().json.mailchimp_list_id }}/members/{{ $json.id }}/events",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ name: $('Settings').first().json.mailchimp_event_name, properties: { email_type: String($json.merge_fields?.AI_TYPE || '') } }) }}",
+        "options": {}
+      },
+      "id": "73af4e9f-c606-4a99-8a98-c26231eb205f",
+      "name": "Trigger Guest Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3140,
+        300
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reads the campaign request from the form, or uses the weekly brief from Settings for the weekly run.\nconst settings = $('Settings').first().json;\nconst form = $('Campaign Request Form').isExecuted ? $('Campaign Request Form').first().json : null;\nconst text = (v, max = 1000) => String(v ?? '').trim().slice(0, max);\n\nreturn [{\n  json: {\n    source: form ? 'form' : 'weekly planner',\n    brief: form ? text(form.brief, 2000) : text(settings.weekly_brief, 2000),\n    focus: form ? text(form.focus) : '',\n    audience: form ? text(form.audience) : '',\n    offer: form ? text(form.offer, 255) : '',\n  },\n}];\n"
+      },
+      "id": "8c2f4f97-f490-4c5f-8642-0e4d3c2733ec",
+      "name": "Read Campaign Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/reports",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "count",
+              "value": "100"
+            },
+            {
+              "name": "type",
+              "value": "regular"
+            },
+            {
+              "name": "since_send_time",
+              "value": "={{ $now.minus({ days: 180 }).toUTC().toISO({ suppressMilliseconds: true }) }}"
+            },
+            {
+              "name": "fields",
+              "value": "reports.campaign_title,reports.subject_line,reports.emails_sent,reports.send_time,reports.list_id,reports.opens.open_rate,reports.clicks.click_rate"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "85712ef5-b3d9-4bd0-9f0a-3aebbf57172f",
+      "name": "Get Mailchimp Reports",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1460,
+        1300
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds the Campaign Strategist Agent's brief from Square and Mailchimp:\n// the slowest and busiest shifts, dish trends, guest groups it can send to, and past campaign results.\nconst s = $('Settings').first().json;\nconst req = $('Read Campaign Request').first().json;\nconst { guests, menu } = $('Build Guest Stats').first().json;\nconst today = $now.setZone(s.timezone).startOf('day');\nconst WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];\nconst tzByLocation = new Map((($('Get Square Locations').first().json.locations) ?? []).map((l) => [l.id, l.timezone || s.timezone]));\nconst money = (m) => (m && Number.isFinite(Number(m.amount)) ? Number(m.amount) / 100 : 0);\nconst pct = (v) => `${(Number(v || 0) * 100).toFixed(1)}%`;\n\n// ---------- Shifts (weekday x lunch/dinner) over the last 8 weeks, and dish sales by 4-week period\nconst start8w = today.minus({ weeks: 8 });\nconst start4w = today.minus({ weeks: 4 });\nconst shifts = new Map();\nconst recent = new Map();\nconst prior = new Map();\nfor (const page of $('Get Square Orders').all()) {\n  for (const o of page.json.orders ?? []) {\n    if (!o.closed_at) continue;\n    const t = DateTime.fromISO(o.closed_at).setZone(tzByLocation.get(o.location_id) || s.timezone);\n    if (t < start8w || t >= today) continue;\n    const part = t.hour >= 11 && t.hour < 16 ? 'lunch' : t.hour >= 16 && t.hour < 22 ? 'dinner' : null;\n    if (part) {\n      const key = `${WEEKDAYS[t.weekday - 1]} ${part}`;\n      const sh = shifts.get(key) ?? { key, orders: 0, sales: 0 };\n      sh.orders += 1;\n      sh.sales += money(o.total_money);\n      shifts.set(key, sh);\n    }\n    const bucket = t >= start4w ? recent : prior;\n    for (const li of o.line_items ?? []) {\n      if (!li.name || li.item_type === 'CUSTOM_AMOUNT') continue;\n      bucket.set(li.name.trim(), (bucket.get(li.name.trim()) ?? 0) + (parseFloat(li.quantity) || 1));\n    }\n  }\n}\n// Average per shift (8 of each weekday in 8 weeks); shifts under 10% of the busiest are treated as closed\nconst shiftList = [...shifts.values()].map((sh) => ({ ...sh, avg_orders: sh.orders / 8, avg_sales: sh.sales / 8 }));\nconst busiest = Math.max(0, ...shiftList.map((x) => x.avg_orders));\nconst open = shiftList.filter((x) => x.avg_orders >= busiest * 0.1).sort((a, b) => a.avg_sales - b.avg_sales);\nconst shiftLine = (x) => `${x.key} | ${x.avg_orders.toFixed(1)} orders | ${x.avg_sales.toFixed(0)} in sales`;\n\nconst onMenu = new Map(menu.map((d) => [d.name.toLowerCase(), d]));\nconst dishLine = (name, extra) => {\n  const d = onMenu.get(name.toLowerCase());\n  return `${name}${d?.price !== null && d?.price !== undefined ? ` | ${d.price.toFixed(2)} ${d.currency}` : ''} | ${extra}`;\n};\nconst topSellers = [...recent.entries()].filter(([n]) => onMenu.has(n.toLowerCase())).sort((a, b) => b[1] - a[1]).slice(0, 10);\nconst rising = [...recent.entries()]\n  .filter(([n, q]) => onMenu.has(n.toLowerCase()) && q >= 5 && (prior.get(n) ?? 0) > 0 && q >= (prior.get(n) ?? 0) * 1.3)\n  .sort((a, b) => b[1] / (prior.get(b[0]) || 1) - a[1] / (prior.get(a[0]) || 1)).slice(0, 5);\nconst newDishes = [...recent.entries()].filter(([n, q]) => onMenu.has(n.toLowerCase()) && q >= 3 && !prior.has(n)).slice(0, 5);\n\n// ---------- Guest groups from Square (only guests with an email who haven't unsubscribed in Square)\nconst reachable = guests.filter((g) => /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(g.email) && !g.unsubscribed);\nconst since = (g) => Math.round(today.diff(DateTime.fromISO(g.last_visit, { zone: s.timezone }), 'days').days);\nconst checks = [...reachable].filter((g) => g.visit_count >= 2).map((g) => g.avg_check).sort((a, b) => b - a);\nconst bigSpend = checks.length ? checks[Math.max(0, Math.ceil(checks.length * 0.2) - 1)] : Infinity;\nconst GROUPS = [\n  ['all_guests', 'All guests', 'Every guest with an email from the last history window', () => true],\n  ['regulars', 'Regulars', '3 or more visits, and visited in the last 30 days', (g) => g.visit_count >= 3 && since(g) <= 30],\n  ['lapsed', 'Lapsed guests', '2 or more visits, but none in the last 45 days', (g) => g.visit_count >= 2 && since(g) > 45],\n  ['weeknight_diners', 'Weeknight diners', 'At least half their visits are Monday to Thursday dinner', (g) => g.visit_count >= 2 && g.share.weeknight_dinner >= 0.5],\n  ['weekend_guests', 'Weekend guests', 'At least half their visits are Friday to Sunday', (g) => g.visit_count >= 2 && g.share.weekend >= 0.5],\n  ['lunch_guests', 'Lunch guests', 'At least half their visits are at lunch', (g) => g.visit_count >= 2 && g.share.lunch >= 0.5],\n  ['takeout_guests', 'Takeout and delivery guests', 'At least half their orders are takeout or delivery', (g) => g.share.takeout >= 0.5],\n  ['new_guests', 'New guests', 'First visit in the last 30 days', (g) => DateTime.fromISO(g.first_visit, { zone: s.timezone }) >= today.minus({ days: 30 })],\n  ['big_spenders', 'Big spenders', 'Top 20% by average check, with 2 or more visits', (g) => g.visit_count >= 2 && g.avg_check >= bigSpend],\n];\nconst groups = GROUPS.map(([key, label, description, test]) => {\n  const emails = [...new Set(reachable.filter(test).map((g) => g.email))];\n  return { key, label, description, count: emails.length, emails };\n});\n\n// ---------- Past Mailchimp campaigns for this audience\nconst reports = ($('Get Mailchimp Reports').first().json.reports ?? [])\n  .filter((r) => r.list_id === s.mailchimp_list_id && r.emails_sent > 0)\n  .sort((a, b) => String(b.send_time).localeCompare(String(a.send_time)))\n  .slice(0, 10)\n  .map((r) => {\n    const sent = r.send_time ? DateTime.fromISO(r.send_time).setZone(s.timezone) : null;\n    return `${r.campaign_title || r.subject_line} | \"${r.subject_line}\" | sent ${sent ? sent.toFormat('ccc LLL d, h:mm a') : 'unknown'} | ${r.emails_sent} sent | opens ${pct(r.opens?.open_rate)} | clicks ${pct(r.clicks?.click_rate)}`;\n  });\n\nconst section = (title, rows, empty) => `${title}\\n${rows.length ? rows.join('\\n') : empty}`;\nconst prompt = [\n  'CAMPAIGN REQUEST',\n  `Source: ${req.source}`,\n  `Brief: ${req.brief}`,\n  `Dishes or theme to feature: ${req.focus || 'your choice, based on the data'}`,\n  `Audience wanted: ${req.audience || 'your choice, from the guest groups below'}`,\n  `Offer to include: ${req.offer || 'none. Do not offer a discount or deal.'}`,\n  `Today: ${today.toFormat('cccc, yyyy-MM-dd')} (${s.timezone})`,\n  '',\n  section('SLOWEST OPEN SHIFTS, LAST 8 WEEKS (shift | average orders | average sales)', open.slice(0, 4).map(shiftLine), 'Not enough order data.'),\n  section('BUSIEST SHIFTS', [...open].reverse().slice(0, 3).map(shiftLine), 'Not enough order data.'),\n  '',\n  section('TOP DISHES, LAST 4 WEEKS (dish | price | sold)', topSellers.map(([n, q]) => dishLine(n, `${q} sold`)), 'none'),\n  section('RISING DISHES (sold 30% more than the 4 weeks before)', rising.map(([n, q]) => dishLine(n, `${q} sold, up from ${prior.get(n)}`)), 'none'),\n  section('NEW DISHES (first sold in the last 4 weeks)', newDishes.map(([n, q]) => dishLine(n, `${q} sold`)), 'none'),\n  `Full menu: ${menu.length} items. Use Search_Menu to look up any dish.`,\n  '',\n  section('GUEST GROUPS FROM SQUARE (key | name | guests with email | who)', groups.map((g) => `${g.key} | ${g.label} | ${g.count} | ${g.description}`), 'none'),\n  '',\n  section('PAST MAILCHIMP CAMPAIGNS (title | subject | sent | emails | open rate | click rate)', reports, 'No past campaigns found.'),\n].join('\\n');\n\nreturn [{ json: { revision: 0, prompt, original_prompt: prompt, groups, request: req } }];\n"
+      },
+      "id": "b1130795-e9b6-4a83-a3f8-c0a38c14f226",
+      "name": "Build Campaign Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are the email marketing strategist for {{ $('Settings').first().json.restaurant_name }}, a {{ $('Settings').first().json.cuisine }} restaurant ({{ $('Settings').first().json.website_url }}). You plan and write one Mailchimp email campaign at a time from real data: sales by shift and by dish from Square, guest groups built from Square visit history, and how past Mailchimp campaigns performed.\n\nBrand voice: {{ $('Settings').first().json.brand_voice }}\nLinks the emails can use: reservations {{ $('Settings').first().json.reservation_url || 'none' }}, online ordering {{ $('Settings').first().json.order_online_url || 'none' }}, website {{ $('Settings').first().json.website_url }}.\n\n## How to work\n1. Read the request. If it names dishes, an audience, or an offer, follow it.\n2. Find the opportunity in the data: slow shifts to fill, rising or new dishes to feature, and the subjects and send times that got the best open and click rates in past campaigns.\n3. Choose the audience: exactly one key from GUEST GROUPS, the group that fits the goal best. For example, a slow weeknight dinner fits weeknight_diners or regulars, a lunch push fits lunch_guests, and a takeout push fits takeout_guests. Avoid groups with 0 guests and never invent a group.\n4. Choose 2 to 4 dishes to feature. Call Search_Menu to check each one and copy its exact name.\n5. Write the email and suggest when to send it.\n\n## Rules\n- campaign_name: short and descriptive, for the Mailchimp campaign list.\n- subject: under 50 characters. No ALL CAPS, at most one emoji. preview_text: under 90 characters, adding to the subject.\n- headline: under 60 characters. intro: 2 or 3 sentences. Do not start with a greeting; the email already says hi with their first name.\n- sections: 0 to 2, each with a heading under 40 characters and text under 60 words.\n- cta: reserve (book a table), order (order online), or website. Match the goal and the audience, for example order for takeout guests. Only choose a link that exists. cta_text: 2 to 4 words.\n- offer_text: only the offer given in the request, worded clearly. Leave it empty if the request has no offer. Never make up a discount or deal.\n- suggested_send_time: yyyy-MM-dd HH:mm in the restaurant's time zone, in the future. Usually the morning of, or the day before, the shift you want to fill. Use past campaign send times and results if they show a pattern.\n- Never invent facts: no prices, specials, events, hours, or deadlines that are not in the request or the data. The email shows dish prices from the menu.\n- Plain text only: no HTML, markdown, curly braces, or *| |* characters.\n- reasoning: 2 or 3 sentences that cite the data behind your choices: the shift, the audience, the dishes, and past results.",
+          "maxIterations": 10
+        }
+      },
+      "id": "403ad7e1-c920-4fd6-a241-49ec3fca22e6",
+      "name": "Campaign Strategist Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1940,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"campaign_name\": {\n      \"type\": \"string\",\n      \"description\": \"Short descriptive campaign name\"\n    },\n    \"audience\": {\n      \"type\": \"string\",\n      \"description\": \"One key from the GUEST GROUPS list, such as regulars or weeknight_diners\"\n    },\n    \"subject\": {\n      \"type\": \"string\",\n      \"description\": \"Subject line, under 50 characters\"\n    },\n    \"preview_text\": {\n      \"type\": \"string\",\n      \"description\": \"Preview text, under 90 characters\"\n    },\n    \"headline\": {\n      \"type\": \"string\",\n      \"description\": \"Headline, under 60 characters\"\n    },\n    \"intro\": {\n      \"type\": \"string\",\n      \"description\": \"2 or 3 sentences, plain text, no greeting\"\n    },\n    \"sections\": {\n      \"type\": \"array\",\n      \"description\": \"0 to 2 content sections\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"heading\": {\n            \"type\": \"string\",\n            \"description\": \"Under 40 characters\"\n          },\n          \"text\": {\n            \"type\": \"string\",\n            \"description\": \"Under 60 words, plain text\"\n          }\n        },\n        \"required\": [\n          \"heading\",\n          \"text\"\n        ]\n      }\n    },\n    \"featured_dishes\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"2 to 4 exact dish names from the menu, in the order to show them\"\n    },\n    \"cta\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"reserve\",\n        \"order\",\n        \"website\"\n      ],\n      \"description\": \"Where the button goes\"\n    },\n    \"cta_text\": {\n      \"type\": \"string\",\n      \"description\": \"Button text, 2 to 4 words\"\n    },\n    \"offer_text\": {\n      \"type\": \"string\",\n      \"description\": \"The offer from the request, or empty\"\n    },\n    \"suggested_send_time\": {\n      \"type\": \"string\",\n      \"description\": \"yyyy-MM-dd HH:mm in the restaurant's time zone\"\n    },\n    \"reasoning\": {\n      \"type\": \"string\",\n      \"description\": \"2 or 3 sentences citing the data behind the choices\"\n    }\n  },\n  \"required\": [\n    \"campaign_name\",\n    \"audience\",\n    \"subject\",\n    \"preview_text\",\n    \"headline\",\n    \"intro\",\n    \"featured_dishes\",\n    \"cta\",\n    \"cta_text\",\n    \"suggested_send_time\",\n    \"reasoning\"\n  ]\n}"
+      },
+      "id": "1fec070d-51b5-4e96-8352-7cb67b8ba71f",
+      "name": "Campaign Format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2060,
+        1540
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Checks the agent's campaign and builds the Mailchimp email: the audience from Square,\n// dishes matched to the Square menu with real prices, and the HTML with Mailchimp's merge tags.\nconst s = $('Settings').first().json;\nconst ctx = $('Build Campaign Context').first().json;\nconst { menu } = $('Build Guest Stats').first().json;\nconst ai = $json.output ?? {};\nconst revision = $('Prepare Revision').isExecuted ? $('Prepare Revision').first().json.revision : 0;\nconst tz = s.timezone;\n\n// Plain text only: no HTML, and no *| |* that Mailchimp would read as a merge tag\nconst clean = (v, max) => String(v ?? '').replace(/<[^>]*>/g, '').replace(/\\*\\||\\|\\*/g, '').replace(/\\s+/g, ' ').trim().slice(0, max);\nconst esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\n\nconst group = ctx.groups.find((g) => g.key === String(ai.audience ?? '').trim());\nif (!group) throw new Error(`The agent chose the audience \"${ai.audience}\", which is not one of the guest groups. Run the campaign again.`);\nif (!group.count) throw new Error(`The \"${group.label}\" group has no guests with an email. Run the campaign again with another audience.`);\n\nconst subject = clean(ai.subject, 150);\nif (!subject) throw new Error('The agent did not return a subject line. Run the campaign again.');\n\nconst byName = new Map(menu.map((d) => [d.name.toLowerCase(), d]));\nconst price = (d) => {\n  if (d.price === null) return '';\n  try {\n    return new Intl.NumberFormat('en-US', { style: 'currency', currency: d.currency || 'USD' }).format(d.price);\n  } catch (e) {\n    return d.price.toFixed(2);\n  }\n};\nconst dishes = (Array.isArray(ai.featured_dishes) ? ai.featured_dishes : [])\n  .map((n) => byName.get(String(n).trim().toLowerCase()))\n  .filter(Boolean)\n  .filter((d, i, all) => all.indexOf(d) === i)\n  .slice(0, 4);\n\nconst links = { reserve: s.reservation_url, order: s.order_online_url, website: s.website_url };\nconst ctaUrl = links[ai.cta] || s.reservation_url || s.order_online_url || s.website_url;\nconst ctaText = clean(ai.cta_text, 30) || (ai.cta === 'order' ? 'Order now' : ai.cta === 'reserve' ? 'Book a table' : 'Visit us');\nconst headline = clean(ai.headline, 90) || subject;\nconst intro = clean(ai.intro, 600);\nconst offer = clean(ai.offer_text, 255);\nconst sections = (Array.isArray(ai.sections) ? ai.sections : [])\n  .map((x) => ({ heading: clean(x?.heading, 60), text: clean(x?.text, 500) }))\n  .filter((x) => x.heading || x.text)\n  .slice(0, 2);\nconst color = /^#[0-9a-f]{3,8}$/i.test(String(s.brand_color)) ? s.brand_color : '#7c2d12';\n\n// The suggested send time, moved to the next quarter hour (Mailchimp only schedules on :00, :15, :30, :45)\nlet suggested = DateTime.fromFormat(String(ai.suggested_send_time ?? ''), 'yyyy-MM-dd HH:mm', { zone: tz });\nif (suggested.isValid) {\n  const extra = suggested.minute % 15;\n  if (extra) suggested = suggested.plus({ minutes: 15 - extra }).set({ second: 0 });\n  if (suggested < $now.plus({ minutes: 30 })) suggested = DateTime.invalid('past');\n}\n\n// ---------- Email HTML (table layout with inline styles, so it renders in every email client)\nconst font = 'font-family:Georgia,\\'Times New Roman\\',serif;';\nconst sans = 'font-family:Arial,Helvetica,sans-serif;';\nconst button = `<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin:24px auto;\"><tr><td style=\"background:${color};border-radius:4px;\">`\n  + `<a href=\"${esc(ctaUrl)}\" style=\"display:inline-block;padding:14px 30px;${sans}font-size:16px;font-weight:bold;color:#ffffff;text-decoration:none;\">${esc(ctaText)}</a></td></tr></table>`;\nconst header = s.logo_url\n  ? `<img src=\"${esc(s.logo_url)}\" alt=\"${esc(s.restaurant_name)}\" width=\"160\" style=\"display:block;margin:0 auto;max-width:160px;height:auto;border:0;\">`\n  : `<div style=\"${font}font-size:24px;text-align:center;color:${color};\">${esc(s.restaurant_name)}</div>`;\nconst dishRows = dishes.map((d) => `<tr><td style=\"padding:12px 0;border-bottom:1px solid #e7e5e4;\">`\n  + `<div style=\"${font}font-size:18px;color:#1c1917;\">${esc(d.name)}${price(d) ? `<span style=\"float:right;${sans}font-size:15px;color:#57534e;\">${esc(price(d))}</span>` : ''}</div>`\n  + (d.description ? `<div style=\"${sans}font-size:14px;line-height:1.5;color:#57534e;margin-top:4px;\">${esc(d.description)}</div>` : '')\n  + '</td></tr>').join('');\n\nconst html = `<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>${esc(subject)}</title></head>\n<body style=\"margin:0;padding:0;background:#f5f5f4;\">\n<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f5f5f4;\"><tr><td align=\"center\" style=\"padding:24px 12px;\">\n<table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;max-width:600px;background:#ffffff;border-radius:6px;\">\n<tr><td style=\"padding:28px 32px 8px;\">${header}</td></tr>\n<tr><td style=\"padding:16px 32px 0;\">\n<h1 style=\"${font}font-size:30px;line-height:1.2;font-weight:normal;color:#1c1917;margin:0 0 18px;text-align:center;\">${esc(headline)}</h1>\n<p style=\"${sans}font-size:16px;line-height:1.6;color:#44403c;margin:0 0 12px;\">*|IF:FNAME|*Hi *|FNAME|*,*|ELSE:|*Hi there,*|END:IF|*</p>\n${intro ? `<p style=\"${sans}font-size:16px;line-height:1.6;color:#44403c;margin:0 0 12px;\">${esc(intro)}</p>` : ''}\n${offer ? `<div style=\"${sans}font-size:16px;font-weight:bold;text-align:center;color:${color};border:2px solid ${color};border-radius:4px;padding:14px;margin:18px 0;\">${esc(offer)}</div>` : ''}\n${sections.map((x) => `${x.heading ? `<h2 style=\"${font}font-size:21px;font-weight:normal;color:#1c1917;margin:22px 0 8px;\">${esc(x.heading)}</h2>` : ''}${x.text ? `<p style=\"${sans}font-size:16px;line-height:1.6;color:#44403c;margin:0 0 12px;\">${esc(x.text)}</p>` : ''}`).join('\\n')}\n</td></tr>\n${dishRows ? `<tr><td style=\"padding:8px 32px 0;\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">${dishRows}</table></td></tr>` : ''}\n<tr><td style=\"padding:0 32px 16px;\">${button}</td></tr>\n<tr><td style=\"padding:20px 32px 28px;border-top:1px solid #e7e5e4;${sans}font-size:12px;line-height:1.6;color:#78716c;text-align:center;\">\n*|LIST:COMPANY|*<br>*|HTML:LIST_ADDRESS_HTML|*<br>\n<a href=\"*|UNSUB|*\" style=\"color:#78716c;\">Unsubscribe</a>\n</td></tr>\n</table>\n</td></tr></table>\n</body></html>`;\n\nconst date = $now.setZone(tz).toFormat('yyyy-MM-dd');\nconst campaignName = `${clean(ai.campaign_name, 80) || subject} (AI ${date}${revision ? `, v${revision + 1}` : ''})`;\n\nreturn [{\n  json: {\n    revision,\n    campaign_name: campaignName,\n    tag_name: `AI campaign: ${campaignName}`.slice(0, 100),\n    audience_key: group.key,\n    audience_label: group.label,\n    audience_count: group.count,\n    emails: group.emails,\n    subject,\n    preview_text: clean(ai.preview_text, 150),\n    headline,\n    offer,\n    dishes: dishes.map((d) => `${d.name}${price(d) ? ` (${price(d)})` : ''}`),\n    cta_url: ctaUrl,\n    suggested_send_time: suggested.isValid ? suggested.toFormat('yyyy-MM-dd HH:mm') : '',\n    reasoning: clean(ai.reasoning, 600),\n    html,\n  },\n}];\n"
+      },
+      "id": "22ae9dda-ee2c-4fa5-b82a-7626ca35b43a",
+      "name": "Build Campaign Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2260,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/lists/{{ $('Settings').first().json.mailchimp_list_id }}/segments",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ name: $json.tag_name, static_segment: [] }) }}",
+        "options": {}
+      },
+      "id": "e56a0395-dc6f-4044-9198-cd65524f6e33",
+      "name": "Create Audience Tag",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2480,
+        1300
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Splits the audience into batches of 500, the most Mailchimp accepts per call when adding to a tag.\nconst email = $('Build Campaign Email').first().json;\nconst segmentId = $json.id;\nif (!segmentId) {\n  throw new Error(`Mailchimp did not create the audience tag: ${String($json.detail ?? $json.error?.message ?? JSON.stringify($json)).slice(0, 300)}`);\n}\n\nconst out = [];\nfor (let i = 0; i < email.emails.length; i += 500) {\n  out.push({ json: { segment_id: segmentId, members_to_add: email.emails.slice(i, i + 500) } });\n}\nreturn out;\n"
+      },
+      "id": "c46a4ac5-dd0e-4fd6-9b6b-2cae380fda6f",
+      "name": "Split Into Batches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2700,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/lists/{{ $('Settings').first().json.mailchimp_list_id }}/segments/{{ $json.segment_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ members_to_add: $json.members_to_add }) }}",
+        "options": {}
+      },
+      "id": "af7d58eb-b021-457e-9c87-16f5306a13c9",
+      "name": "Add Guests to Tag",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2920,
+        1300
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/campaigns",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: 'regular', recipients: { list_id: $('Settings').first().json.mailchimp_list_id, segment_opts: { saved_segment_id: Number($('Create Audience Tag').first().json.id) } }, settings: { subject_line: $('Build Campaign Email').first().json.subject, preview_text: $('Build Campaign Email').first().json.preview_text, title: $('Build Campaign Email').first().json.campaign_name, from_name: $('Settings').first().json.from_name, reply_to: $('Settings').first().json.reply_to, to_name: '*|FNAME|*' } }) }}",
+        "options": {}
+      },
+      "id": "80799507-1f6e-472f-81b0-6317f937151a",
+      "name": "Create Draft Campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3140,
+        1300
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/campaigns/{{ $json.id }}/content",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ html: $('Build Campaign Email').first().json.html }) }}",
+        "options": {}
+      },
+      "id": "0560c586-6dee-4a62-a5cc-cc7aa9ad7538",
+      "name": "Set Campaign Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3360,
+        1300
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/campaigns/{{ $('Create Draft Campaign').first().json.id }}/actions/test",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ test_emails: [$('Settings').first().json.approver_email], send_type: 'html' }) }}",
+        "options": {}
+      },
+      "id": "9122e8f8-f086-4ad0-915f-94144d904114",
+      "name": "Send Test Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3580,
+        1300
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/campaigns/{{ $('Create Draft Campaign').first().json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,recipients.recipient_count"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "289345dc-17d1-45dd-b717-9ac8cb531562",
+      "name": "Get Campaign Recipients",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3800,
+        1300
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds the Slack message that asks for approval, with everything needed to decide.\nconst s = $('Settings').first().json;\nconst email = $('Build Campaign Email').first().json;\nconst campaign = $('Create Draft Campaign').first().json;\nconst recipients = $('Get Campaign Recipients').first().json;\nconst testSend = $('Send Test Email').first().json;\nconst req = $('Build Campaign Context').first().json.request;\nconst added = $('Add Guests to Tag').all().reduce((sum, i) => sum + (Number(i.json.total_added) || 0), 0);\n\nif (!campaign?.id) {\n  throw new Error(`Mailchimp did not create the draft campaign: ${String(campaign?.detail ?? campaign?.error?.message ?? JSON.stringify(campaign)).slice(0, 300)}`);\n}\nconst count = recipients?.recipients?.recipient_count;\nconst testNote = testSend?.error || testSend?.status >= 400\n  ? `The test email could not be sent (${String(testSend.detail ?? testSend.error?.message ?? testSend.error).slice(0, 120)}).`\n  : `A test email was sent to ${s.approver_email}.`;\n\nconst lines = [\n  `*New AI campaign draft${email.revision ? ` (version ${email.revision + 1})` : ''}* from the ${req.source}`,\n  `*Campaign:* ${email.campaign_name}`,\n  `*Audience:* ${email.audience_label} from Square: ${email.audience_count} guests with an email, ${added} found in Mailchimp${Number.isFinite(count) ? `, ${count} subscribed and will receive it` : ''}`,\n  `*Subject:* ${email.subject}`,\n  `*Preview text:* ${email.preview_text || '(none)'}`,\n  `*Headline:* ${email.headline}`,\n  email.offer ? `*Offer:* ${email.offer}` : '*Offer:* none',\n  `*Dishes:* ${email.dishes.join(', ') || 'none'}`,\n  `*Suggested send time:* ${email.suggested_send_time ? `${email.suggested_send_time} (${s.timezone})` : 'none'}`,\n  `*Why:* ${email.reasoning}`,\n  '',\n  `${testNote} The draft is in Mailchimp under Campaigns, sent to the tag \"${email.tag_name}\".`,\n];\n\nreturn [{\n  json: {\n    campaign_id: campaign.id,\n    segment_id: $('Create Audience Tag').first().json.id,\n    recipient_count: Number.isFinite(count) ? count : null,\n    slack_message: lines.join('\\n').slice(0, 3500),\n  },\n}];\n"
+      },
+      "id": "73d15cff-3187-4fda-b9da-f5da60948b30",
+      "name": "Build Approval Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4020,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Settings').first().json.slack_channel_id }}"
+        },
+        "message": "={{ $json.slack_message }}",
+        "responseType": "customForm",
+        "defineForm": "fields",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "What should we do?",
+              "fieldName": "decision",
+              "fieldType": "radio",
+              "requiredField": true,
+              "defaultValue": "Schedule for the time below",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Send now"
+                  },
+                  {
+                    "option": "Schedule for the time below"
+                  },
+                  {
+                    "option": "Revise with my notes"
+                  },
+                  {
+                    "option": "Keep as a draft in Mailchimp"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Send time, if scheduling (YYYY-MM-DD HH:mm, restaurant time zone)",
+              "fieldName": "send_time",
+              "fieldType": "text",
+              "defaultValue": "={{ $('Build Campaign Email').first().json.suggested_send_time }}",
+              "placeholder": "2026-11-12 10:00"
+            },
+            {
+              "fieldLabel": "Notes for the AI, if revising",
+              "fieldName": "notes",
+              "fieldType": "textarea",
+              "placeholder": "Make it about the new pasta instead, and send it to lunch guests"
+            }
+          ]
+        },
+        "options": {
+          "messageButtonLabel": "Review campaign",
+          "responseFormTitle": "Approve this email campaign",
+          "responseFormDescription": "=Subject: {{ $('Build Campaign Email').first().json.subject }}. Check the test email in your inbox before you send. Mailchimp schedules on the quarter hour, so other times move to the next :00, :15, :30, or :45.",
+          "responseFormButtonLabel": "Submit",
+          "limitWaitTime": {
+            "values": {
+              "limitType": "afterTimeInterval",
+              "resumeAmount": 72,
+              "resumeUnit": "hours"
+            }
+          },
+          "appendAttribution": false
+        }
+      },
+      "id": "28041353-1e52-402b-a650-0aecdc3c2623",
+      "name": "Ask for Approval",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        4300,
+        1300
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-bot",
+          "name": "Slack"
+        }
+      },
+      "webhookId": "202168d3-3e24-47e4-8bfa-fb6fe2d00272"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reads the reviewer's answer from Slack: send now, schedule, revise with notes, or keep as a draft.\n// Mailchimp only schedules on the quarter hour, so times are moved to the next :00, :15, :30, or :45.\nconst s = $('Settings').first().json;\nconst approval = $('Build Approval Message').first().json;\nconst email = $('Build Campaign Email').first().json;\nconst answer = $json.data ?? null;\nconst maxRevisions = Number(s.max_revisions) || 3;\n\nlet decision = 'draft';\nlet note = 'No answer in Slack before the time limit, so the campaign was kept as a draft.';\nlet sendTime = '';\nconst choice = String(answer?.decision ?? '');\nconst notes = String(answer?.notes ?? '').trim().slice(0, 1500);\n\nif (choice.startsWith('Send now')) {\n  decision = 'send_now';\n  note = '';\n} else if (choice.startsWith('Schedule')) {\n  const typed = String(answer?.send_time ?? '').trim();\n  let when = DateTime.fromFormat(typed, 'yyyy-MM-dd HH:mm', { zone: s.timezone });\n  if (!when.isValid) {\n    note = `\"${typed}\" isn't a send time in the format 2026-11-12 16:00, so the campaign was kept as a draft.`;\n  } else {\n    const extra = when.minute % 15;\n    if (extra) when = when.plus({ minutes: 15 - extra });\n    if (when <= $now.plus({ minutes: 15 })) {\n      note = `${typed} is less than 15 minutes away or in the past, so the campaign was kept as a draft.`;\n    } else {\n      decision = 'schedule';\n      sendTime = when.toUTC().toISO({ suppressMilliseconds: true });\n      note = `${when.toFormat('cccc, LLL d, yyyy, h:mm a')} (${s.timezone})`;\n    }\n  }\n} else if (choice.startsWith('Revise')) {\n  if (email.revision + 1 >= maxRevisions) {\n    note = `This was version ${email.revision + 1} of ${maxRevisions}, so it was kept as a draft instead of being revised again.`;\n  } else {\n    decision = 'revise';\n    note = notes || 'Try a different angle and subject line.';\n  }\n} else if (answer) {\n  note = 'Kept as a draft in Mailchimp, as requested.';\n}\n\nreturn [{\n  json: {\n    decision,\n    note,\n    send_time: sendTime,\n    feedback: decision === 'revise' ? note : '',\n    campaign_id: approval.campaign_id,\n    segment_id: approval.segment_id,\n  },\n}];\n"
+      },
+      "id": "5a3186bf-22a0-4f0f-b18f-52c74d980cb6",
+      "name": "Read Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4520,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d9835792-9dcb-4599-8320-fac2827d935f",
+                    "leftValue": "={{ $json.decision }}",
+                    "rightValue": "send_now",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Send now"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "500eaa7e-23fb-4505-819a-8a1d2ef4bf69",
+                    "leftValue": "={{ $json.decision }}",
+                    "rightValue": "schedule",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Schedule"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "abd708ba-40cc-491f-93e5-ba776552ddc0",
+                    "leftValue": "={{ $json.decision }}",
+                    "rightValue": "revise",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Revise"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Keep as draft"
+        }
+      },
+      "id": "7d613da1-ab9f-49af-b338-2a7fe0abca30",
+      "name": "Route Decision",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        4740,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/campaigns/{{ $json.campaign_id }}/actions/send",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "options": {}
+      },
+      "id": "2e7d366c-341e-4e13-83e5-071577aa318f",
+      "name": "Send Campaign Now",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        5000,
+        1100
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/campaigns/{{ $json.campaign_id }}/actions/schedule",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ schedule_time: $json.send_time }) }}",
+        "options": {}
+      },
+      "id": "e332bab3-f3aa-455a-b60e-08dba46ce25a",
+      "name": "Schedule Campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        5000,
+        1300
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/campaigns/{{ $json.campaign_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "options": {}
+      },
+      "id": "96757979-f110-4251-b071-3962748ab828",
+      "name": "Delete Draft Campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        5000,
+        1520
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/lists/{{ $('Settings').first().json.mailchimp_list_id }}/segments/{{ $('Read Decision').first().json.segment_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "options": {}
+      },
+      "id": "738bd98e-b1b7-4bf1-ad31-9b9d5c700e95",
+      "name": "Delete Audience Tag",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        5220,
+        1520
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sends the campaign back to the agent with the reviewer's notes and the previous draft.\nconst ctx = $('Build Campaign Context').first().json;\nconst email = $('Build Campaign Email').first().json;\nconst decision = $('Read Decision').first().json;\nconst revision = email.revision + 1;\n\nconst previous = [\n  `Audience: ${email.audience_label} (${email.audience_key})`,\n  `Subject: ${email.subject}`,\n  `Preview text: ${email.preview_text}`,\n  `Headline: ${email.headline}`,\n  `Offer: ${email.offer || 'none'}`,\n  `Dishes: ${email.dishes.join('; ') || 'none'}`,\n  `Suggested send time: ${email.suggested_send_time || 'none'}`,\n].join('\\n');\n\nreturn [{\n  json: {\n    ...ctx,\n    revision,\n    prompt: `${ctx.original_prompt}\\n\\nREVISION ${revision}\\nYour previous draft:\\n${previous}\\n\\nFeedback from the reviewer: ${decision.feedback}\\n\\nWrite a new version of the campaign that follows this feedback. Keep what the reviewer did not ask to change.`,\n  },\n}];\n"
+      },
+      "id": "6d5589b4-c56a-4ccb-9c7d-33a1d141ed33",
+      "name": "Prepare Revision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5440,
+        1520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Writes the Slack confirmation: sent, scheduled, kept as a draft, or an error from Mailchimp.\nconst decision = $('Read Decision').first().json;\nconst email = $('Build Campaign Email').first().json;\nconst approval = $('Build Approval Message').first().json;\nconst res = $json;\n\nconst audience = `${email.audience_label}${approval.recipient_count !== null ? ` (${approval.recipient_count} subscribed guests)` : ''}`;\nconst failed = res.error || (Number(res.status) >= 400 && res.detail);\nconst error = failed ? String(res.detail ?? res.error?.message ?? res.error).slice(0, 300) : '';\n\nlet text;\nif (decision.decision === 'send_now' && !error) {\n  text = `:white_check_mark: *Sending now:* \"${email.campaign_name}\" to ${audience}.`;\n} else if (decision.decision === 'schedule' && !error) {\n  text = `:calendar: *Scheduled* for ${decision.note}: \"${email.campaign_name}\" to ${audience}.`;\n} else if (error) {\n  text = `:warning: Mailchimp returned an error, so \"${email.campaign_name}\" is still a draft in Mailchimp: ${error}`;\n} else {\n  text = `:memo: \"${email.campaign_name}\" is a draft in Mailchimp. ${decision.note}`;\n}\n\nreturn [{ json: { text } }];\n"
+      },
+      "id": "2ce779f5-df8f-4ca5-ba3f-10d87fa9f55b",
+      "name": "Report Outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5260,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Settings').first().json.slack_channel_id }}"
+        },
+        "text": "={{ $json.text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "919deb10-6e99-43c6-8b3b-d06578d904be",
+      "name": "Post Outcome to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        5480,
+        1200
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-bot",
+          "name": "Slack"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_WIDTH_AI_ENDPOINT/v1/send-time-prediction",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ customer_id: $json.square_customer_id, email: $json.email, timezone: $('Settings').first().json.timezone, visits: $json.visit_history, email_type: $json.email_type, predictions: ['regular_guest', 'ltv_segment', 'next_visit_date', 'best_send_date', 'best_send_hour'] }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "5bd200fa-ac62-42b4-b005-f311382847b1",
+      "name": "Width.ai Send Time Prediction",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3600,
+        470
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "width-ai-api",
+          "name": "Width.ai API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## AI Restaurant Email Marketing Automation for Square and Mailchimp\n\nTwo AI agents that write your restaurant's emails from what your guests actually do, using order history from your Square point of sale. Mailchimp still sends every email, so your audience, unsubscribes, and reports keep working.\n\n### Guest emails (every day)\nEvery morning the workflow reads your Square orders and finds guests to email: a **birthday** coming up, a **thank you** after a first visit with a Google review request, a **we miss you** for regulars who are overdue, and a **welcome** for new sign-ups. The Guest Email Agent writes each email from that guest's visits and favorite dishes, saves it to their Mailchimp contact, and triggers one Mailchimp Customer Journey that sends it.\n\n### Campaigns (on request or every Monday)\nThe Campaign Strategist finds your slowest shifts, rising and new dishes, and the best guest group to send to, builds a draft campaign in Mailchimp, emails you a test, and asks for approval in Slack: send now, schedule, revise with notes, or keep as a draft.\n\n### Setup\n1. Credentials: **Square API** (Header Auth, `Authorization: Bearer EAAA...`), **Mailchimp API**, **OpenAI**, and **Slack**.\n2. Fill in **Settings**: your restaurant, links, time zone, Mailchimp server and audience ID, and Slack channel ID.\n3. Run **Set Up Mailchimp Fields** once.\n4. In Mailchimp, create the AI guest email journey (see the guide).\n5. Edit the playbook in **Pick Guests to Email**, then publish.",
+        "height": 1780,
+        "width": 640,
+        "color": 5
+      },
+      "id": "04ab5689-b9a9-43c8-af1a-14132821da4d",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1860,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Triggers and settings\n**Daily Guest Scan** (10:00) sends the guest emails. **Campaign Request Form** and **Weekly Campaign Planner** (Mondays at 9:00) plan a campaign. **Set Up Mailchimp Fields** is a one-time manual run.\n\n**Settings** holds your restaurant details, links, brand voice, offers, and limits for both agents. **Which Path?** sends the setup run to the Mailchimp field setup and everything else to Square.",
+        "height": 1780,
+        "width": 700,
+        "color": 7
+      },
+      "id": "8f52c07c-7de4-441b-b871-8fe44a594452",
+      "name": "Section 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Read Square: orders, menu, and guests\n**Get Square Orders** pulls completed orders from the last 120 days (Settings: history_days) across your active locations. **Get Menu** reads your Square menu with prices. **Get Guest Profiles** reads each guest's name, email, birthday, and Square email preference.\n\n**Build Guest Stats** turns orders into visits per guest: how often they come, their usual days and times, dine-in or takeout, favorite dishes, and average check. **Guests or Campaign?** sends the daily run to the guest emails and the rest to the Campaign Strategist.",
+        "height": 440,
+        "width": 1540,
+        "color": 6
+      },
+      "id": "1e3c0acb-2fd3-483f-a029-218a115f760f",
+      "name": "Section 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -420,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## One-time setup\nRun **Set Up Mailchimp Fields** once. It creates 11 text fields in your Mailchimp audience (AI_SUBJECT, AI_HEAD, AI_BODY1, and so on) that hold each guest's AI-written email. Fields that already exist are skipped.",
+        "height": 380,
+        "width": 520,
+        "color": 3
+      },
+      "id": "18159533-fda1-45d5-b406-3fd38a330fd9",
+      "name": "Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -420,
+        1060
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Guest emails: pick, write, and send through Mailchimp\n**Find New Guests** finds new Square customers from the last day. **Pick Guests to Email** applies the playbook: birthdays within 7 days, first visits yesterday, regulars overdue for a visit (twice their usual gap, at least 30 days), and new sign-ups.\n\n**Check Mailchimp Contact** and **Keep Subscribed Guests** keep only guests subscribed in Mailchimp who haven't had an AI email in 14 days (Settings: cooldown_days), up to 40 a day.\n\nThe **Guest Email Agent** writes each email from the guest's visits and checks dishes with **Search Menu**. **Build Mailchimp Fields** cleans the copy and adds real menu prices; if the agent fails, **Fallback Copy** fills in simple copy. **Update Mailchimp Contact** saves the email to the guest's fields, and **Trigger Guest Email** sends the event that starts your Mailchimp journey.",
+        "height": 760,
+        "width": 2100,
+        "color": 4
+      },
+      "id": "9d444f10-2231-4542-a4b6-1b32e2210280",
+      "name": "Section 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1180,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Optional: Width.ai send-time prediction (not connected)\n**Width.ai Send Time Prediction** is a mock call to Width.ai's machine learning system for email timing. It isn't connected, so it never runs.\n\nThe system predicts when to email each guest: whether they are a regular, their lifetime value segment, when they are likely to visit next, and the best day and hour to send. It learns from each guest's visit history and email clicks. In Width.ai's test, click-through rates rose 12 to 17% and conversion rates up to 12.5%.\n\nHow it works: [Optimal Date & Time Prediction for Personalized Email Marketing](https://www.width.ai/post/optimize-email-marketing-with-machine-learning)\n\n**To use it:** Width.ai deploys the model for your restaurant and gives you an endpoint and key. Put the endpoint in the node's URL, the key in the **Width.ai API** credential, and connect the node after **Keep Subscribed Guests**. Then use `best_send_hour` to time each guest's email, for example with a delay step in your Mailchimp journey.\n\nExample response:\n```\n{\"customer_id\": \"JDKYHBWT1D4F8MFH63DBMEN8Y4\",\n \"regular_guest\": true, \"ltv_segment\": \"high\",\n \"next_visit_date\": \"2026-11-20\",\n \"best_send_date\": \"2026-11-18\", \"best_send_hour\": 16}\n```",
+        "height": 760,
+        "width": 760,
+        "color": 2
+      },
+      "id": "706750c7-5589-4378-b979-0acbce9b5fe3",
+      "name": "Optional Width.ai",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3340,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Campaigns: the Campaign Strategist plans from your data\n**Read Campaign Request** takes the form answers, or the weekly brief from Settings. **Get Mailchimp Reports** pulls open and click rates for your campaigns from the last 180 days.\n\n**Build Campaign Context** finds your slowest and busiest shifts (weekday lunch and dinner, last 8 weeks), your top, rising, and new dishes, and 9 guest groups from Square: regulars, lapsed guests, weeknight diners, weekend guests, lunch guests, takeout guests, new guests, big spenders, and all guests.\n\nThe **Campaign Strategist Agent** picks the shift to fill, the audience, and 2 to 4 dishes, writes the email, and suggests a send time.",
+        "height": 780,
+        "width": 1240,
+        "color": 6
+      },
+      "id": "8e94815a-7b60-4795-ae80-088b0ae65e2b",
+      "name": "Section 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1180,
+        1000
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 5. Build the draft campaign in Mailchimp\n**Build Campaign Email** checks the audience, matches dishes to your Square menu with real prices, and builds the email HTML with your logo, colors, first-name greeting, and unsubscribe link.\n\n**Create Audience Tag** and **Add Guests to Tag** put the chosen Square guests on a Mailchimp tag (500 at a time). Only contacts already in your audience are added, and only subscribed ones receive the email. **Create Draft Campaign** and **Set Campaign Content** save the draft, **Send Test Email** sends a test to your approver email, and **Get Campaign Recipients** counts who will get it.",
+        "height": 780,
+        "width": 1720,
+        "color": 4
+      },
+      "id": "1cbd7c63-c427-4750-a7a2-c9445ffc3fdd",
+      "name": "Section 5",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2440,
+        1000
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 6. Approve in Slack\n**Ask for Approval** posts the draft in Slack with the audience, subject, dishes, the suggested send time, and the agent's reasoning, and waits up to 72 hours.\n\n- **Send now** sends the campaign. **Schedule** sends it at the time in the form, filled in with the agent's suggestion.\n- **Revise with my notes** deletes the draft and its tag and sends your notes back to the agent for a new version (up to 3 versions).\n- **Keep as a draft**, or no answer, leaves it in Mailchimp for you.\n\n**Post Outcome to Slack** confirms what happened.",
+        "height": 780,
+        "width": 1460,
+        "color": 3
+      },
+      "id": "948fe11b-e991-4863-a879-372885db4582",
+      "name": "Section 6",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4200,
+        1000
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily Guest Scan": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Campaign Request Form": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Campaign Planner": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Up Mailchimp Fields": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Which Path?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Which Path?": {
+      "main": [
+        [
+          {
+            "node": "Mailchimp Field List",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Square Locations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mailchimp Field List": {
+      "main": [
+        [
+          {
+            "node": "Create Mailchimp Field",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Square Locations": {
+      "main": [
+        [
+          {
+            "node": "Get Square Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Square Orders": {
+      "main": [
+        [
+          {
+            "node": "Get Menu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Menu": {
+      "main": [
+        [
+          {
+            "node": "List Guests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Guests": {
+      "main": [
+        [
+          {
+            "node": "Get Guest Profiles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Guest Profiles": {
+      "main": [
+        [
+          {
+            "node": "Build Guest Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Guest Stats": {
+      "main": [
+        [
+          {
+            "node": "Guests or Campaign?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guests or Campaign?": {
+      "main": [
+        [
+          {
+            "node": "Find New Guests",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Campaign Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find New Guests": {
+      "main": [
+        [
+          {
+            "node": "Pick Guests to Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Guests to Email": {
+      "main": [
+        [
+          {
+            "node": "Check Mailchimp Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Mailchimp Contact": {
+      "main": [
+        [
+          {
+            "node": "Keep Subscribed Guests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep Subscribed Guests": {
+      "main": [
+        [
+          {
+            "node": "Guest Email Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guest Email Agent": {
+      "main": [
+        [
+          {
+            "node": "Build Mailchimp Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback Copy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Mailchimp Fields": {
+      "main": [
+        [
+          {
+            "node": "Update Mailchimp Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback Copy": {
+      "main": [
+        [
+          {
+            "node": "Update Mailchimp Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Mailchimp Contact": {
+      "main": [
+        [
+          {
+            "node": "Saved in Mailchimp?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Saved in Mailchimp?": {
+      "main": [
+        [
+          {
+            "node": "Trigger Guest Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Campaign Request": {
+      "main": [
+        [
+          {
+            "node": "Get Mailchimp Reports",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Mailchimp Reports": {
+      "main": [
+        [
+          {
+            "node": "Build Campaign Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Campaign Context": {
+      "main": [
+        [
+          {
+            "node": "Campaign Strategist Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Campaign Strategist Agent": {
+      "main": [
+        [
+          {
+            "node": "Build Campaign Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Campaign Email": {
+      "main": [
+        [
+          {
+            "node": "Create Audience Tag",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Audience Tag": {
+      "main": [
+        [
+          {
+            "node": "Split Into Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Into Batches": {
+      "main": [
+        [
+          {
+            "node": "Add Guests to Tag",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Guests to Tag": {
+      "main": [
+        [
+          {
+            "node": "Create Draft Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Draft Campaign": {
+      "main": [
+        [
+          {
+            "node": "Set Campaign Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Campaign Content": {
+      "main": [
+        [
+          {
+            "node": "Send Test Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Test Email": {
+      "main": [
+        [
+          {
+            "node": "Get Campaign Recipients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Campaign Recipients": {
+      "main": [
+        [
+          {
+            "node": "Build Approval Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Approval Message": {
+      "main": [
+        [
+          {
+            "node": "Ask for Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask for Approval": {
+      "main": [
+        [
+          {
+            "node": "Read Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Decision": {
+      "main": [
+        [
+          {
+            "node": "Route Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Decision": {
+      "main": [
+        [
+          {
+            "node": "Send Campaign Now",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Schedule Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Delete Draft Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Draft Campaign": {
+      "main": [
+        [
+          {
+            "node": "Delete Audience Tag",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Audience Tag": {
+      "main": [
+        [
+          {
+            "node": "Prepare Revision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Revision": {
+      "main": [
+        [
+          {
+            "node": "Campaign Strategist Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Campaign Now": {
+      "main": [
+        [
+          {
+            "node": "Report Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Campaign": {
+      "main": [
+        [
+          {
+            "node": "Report Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Outcome": {
+      "main": [
+        [
+          {
+            "node": "Post Outcome to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Guest Email Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Campaign Strategist Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Menu": {
+      "ai_tool": [
+        [
+          {
+            "node": "Guest Email Agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Campaign Strategist Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guest Email Format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Guest Email Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Campaign Format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Campaign Strategist Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
