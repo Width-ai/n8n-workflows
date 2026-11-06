@@ -29,6 +29,7 @@ Most ecommerce email automation stops at a template: every customer in a flow ge
 | **Campaigns** | Built in Klaviyo as a draft (template plus campaign), with a test email and Slack approval |
 | **Approval options** | Send now, schedule, revise with notes (up to 3 versions), or keep as a draft |
 | **APIs** | Klaviyo API revision `2026-10-15`, Shopify Admin GraphQL API `2026-10` |
+| **Optional** | A mock call to Width.ai's machine learning system that predicts the best day and hour to email each customer. It isn't connected. |
 | **Credentials** | Klaviyo private API key, Shopify OAuth2, OpenAI, Slack, and a secret header for the Klaviyo webhook |
 
 ---
@@ -56,7 +57,7 @@ flowchart TD
     O --> O2["Post Outcome to Slack"]
 ```
 
-The canvas is organized into six labeled sections.
+The canvas is organized into six labeled sections, plus an optional Width.ai section that isn't connected.
 
 ### Step 1: Triggers and settings
 
@@ -77,7 +78,7 @@ Each Klaviyo webhook call names the flow, the step, and the customer's email, fo
 | `Flow Playbook` | Looks up the flow in the playbook and adds its instructions: the goal of the flow, what this step's email should do, which products to show, and when a discount is allowed. An unknown flow uses the `default` entry. If the call has no valid email, the run stops there. |
 | `Find Klaviyo Profile` | Finds the customer's Klaviyo profile by email, with their subscriptions and Klaviyo's predictive analytics. |
 | `Get Customer Activity` | Reads up to 250 of the customer's events from the last 180 days, newest first, with each event's metric name. |
-| `Build Customer Brief` | Turns the profile and events into a short brief for the agent (see below). |
+| `Build Customer Brief` | Turns the profile and events into a short brief for the agent (see below). It also passes on the customer's time zone, order dates and values, and email click and open times for the optional Width.ai node. |
 
 The playbook comes with these flows. Edit the code in `Flow Playbook` to change any instruction, or add your own flows.
 
@@ -182,6 +183,54 @@ The form in Slack has three fields:
 | **Notes for the AI** | For revising, for example "Make it less salesy and feature the new wool sweater first" |
 
 A campaign can have up to `max_revisions` versions (3 by default). After that, a revise request keeps the draft. No answer within 72 hours also keeps the draft.
+
+### Optional: Width.ai send-time prediction (not connected)
+
+The workflow includes a mock call to Width.ai's machine learning system for email timing, in its own section to the right of the lifecycle path. The node isn't connected to anything, so it never runs until you set it up.
+
+The system predicts when to email each customer, from their purchase history and email clicks:
+
+| Prediction | Meaning |
+|---|---|
+| `regular_buyer` | Whether the customer buys on a regular cycle. The model times emails for these customers. |
+| `ltv_segment` | The customer's lifetime value group |
+| `next_purchase_date` | When the customer is likely to buy next |
+| `best_send_date`, `best_send_hour` | The best day and hour to email them, based on the weekdays they buy and the hours they click |
+
+It uses a regression model (XGBoost) to predict the days until the next purchase, then picks the send day and hour from the customer's buying and clicking patterns. In Width.ai's test, click-through rates rose 12 to 17% and conversion rates up to 12.5% compared with standard send times. The full write-up is [Optimal Date & Time Prediction for Personalized Email Marketing](https://www.width.ai/post/optimize-email-marketing-with-machine-learning).
+
+| Node | What it does |
+|---|---|
+| `Width.ai Send Time Prediction` | A POST to a placeholder endpoint (`https://YOUR_WIDTH_AI_ENDPOINT/v1/send-time-prediction`) with the customer's Klaviyo id, email, time zone, orders (date and value), email click times, and email open times from `Build Customer Brief`. |
+
+The request body looks like this:
+
+```json
+{
+  "customer_id": "01HX5Y8Z9ABCDEF",
+  "email": "jane@example.com",
+  "timezone": "America/Chicago",
+  "orders": [{ "date": "2026-06-01T10:00:00Z", "value": 64.5 }],
+  "email_clicks": ["2026-10-20T19:04:00Z"],
+  "email_opens": ["2026-10-20T19:02:00Z"],
+  "predictions": ["regular_buyer", "ltv_segment", "next_purchase_date", "best_send_date", "best_send_hour"]
+}
+```
+
+And an example response:
+
+```json
+{
+  "customer_id": "01HX5Y8Z9ABCDEF",
+  "regular_buyer": true,
+  "ltv_segment": "high",
+  "next_purchase_date": "2026-12-03",
+  "best_send_date": "2026-11-30",
+  "best_send_hour": 19
+}
+```
+
+To use it, Width.ai deploys the model for your store and gives you an endpoint and an API key. Put the endpoint in the node's URL, add the key to the **Width.ai API** credential (HTTP Header Auth), and connect the node after `Build Customer Brief`. Then use the predictions to time your emails, for example by saving `best_send_date` and `best_send_hour` to the customer's Klaviyo profile for your flows and campaigns, or by adding them to the agent's brief.
 
 ---
 
@@ -331,6 +380,7 @@ Klaviyo keeps doing what it does well: the flow filters stop the steps when a cu
 - **Change the weekly run:** edit `weekly_brief`, or change the day and time in `Weekly Campaign Planner`. Turn the trigger off to plan campaigns only from the form.
 - **Change the campaign design:** the HTML is built in `Build Campaign Email`. The colors come from `brand_color`, and the logo from `logo_url`.
 - **Let the agent choose from fewer segments:** in `Get Klaviyo Segments`, change the filter, for example to `equals(is_starred,true)` to offer only starred segments.
+- **Time each email with machine learning:** set up the optional `Width.ai Send Time Prediction` node (see Step 6) to predict each customer's next purchase date and best send time.
 - **Approve in email instead of Slack:** replace `Ask for Approval` with Gmail's **Send and Wait for Response** using the same three form fields.
 
 ---
