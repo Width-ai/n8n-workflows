@@ -35,6 +35,8 @@ Facebook spy tool that scrapes competitor ads from the Meta Ad Library with Apif
 
 Automate Google reviews with AI replies to Google Business Profile reviews, Slack approval for low ratings, and Google Sheets logging: https://github.com/Width-ai/n8n-workflows/blob/main/automate-google-reviews-ai-replies.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/automate-google-reviews-ai-replies.md)
 
+How to automate email marketing for ecommerce with two AI agents for Shopify and Klaviyo: a Lifecycle Email Agent that writes each Klaviyo flow email from the customer's Klaviyo data and live Shopify products, and a Campaign Strategist Agent that plans campaigns from Klaviyo segments and past results, builds drafts in Klaviyo, and gets approval in Slack: https://github.com/Width-ai/n8n-workflows/blob/main/ai-ecommerce-email-marketing-automation-shopify-klaviyo.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/ai-ecommerce-email-marketing-automation-shopify-klaviyo.md)
+
 ## n8n event automation examples
 QR ticket scanner and validator with instant check-in results, duplicate detection, ticket rules, and alerts: https://github.com/Width-ai/n8n-workflows/blob/main/Validate%20QR%20tickets%20in%20real%20time%20with%20n8n%20Forms%20and%20Google%20Sheets.json (guide: https://github.com/Width-ai/n8n-workflows/blob/main/guides/Validate%20QR%20tickets%20in%20real%20time%20with%20n8n%20Forms%20and%20Google%20Sheets.md)
 

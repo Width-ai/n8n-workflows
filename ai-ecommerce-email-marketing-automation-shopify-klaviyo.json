@@ -1,0 +1,2170 @@
+{
+  "name": "AI Ecommerce Email Marketing Automation (Shopify + Klaviyo)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "klaviyo-ai-email",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "7ee0df37-001a-4ec4-b585-5a892b60153c",
+      "name": "Klaviyo Flow Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1100,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-webhook-secret",
+          "name": "Klaviyo Webhook Secret"
+        }
+      },
+      "webhookId": "d98f0931-4213-4c43-9ad5-59683293965f"
+    },
+    {
+      "parameters": {
+        "formTitle": "Plan an Email Campaign",
+        "formDescription": "Describe the campaign. The AI Campaign Strategist reads your Klaviyo segments, past campaign results, and Shopify products, builds a draft campaign in Klaviyo, sends you a test email, and asks for approval in Slack.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "What should this campaign do?",
+              "fieldName": "brief",
+              "fieldType": "textarea",
+              "requiredField": true,
+              "placeholder": "Launch our fall collection to past buyers and get them back before Black Friday"
+            },
+            {
+              "fieldLabel": "Products or collection to feature (optional)",
+              "fieldName": "focus",
+              "fieldType": "text",
+              "placeholder": "Fall collection, wool sweaters"
+            },
+            {
+              "fieldLabel": "Who should get it? (optional)",
+              "fieldName": "audience",
+              "fieldType": "text",
+              "placeholder": "VIP customers, or engaged subscribers who have never bought"
+            },
+            {
+              "fieldLabel": "Offer to include (optional)",
+              "fieldName": "offer",
+              "fieldType": "text",
+              "placeholder": "15% off everything with code FALL15 until Sunday"
+            }
+          ]
+        },
+        "responseMode": "onReceived",
+        "options": {
+          "path": "ai-email-campaign",
+          "buttonLabel": "Plan campaign",
+          "respondWithOptions": {
+            "values": {
+              "respondWith": "text",
+              "formSubmittedText": "Got it. The Campaign Strategist is building your campaign. You'll get a Slack message with the draft and a test email in a few minutes."
+            }
+          }
+        }
+      },
+      "id": "f384e827-f3b3-4604-ad40-ad1dda7869b2",
+      "name": "Campaign Request Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -1100,
+        1100
+      ],
+      "webhookId": "94727d9e-3e1c-4c33-9074-e877de7ae27f"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "880c75ef-2efe-479b-bd53-cf362479f666",
+      "name": "Weekly Campaign Planner",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1100,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c6c43ad3-d1c2-4fc0-95b9-1b9b948e26e8",
+              "name": "store_name",
+              "value": "Your Store",
+              "type": "string"
+            },
+            {
+              "id": "64840bae-b9f4-4e74-9fac-49ac5a900dad",
+              "name": "store_url",
+              "value": "https://yourstore.com",
+              "type": "string"
+            },
+            {
+              "id": "26b0e267-0892-4523-89ad-091fbec6cbff",
+              "name": "shopify_store",
+              "value": "your-store.myshopify.com",
+              "type": "string"
+            },
+            {
+              "id": "e46b95e3-b004-4208-8bf0-b21022817a81",
+              "name": "brand_voice",
+              "value": "Warm, confident, and helpful. Short sentences. No hype, no ALL CAPS, and at most one exclamation mark.",
+              "type": "string"
+            },
+            {
+              "id": "dd47bb28-3b98-4cdd-8cbd-9f49afc9f15c",
+              "name": "from_email",
+              "value": "hello@yourstore.com",
+              "type": "string"
+            },
+            {
+              "id": "f2fee470-2d1e-4cde-acb8-5a1fb4f508b4",
+              "name": "from_label",
+              "value": "Your Store",
+              "type": "string"
+            },
+            {
+              "id": "dbb53fa5-9bf9-4fc8-b50c-d5ed800bc54b",
+              "name": "approver_email",
+              "value": "you@yourstore.com",
+              "type": "string"
+            },
+            {
+              "id": "ab2e930b-1f67-4970-84dc-bb492507f869",
+              "name": "timezone",
+              "value": "America/New_York",
+              "type": "string"
+            },
+            {
+              "id": "81604300-ebb9-46c0-a1f7-8a53283bc7f4",
+              "name": "slack_channel_id",
+              "value": "C0123456789",
+              "type": "string"
+            },
+            {
+              "id": "20a505c0-916d-4fe3-8f7d-7cb0ffaec42f",
+              "name": "logo_url",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "4bc5ced0-ee28-458f-91be-655cfe610b8a",
+              "name": "brand_color",
+              "value": "#111827",
+              "type": "string"
+            },
+            {
+              "id": "023e8b00-7048-4939-b321-352f9b8aba3f",
+              "name": "footer_text",
+              "value": "Your Store, 123 Main Street, Your City, ST 00000",
+              "type": "string"
+            },
+            {
+              "id": "92317cce-f58d-4292-9d0f-c07f4a0e13e8",
+              "name": "klaviyo_event_name",
+              "value": "AI Email Ready",
+              "type": "string"
+            },
+            {
+              "id": "e0a68972-46e2-428d-a526-90ec206b75d8",
+              "name": "max_products",
+              "value": 3,
+              "type": "number"
+            },
+            {
+              "id": "c9113c07-2332-4adb-b10d-30270ac47cfc",
+              "name": "max_revisions",
+              "value": 3,
+              "type": "number"
+            },
+            {
+              "id": "e8199baa-020d-48b4-be83-99039662fb1d",
+              "name": "weekly_brief",
+              "value": "Plan the one campaign most likely to drive revenue this week. Use our best sellers, new arrivals, products with the most stock, and what worked in past campaigns.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b5fbceab-e9e1-429e-a473-ba0f210b9113",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -820,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "7c522ab4-ac18-4090-9b17-0da6d8048e4f",
+                    "leftValue": "={{ $('Klaviyo Flow Webhook').isExecuted }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Lifecycle email"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Campaign"
+        }
+      },
+      "id": "cf57e832-7d5e-4ec6-b89d-c61aca5a2803",
+      "name": "Which Path?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -580,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// FLOW PLAYBOOK: what each Klaviyo flow email should do.\n// The Klaviyo webhook sends {\"flow\": \"<key>\", \"step\": <number>, \"email\": \"...\"}. The flow key picks an entry\n// below, and the step picks the instructions for that email. Edit these to match your store.\n// A flow key that isn't listed uses \"default\". \"fallback\" is sent if the AI can't write the email.\nconst PLAYBOOK = {\n  welcome: {\n    name: 'Welcome series',\n    goal: 'Turn a new subscriber into a first-time buyer.',\n    steps: {\n      1: 'Welcome them, say what makes the store different, and show best sellers or products like the ones they viewed.',\n      2: 'Tell the brand story or how the products are made. Recommend products that match what they viewed or added to cart.',\n      3: 'Answer the common reasons people hesitate (fit, quality, shipping, returns) using only facts given here, and invite them to shop.',\n    },\n    products: 'Best sellers or products that match what they browsed.',\n    discount: 'Never offer a discount.',\n    fallback: { subject: 'Welcome to {store}', headline: 'Glad you are here', body: 'Thanks for joining us. Take a look at what our customers love most.', cta_text: 'Shop now' },\n  },\n  abandoned_checkout: {\n    name: 'Abandoned checkout',\n    goal: 'Bring the customer back to finish the checkout they started.',\n    steps: {\n      1: 'A friendly, short reminder about the exact items in their cart. No pressure.',\n      2: 'Help them decide: what customers like about these items, and anything that removes doubt. Mention one related product.',\n      3: 'Last reminder. You may offer a discount only if the discount rule allows it.',\n    },\n    products: 'One to three products that go well with the items in their cart, never the same items.',\n    discount: 'Only on step 3, and only if they have placed fewer than 2 orders. Otherwise no discount.',\n    fallback: { subject: 'You left something behind', headline: 'Your cart is saved', body: 'The items in your cart are waiting for you. Pick up where you left off whenever you are ready.', cta_text: 'Return to cart' },\n  },\n  browse_abandonment: {\n    name: 'Browse abandonment',\n    goal: 'Bring back a shopper who viewed products but did not add them to cart.',\n    steps: {\n      1: 'Mention the product they viewed most recently and why people like it.',\n      2: 'Show alternatives to what they viewed, in case it was not quite right.',\n    },\n    products: 'The products they viewed, plus close alternatives.',\n    discount: 'Never offer a discount.',\n    fallback: { subject: 'Still thinking it over?', headline: 'Take another look', body: 'You were looking at some of our favorites. Here they are again.', cta_text: 'Take a look' },\n  },\n  post_purchase: {\n    name: 'Post-purchase',\n    goal: 'Make the customer happy with their order and lead to the next one.',\n    steps: {\n      1: 'Thank them for their order by name of the products, and give one useful tip for using or caring for what they bought.',\n      2: 'Recommend products that go with what they bought.',\n      3: 'Ask how they like their order and invite them to leave a review.',\n    },\n    products: 'Products that complement their last order. None on step 1 and step 3.',\n    discount: 'Never offer a discount.',\n    fallback: { subject: 'Thanks for your order', headline: 'Thank you', body: 'We hope you love your order. Reply to this email if there is anything we can help with.', cta_text: 'Visit the store' },\n  },\n  replenishment: {\n    name: 'Replenishment',\n    goal: 'Remind the customer to reorder before they run out.',\n    steps: {\n      1: 'Remind them it may be time to restock what they bought, using their order history and expected next order date if given.',\n    },\n    products: 'The products from their last order, then one related product.',\n    discount: 'Never offer a discount.',\n    fallback: { subject: 'Time to restock?', headline: 'Running low?', body: 'It has been a while since your last order. Restock your favorites in a few clicks.', cta_text: 'Reorder now' },\n  },\n  win_back: {\n    name: 'Win-back',\n    goal: 'Re-engage a customer who has not bought in a while.',\n    steps: {\n      1: 'Show what is new since their last order, linked to what they bought before.',\n      2: 'A warm last attempt. You may offer a discount only if the discount rule allows it.',\n    },\n    products: 'New arrivals or best sellers related to their past orders.',\n    discount: 'Only on step 2, and only if their churn risk is above 0.5 or unknown.',\n    fallback: { subject: 'We miss you', headline: 'It has been a while', body: 'A lot has changed since your last visit. Come see what is new.', cta_text: 'See what is new' },\n  },\n  default: {\n    name: 'Flow email',\n    goal: 'Send a helpful, personal email that leads to a purchase.',\n    steps: {},\n    products: 'Products that fit what this customer viewed or bought.',\n    discount: 'Never offer a discount.',\n    fallback: { subject: 'Picked for you', headline: 'Picked for you', body: 'Here are a few things we think you will like.', cta_text: 'Shop now' },\n  },\n};\n\nconst settings = $('Settings').first().json;\nconst body = $('Klaviyo Flow Webhook').first().json.body ?? {};\nconst email = String(body.email ?? '').trim().toLowerCase();\n\n// No email means Klaviyo sent an empty variable, so there is no one to write to\nif (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) return [];\n\nconst flow = String(body.flow ?? 'default').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'default';\nconst step = Math.max(1, parseInt(body.step, 10) || 1);\nconst entry = PLAYBOOK[flow] ?? PLAYBOOK.default;\nconst ctaOverride = /^https?:\\/\\/\\S+$/i.test(String(body.cta_url ?? '').trim()) ? String(body.cta_url).trim() : '';\nconst fill = (s) => String(s ?? '').replace(/\\{store\\}/g, settings.store_name);\n\nreturn [{\n  json: {\n    email,\n    flow,\n    flow_name: entry.name,\n    step,\n    goal: entry.goal,\n    step_instructions: entry.steps[step] ?? entry.steps[Object.keys(entry.steps).pop()] ?? entry.goal,\n    product_guidance: entry.products,\n    discount_rule: entry.discount,\n    note: String(body.note ?? '').trim().slice(0, 500),\n    cta_url_override: ctaOverride,\n    fallback: Object.fromEntries(Object.entries(entry.fallback).map(([k, v]) => [k, fill(v)])),\n  },\n}];\n"
+      },
+      "id": "858d9ce7-a22c-466f-9966-5ec9ef280515",
+      "name": "Flow Playbook",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://a.klaviyo.com/api/profiles",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filter",
+              "value": "=equals(email,{{ JSON.stringify($json.email) }})"
+            },
+            {
+              "name": "additional-fields[profile]",
+              "value": "subscriptions,predictive_analytics"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "67aaf36d-5d85-4102-892f-19d8a0ea7e7e",
+      "name": "Find Klaviyo Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -80,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://a.klaviyo.com/api/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filter",
+              "value": "=and(equals(profile_id,{{ JSON.stringify((($json.data || [])[0] || {}).id || 'none') }}),greater-than(datetime,{{ $now.minus({ days: 180 }).toUTC().toISO({ suppressMilliseconds: true }) }}))"
+            },
+            {
+              "name": "sort",
+              "value": "-datetime"
+            },
+            {
+              "name": "page[size]",
+              "value": "250"
+            },
+            {
+              "name": "include",
+              "value": "metric"
+            },
+            {
+              "name": "fields[metric]",
+              "value": "name"
+            },
+            {
+              "name": "fields[event]",
+              "value": "datetime,event_properties"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0bde10f6-79d7-4d3e-808f-f72e92cb72c7",
+      "name": "Get Customer Activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        140,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns the customer's Klaviyo profile and recent activity into a short brief for the AI agent:\n// orders, predictions, the open cart, recently viewed products, and email engagement.\nconst request = $('Flow Playbook').first().json;\nconst profileRes = $('Find Klaviyo Profile').first().json;\nconst activityRes = $('Get Customer Activity').first().json;\n\nconst profile = Array.isArray(profileRes.data) ? profileRes.data[0] : null;\nconst a = profile?.attributes ?? {};\nconst events = Array.isArray(activityRes.data) ? activityRes.data : [];\nconst metricNames = new Map((activityRes.included ?? [])\n  .filter((x) => x.type === 'metric')\n  .map((m) => [m.id, String(m.attributes?.name ?? '')]));\n\nconst text = (v) => (v === undefined || v === null ? '' : String(v).trim());\nconst pick = (o, keys) => keys.map((k) => o?.[k]).find((v) => v !== undefined && v !== null && v !== '');\nconst day = (iso) => text(iso).slice(0, 10);\nconst num = (v) => {\n  const n = parseFloat(String(v ?? '').replace(/[^0-9.-]/g, ''));\n  return Number.isFinite(n) ? n : null;\n};\n\n// Finds the first value anywhere in the event whose key looks like a checkout link\nconst findCheckoutUrl = (obj, depth = 0) => {\n  if (!obj || typeof obj !== 'object' || depth > 4) return '';\n  for (const key of ['responsive_checkout_url', 'checkout_url', 'CheckoutURL', 'checkoutUrl']) {\n    if (/^https?:\\/\\//i.test(text(obj[key]))) return text(obj[key]);\n  }\n  for (const value of Object.values(obj)) {\n    const found = findCheckoutUrl(value, depth + 1);\n    if (found) return found;\n  }\n  return '';\n};\n\nconst product = (p) => ({\n  title: text(pick(p, ['ProductName', 'Name', 'Title', 'title', 'name', 'product_name'])),\n  url: text(pick(p, ['URL', 'ProductURL', 'Url', 'url', 'product_url'])),\n  image_url: text(pick(p, ['ImageURL', 'ImageUrl', 'image_url', 'Image'])) || text(p?.product?.images?.[0]?.src),\n  price: text(pick(p, ['Price', 'ItemPrice', 'line_price', 'price'])),\n  quantity: num(pick(p, ['Quantity', 'quantity'])) ?? 1,\n});\n\nconst lineItems = (props) => {\n  const lists = [props?.$extra?.line_items, props?.extra?.line_items, props?.line_items, props?.Items];\n  const list = lists.find((l) => Array.isArray(l) && l.length) ?? [];\n  return list\n    .map((i) => (typeof i === 'string' ? { title: i, url: '', image_url: '', price: '', quantity: 1 } : product(i)))\n    .filter((i) => i.title)\n    .slice(0, 8);\n};\n\n// Sort the activity into the kinds of events the agent cares about (newest first)\nconst kinds = { order: [], checkout: [], cart: [], viewed: [], opened: [], clicked: [], received: [] };\nfor (const e of events) {\n  const name = metricNames.get(e.relationships?.metric?.data?.id) ?? '';\n  const ev = { when: e.attributes?.datetime, props: e.attributes?.event_properties ?? {} };\n  if (/^placed order$/i.test(name)) kinds.order.push(ev);\n  else if (/checkout/i.test(name) && /start/i.test(name)) kinds.checkout.push(ev);\n  else if (/added to cart/i.test(name)) kinds.cart.push(ev);\n  else if (/viewed product/i.test(name)) kinds.viewed.push(ev);\n  else if (/opened email/i.test(name)) kinds.opened.push(ev);\n  else if (/clicked email/i.test(name)) kinds.clicked.push(ev);\n  else if (/received email/i.test(name)) kinds.received.push(ev);\n}\n\nconst lastCheckout = kinds.checkout[0];\nconst cartItems = lastCheckout ? lineItems(lastCheckout.props) : (kinds.cart[0] ? [product(kinds.cart[0].props)].filter((i) => i.title) : []);\nconst checkoutUrl = request.cta_url_override || (lastCheckout ? findCheckoutUrl(lastCheckout.props) : '');\n\nconst viewed = [];\nfor (const v of kinds.viewed) {\n  const p = product(v.props);\n  if (p.title && !viewed.some((x) => x.title === p.title)) viewed.push(p);\n  if (viewed.length >= 6) break;\n}\n\nconst pa = a.predictive_analytics ?? {};\nconst props = Object.entries(a.properties ?? {})\n  .filter(([k, v]) => !k.startsWith('$') && !k.startsWith('ai_') && v !== null && v !== '' && typeof v !== 'object')\n  .slice(0, 10);\nconst thirtyDaysAgo = $now.minus({ days: 30 }).toISO();\nconst consent = a.subscriptions?.email?.marketing?.consent ?? '';\n\nconst lines = [];\nlines.push(`First name: ${text(a.first_name) || 'unknown (do not use a name)'}`);\nif (a.location?.city || a.location?.country) lines.push(`Location: ${[a.location?.city, a.location?.region, a.location?.country].filter(Boolean).join(', ')}`);\nif (a.created) lines.push(`Customer profile created: ${day(a.created)}`);\nif (consent) lines.push(`Email marketing consent: ${consent}`);\nlines.push(`Orders placed: ${pa.historic_number_of_orders ?? kinds.order.length}${pa.average_order_value ? `, average order value ${pa.average_order_value}` : ''}`);\nfor (const o of kinds.order.slice(0, 3)) {\n  const items = lineItems(o.props).map((i) => i.title).join('; ') || text(pick(o.props, ['ItemNames'])) || 'items not listed';\n  lines.push(`- Order on ${day(o.when)}: ${items}${o.props.$value ? ` (total ${o.props.$value})` : ''}`);\n}\nif (pa.predicted_clv !== undefined || pa.churn_probability !== undefined || pa.expected_date_of_next_order) {\n  lines.push(`Klaviyo predictions: predicted lifetime value ${pa.predicted_clv ?? 'unknown'}, churn risk ${pa.churn_probability ?? 'unknown'}, expected next order ${day(pa.expected_date_of_next_order) || 'unknown'}, average days between orders ${pa.average_days_between_orders ?? 'unknown'}`);\n}\nif (lastCheckout) {\n  lines.push(`Open checkout started ${day(lastCheckout.when)}${lastCheckout.props.$value ? `, cart value ${lastCheckout.props.$value}` : ''}:`);\n  for (const i of cartItems) lines.push(`- ${i.title}${i.quantity > 1 ? ` x${i.quantity}` : ''}${i.price ? ` (${i.price})` : ''}`);\n} else if (cartItems.length) {\n  lines.push(`Last added to cart: ${cartItems.map((i) => i.title).join('; ')}`);\n}\nif (viewed.length) lines.push(`Recently viewed (newest first): ${viewed.map((v) => v.title).join('; ')}`);\nlines.push(`Email engagement: last opened ${day(kinds.opened[0]?.when) || 'never'}, last clicked ${day(kinds.clicked[0]?.when) || 'never'}, ${kinds.clicked.filter((c) => text(c.when) >= thirtyDaysAgo).length} clicks in the last 30 days`);\nconst subjects = [...new Set(kinds.received.map((r) => text(pick(r.props, ['Subject', 'subject']))).filter(Boolean))].slice(0, 5);\nif (subjects.length) lines.push(`Recent email subjects they received (do not repeat these): ${subjects.join(' | ')}`);\nif (props.length) lines.push(`Profile properties: ${props.map(([k, v]) => `${k}: ${String(v).slice(0, 80)}`).join('; ')}`);\nif (!profile) lines.push('No Klaviyo profile was found for this email, so there is no history. Write a helpful general email.');\n\nreturn [{\n  json: {\n    ...request,\n    profile_id: profile?.id ?? '',\n    first_name: text(a.first_name),\n    order_count: Number(pa.historic_number_of_orders ?? kinds.order.length) || 0,\n    churn_probability: pa.churn_probability ?? null,\n    cart_items: cartItems,\n    checkout_url: checkoutUrl,\n    brief: lines.join('\\n'),\n  },\n}];\n"
+      },
+      "id": "0657deff-2140-43e6-9267-e84e06687385",
+      "name": "Build Customer Brief",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        360,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write email {{ $json.step }} of the \"{{ $json.flow_name }}\" flow for this customer.\n\nGoal of the flow: {{ $json.goal }}\nThis email: {{ $json.step_instructions }}\nProducts to recommend: {{ $json.product_guidance }}\nDiscount rule: {{ $json.discount_rule }}\n{{ $json.note ? 'Note from the flow: ' + $json.note : '' }}\n\nCUSTOMER (from Klaviyo)\n{{ $json.brief }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You write personal marketing emails for {{ $('Settings').first().json.store_name }} ({{ $('Settings').first().json.store_url }}), an online store on Shopify. Each email is sent by a Klaviyo flow to one customer, so write it for this person, using their real data.\n\nBrand voice: {{ $('Settings').first().json.brand_voice }}\n\n## How to work\n1. Read the customer brief: what they bought, viewed, or left in their cart, and the Klaviyo predictions.\n2. Call Search_Products to find products to recommend, following the product guidance. Search with words from the products they viewed or bought, a product type, or a tag, for example: wool sweater, product_type:Candles, or tag:bestseller. Only recommend products that Search_Products returned, and copy their exact id values into product_ids. Prefer products that are in stock. Leave product_ids empty when this email needs no products.\n3. Write the email.\n\n## Rules\n- subject: under 50 characters. No ALL CAPS, at most one emoji.\n- preview_text: under 90 characters. It adds to the subject instead of repeating it.\n- headline: under 60 characters.\n- body: 2 or 3 short paragraphs separated by a blank line, under 90 words in total. Start with a greeting that uses their first name only if it is known.\n- cta_text: 2 to 4 words.\n- When the brief lists items in their cart or last order, mention them by name.\n- Never invent facts: no prices, discounts, stock levels, shipping times, reviews, or deadlines unless they are in the brief or the search results.\n- offer_discount: true only if the discount rule allows it for this customer. Never write a discount code or amount; the email template adds the code.\n- Plain text only: no HTML, markdown, or curly braces.\n- Do not reuse a subject from the list of recent email subjects.\n- reasoning: one sentence on which customer data shaped the email.",
+          "maxIterations": 8
+        }
+      },
+      "id": "41fcb128-4fbd-458b-a478-7a9597e3d46a",
+      "name": "Lifecycle Email Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        620,
+        300
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "options": {}
+      },
+      "id": "29efad7b-9756-42d1-8ae7-5230235b0687",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        560,
+        560
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-api",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Searches the store's active products in Shopify. Send a short search such as: wool sweater, product_type:Candles, tag:bestseller, or vendor:Acme. Returns up to 8 products, each with id (copy it exactly into product_ids), title, productType, vendor, tags, totalInventory, tracksInventory, and priceRangeV2.minVariantPrice. A product with tracksInventory true and totalInventory 0 is out of stock.",
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.shopify_store }}/admin/api/2026-10/graphql.json",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "shopifyOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query ($q: String!) { products(first: 8, query: $q, sortKey: RELEVANCE) { nodes { id title productType vendor tags totalInventory tracksInventory status priceRangeV2 { minVariantPrice { amount currencyCode } } } } }\",\n  \"variables\": { \"q\": {{ JSON.stringify($fromAI('search', 'What to search for, such as wool sweater, product_type:Candles, or tag:bestseller', 'string') + ' status:active') }} }\n}",
+        "options": {}
+      },
+      "id": "37d99b93-82b5-4258-8238-e0ce67637d66",
+      "name": "Search Products",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        760,
+        560
+      ],
+      "credentials": {
+        "shopifyOAuth2Api": {
+          "id": "shopify-oauth2",
+          "name": "Shopify OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"subject\": {\n      \"type\": \"string\",\n      \"description\": \"Subject line, under 50 characters\"\n    },\n    \"preview_text\": {\n      \"type\": \"string\",\n      \"description\": \"Preview text, under 90 characters\"\n    },\n    \"headline\": {\n      \"type\": \"string\",\n      \"description\": \"Headline at the top of the email, under 60 characters\"\n    },\n    \"body\": {\n      \"type\": \"string\",\n      \"description\": \"2 or 3 short paragraphs separated by a blank line, under 90 words in total, plain text\"\n    },\n    \"cta_text\": {\n      \"type\": \"string\",\n      \"description\": \"Button text, 2 to 4 words\"\n    },\n    \"product_ids\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"Shopify product ids from Search_Products, in the order to show them. Empty if none\"\n    },\n    \"offer_discount\": {\n      \"type\": \"boolean\",\n      \"description\": \"True only if the discount rule allows a discount for this customer\"\n    },\n    \"reasoning\": {\n      \"type\": \"string\",\n      \"description\": \"One sentence on which customer data shaped the email\"\n    }\n  },\n  \"required\": [\n    \"subject\",\n    \"headline\",\n    \"body\",\n    \"cta_text\",\n    \"product_ids\",\n    \"offer_discount\"\n  ]\n}"
+      },
+      "id": "771cfc76-fb18-4d16-8349-0da8cd538dc4",
+      "name": "Lifecycle Email Format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        960,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.shopify_store }}/admin/api/2026-10/graphql.json",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "shopifyOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: \"query ($ids: [ID!]!) { nodes(ids: $ids) { ... on Product { id title handle status productType vendor totalInventory tracksInventory onlineStoreUrl priceRangeV2 { minVariantPrice { amount currencyCode } } featuredMedia { preview { image { url } } } } } }\", variables: { ids: ((($json.output || {}).product_ids) || []).map(id => /^\\d+$/.test(String(id)) ? 'gid://shopify/Product/' + id : String(id)).filter(id => /^gid:\\/\\/shopify\\/Product\\/\\d+$/.test(id)).slice(0, 6) } }) }}",
+        "options": {}
+      },
+      "id": "3d59acfe-e5bd-408c-8cf4-b2ddff67ac3c",
+      "name": "Get Recommended Products",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        940,
+        200
+      ],
+      "credentials": {
+        "shopifyOAuth2Api": {
+          "id": "shopify-oauth2",
+          "name": "Shopify OAuth2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Checks the agent's email, looks up the real product details from Shopify, and builds the\n// \"AI Email Ready\" event. Klaviyo's AI sender flow uses the event's properties as the email content.\nconst settings = $('Settings').first().json;\nconst brief = $('Build Customer Brief').first().json;\nconst ai = $('Lifecycle Email Agent').first().json.output ?? {};\nconst shop = $input.first().json;\n\n// Plain text only: no HTML, and no {{ }} or {% %} that Klaviyo would try to run as template code\nconst clean = (v, max) => String(v ?? '')\n  .replace(/<[^>]*>/g, '')\n  .replace(/\\{\\{|\\}\\}|\\{%|%\\}/g, '')\n  .replace(/[ \\t]+/g, ' ')\n  .replace(/ *\\n */g, '\\n')\n  .replace(/\\n{3,}/g, '\\n\\n')\n  .trim()\n  .slice(0, max);\nconst storeUrl = String(settings.store_url).replace(/\\/$/, '');\n\nconst money = (amount, currency) => {\n  const n = Number(amount);\n  if (!Number.isFinite(n)) return '';\n  try {\n    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(n);\n  } catch (e) {\n    return `${currency} ${n.toFixed(2)}`;\n  }\n};\n\n// Only active, in-stock products that Shopify returned are used, in the agent's order\nconst nodes = (shop?.data?.nodes ?? []).filter(Boolean);\nconst products = nodes\n  .filter((p) => p.status === 'ACTIVE' && (!p.tracksInventory || p.totalInventory > 0))\n  .slice(0, Number(settings.max_products) || 3)\n  .map((p) => ({\n    id: p.id,\n    title: p.title,\n    url: p.onlineStoreUrl || `${storeUrl}/products/${p.handle}`,\n    image_url: p.featuredMedia?.preview?.image?.url ?? '',\n    price: money(p.priceRangeV2?.minVariantPrice?.amount, p.priceRangeV2?.minVariantPrice?.currencyCode),\n  }));\n\nconst paragraphs = clean(ai.body, 1200).split(/\\n\\s*\\n/).map((p) => p.trim()).filter(Boolean).slice(0, 4);\nconst fb = brief.fallback;\nconst subject = clean(ai.subject, 80) || fb.subject;\nconst content = {\n  flow: brief.flow,\n  flow_name: brief.flow_name,\n  step: brief.step,\n  subject,\n  preview_text: clean(ai.preview_text, 140),\n  headline: clean(ai.headline, 90) || fb.headline,\n  body_paragraphs: paragraphs.length ? paragraphs : [fb.body],\n  cta_text: clean(ai.cta_text, 30) || fb.cta_text,\n  cta_url: brief.cta_url_override || brief.checkout_url || storeUrl,\n  products,\n  has_products: products.length > 0,\n  cart_items: brief.cart_items,\n  has_cart: brief.cart_items.length > 0,\n  offer_discount: ai.offer_discount === true,\n  ai_generated: true,\n  ai_reasoning: clean(ai.reasoning, 300),\n};\n\n// The same flow step for the same person on the same day only sends once, even if Klaviyo retries the webhook\nconst uniqueId = `ai-${content.flow}-${content.step}-${brief.profile_id || brief.email}-${$now.toFormat('yyyyLLdd')}`;\n\nreturn [{\n  json: {\n    email: brief.email,\n    ...content,\n    klaviyo_event: {\n      data: {\n        type: 'event',\n        attributes: {\n          properties: content,\n          unique_id: uniqueId,\n          metric: { data: { type: 'metric', attributes: { name: settings.klaviyo_event_name } } },\n          profile: { data: { type: 'profile', attributes: { email: brief.email } } },\n        },\n      },\n    },\n  },\n}];\n"
+      },
+      "id": "9551f5ec-3c7b-4732-9de0-d9b255c69884",
+      "name": "Build Email Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Used when the AI agent fails: builds the same event with the playbook's fallback copy,\n// so the customer still gets the email from your Klaviyo flow.\nconst settings = $('Settings').first().json;\nconst brief = $('Build Customer Brief').first().json;\nconst fb = brief.fallback;\nconst storeUrl = String(settings.store_url).replace(/\\/$/, '');\n\nconst content = {\n  flow: brief.flow,\n  flow_name: brief.flow_name,\n  step: brief.step,\n  subject: fb.subject,\n  preview_text: '',\n  headline: fb.headline,\n  body_paragraphs: [fb.body],\n  cta_text: fb.cta_text,\n  cta_url: brief.cta_url_override || brief.checkout_url || storeUrl,\n  products: [],\n  has_products: false,\n  cart_items: brief.cart_items,\n  has_cart: brief.cart_items.length > 0,\n  offer_discount: false,\n  ai_generated: false,\n  ai_reasoning: `The AI agent failed, so fallback copy was used: ${String($json.error?.message ?? $json.error ?? 'unknown error').slice(0, 200)}`,\n};\nconst uniqueId = `ai-${content.flow}-${content.step}-${brief.profile_id || brief.email}-${$now.toFormat('yyyyLLdd')}`;\n\nreturn [{\n  json: {\n    email: brief.email,\n    ...content,\n    klaviyo_event: {\n      data: {\n        type: 'event',\n        attributes: {\n          properties: content,\n          unique_id: uniqueId,\n          metric: { data: { type: 'metric', attributes: { name: settings.klaviyo_event_name } } },\n          profile: { data: { type: 'profile', attributes: { email: brief.email } } },\n        },\n      },\n    },\n  },\n}];\n"
+      },
+      "id": "9f965991-2d15-4b3b-8a4e-2063bef675ae",
+      "name": "Fallback Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://a.klaviyo.com/api/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/vnd.api+json",
+        "body": "={{ JSON.stringify($json.klaviyo_event) }}",
+        "options": {}
+      },
+      "id": "c7b3c07d-181e-47f6-870b-aed6bb2df190",
+      "name": "Send AI Email Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1400,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reads the campaign request from the form, or uses the weekly brief from Settings for the weekly run.\nconst settings = $('Settings').first().json;\nconst form = $('Campaign Request Form').isExecuted ? $('Campaign Request Form').first().json : null;\nconst text = (v, max = 1000) => String(v ?? '').trim().slice(0, max);\n\nreturn [{\n  json: {\n    source: form ? 'form' : 'weekly planner',\n    brief: form ? text(form.brief, 2000) : text(settings.weekly_brief, 2000),\n    focus: form ? text(form.focus) : '',\n    audience: form ? text(form.audience) : '',\n    offer: form ? text(form.offer, 300) : '',\n    // Shopify order search for the last 30 days, used to find best sellers\n    orders_query: `created_at:>=${$now.minus({ days: 30 }).toISODate()}`,\n  },\n}];\n"
+      },
+      "id": "3aed454b-7132-401d-8490-1823de1f201b",
+      "name": "Read Campaign Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://a.klaviyo.com/api/segments",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filter",
+              "value": "equals(is_active,true)"
+            },
+            {
+              "name": "fields[segment]",
+              "value": "name,is_starred"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "responseContainsNextURL",
+              "nextURL": "={{ $response.body.links?.next }}",
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.links?.next }}",
+              "limitPagesFetched": true,
+              "maxRequests": 20
+            }
+          }
+        }
+      },
+      "id": "0b9ff98b-7d5f-45c4-a47c-694e761c30b3",
+      "name": "Get Klaviyo Segments",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -80,
+        1100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://a.klaviyo.com/api/metrics",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filter",
+              "value": "equals(integration.name,\"Shopify\")"
+            },
+            {
+              "name": "fields[metric]",
+              "value": "name"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "94deca4b-2b82-46c5-a8ca-a9aea234a83b",
+      "name": "Get Shopify Metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        140,
+        1100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      },
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://a.klaviyo.com/api/campaign-values-reports",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/vnd.api+json",
+        "body": "={{ JSON.stringify({ data: { type: 'campaign-values-report', attributes: { statistics: ['delivered', 'open_rate', 'click_rate', 'conversion_rate', 'conversion_value'], timeframe: { key: 'last_90_days' }, conversion_metric_id: ((($json.data || []).find(m => m.attributes && m.attributes.name === 'Placed Order') || {}).id || ''), group_by: ['campaign_id', 'campaign_message_name'] } } }) }}",
+        "options": {}
+      },
+      "id": "39999861-4379-4c49-adbd-98a5a194b0dd",
+      "name": "Get Campaign Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        360,
+        1100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      },
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.shopify_store }}/admin/api/2026-10/graphql.json",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "shopifyOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: \"query ($ordersQuery: String!) { orders(first: 30, sortKey: CREATED_AT, reverse: true, query: $ordersQuery) { nodes { lineItems(first: 5) { nodes { quantity product { id title handle status productType vendor totalInventory tracksInventory onlineStoreUrl priceRangeV2 { minVariantPrice { amount currencyCode } } featuredMedia { preview { image { url } } } } } } } } newArrivals: products(first: 12, sortKey: CREATED_AT, reverse: true, query: \\\"status:active\\\") { nodes { id title handle status productType vendor totalInventory tracksInventory onlineStoreUrl priceRangeV2 { minVariantPrice { amount currencyCode } } featuredMedia { preview { image { url } } } } } topStock: products(first: 12, sortKey: INVENTORY_TOTAL, reverse: true, query: \\\"status:active\\\") { nodes { id title handle status productType vendor totalInventory tracksInventory onlineStoreUrl priceRangeV2 { minVariantPrice { amount currencyCode } } featuredMedia { preview { image { url } } } } } }\", variables: { ordersQuery: $('Read Campaign Request').first().json.orders_query } }) }}",
+        "options": {}
+      },
+      "id": "e5a082af-48ea-4421-86d2-b9baebf7d4ff",
+      "name": "Get Store Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        580,
+        1100
+      ],
+      "credentials": {
+        "shopifyOAuth2Api": {
+          "id": "shopify-oauth2",
+          "name": "Shopify OAuth2"
+        }
+      },
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds the Campaign Strategist Agent's brief from Klaviyo and Shopify data: the segments it can send to,\n// how past campaigns performed, and the store's best sellers, new arrivals, and products with the most stock.\nconst settings = $('Settings').first().json;\nconst req = $('Read Campaign Request').first().json;\n\nconst num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);\nconst pct = (v) => `${(num(v) * 100).toFixed(1)}%`;\n\n// Klaviyo segments (one item per page of results)\nconst segments = $('Get Klaviyo Segments').all()\n  .flatMap((i) => (Array.isArray(i.json.data) ? i.json.data : []))\n  .map((s) => ({ id: s.id, name: String(s.attributes?.name ?? ''), starred: s.attributes?.is_starred === true }))\n  .filter((s) => s.id && s.name);\nif (!segments.length) {\n  throw new Error('No active Klaviyo segments were found. Check the Klaviyo API credential and its segments:read scope.');\n}\n\n// Past campaign results for the last 90 days\nconst report = $('Get Campaign Results').first().json;\nconst campaigns = (report?.data?.attributes?.results ?? [])\n  .map((r) => ({\n    name: String(r.groupings?.campaign_message_name || r.groupings?.campaign_id || ''),\n    delivered: num(r.statistics?.delivered),\n    open_rate: r.statistics?.open_rate,\n    click_rate: r.statistics?.click_rate,\n    conversion_rate: r.statistics?.conversion_rate,\n    revenue: num(r.statistics?.conversion_value),\n  }))\n  .filter((c) => c.name && c.delivered > 0)\n  .sort((a, b) => b.revenue - a.revenue)\n  .slice(0, 10);\n\n// Shopify products\nconst store = $('Get Store Data').first().json?.data ?? {};\nconst inStock = (p) => p && p.status === 'ACTIVE' && (!p.tracksInventory || p.totalInventory > 0);\nconst price = (p) => {\n  const m = p.priceRangeV2?.minVariantPrice;\n  return m ? `${Number(m.amount).toFixed(2)} ${m.currencyCode}` : 'price unknown';\n};\nconst line = (p, extra = '') => `${p.id} | ${p.title} | ${price(p)} | ${p.productType || 'no type'} | stock ${p.tracksInventory ? p.totalInventory : 'not tracked'}${extra}`;\n\nconst sold = new Map();\nfor (const order of store.orders?.nodes ?? []) {\n  for (const li of order.lineItems?.nodes ?? []) {\n    if (!li.product?.id) continue;\n    const s = sold.get(li.product.id) ?? { product: li.product, units: 0 };\n    s.units += num(li.quantity) || 1;\n    sold.set(li.product.id, s);\n  }\n}\nconst bestSellers = [...sold.values()].filter((s) => inStock(s.product)).sort((a, b) => b.units - a.units).slice(0, 10);\nconst newArrivals = (store.newArrivals?.nodes ?? []).filter(inStock).slice(0, 8);\nconst topStock = (store.topStock?.nodes ?? []).filter(inStock).slice(0, 8);\n\nconst section = (title, rows, empty) => `${title}\\n${rows.length ? rows.join('\\n') : empty}`;\nconst prompt = [\n  'CAMPAIGN REQUEST',\n  `Source: ${req.source}`,\n  `Brief: ${req.brief}`,\n  `Products or collection to feature: ${req.focus || 'your choice, based on the data'}`,\n  `Audience wanted: ${req.audience || 'your choice, from the segments below'}`,\n  `Offer to include: ${req.offer || 'none. Do not offer a discount.'}`,\n  `Today: ${$now.toFormat('yyyy-MM-dd (cccc)')}`,\n  '',\n  section('KLAVIYO SEGMENTS (id | name | starred)', segments.map((s) => `${s.id} | ${s.name}${s.starred ? ' | starred' : ''}`), 'none'),\n  '',\n  section('PAST CAMPAIGNS, LAST 90 DAYS, MOST REVENUE FIRST (name | delivered | open rate | click rate | order rate | revenue)',\n    campaigns.map((c) => `${c.name} | ${c.delivered} | ${pct(c.open_rate)} | ${pct(c.click_rate)} | ${pct(c.conversion_rate)} | ${c.revenue.toFixed(2)}`),\n    'No campaign results found.'),\n  '',\n  section('SHOPIFY BEST SELLERS, LAST 30 DAYS (product id | title | price | type | stock | units sold)',\n    bestSellers.map((s) => line(s.product, ` | ${s.units} sold`)), 'No recent orders found.'),\n  '',\n  section('NEW ARRIVALS (product id | title | price | type | stock)', newArrivals.map((p) => line(p)), 'none'),\n  '',\n  section('MOST STOCK ON HAND (product id | title | price | type | stock)', topStock.map((p) => line(p)), 'none'),\n].join('\\n');\n\nreturn [{\n  json: {\n    revision: 0,\n    prompt,\n    original_prompt: prompt,\n    segments,\n    request: req,\n  },\n}];\n"
+      },
+      "id": "0ec4fb5b-bd21-45ad-8df8-5d1425395a9d",
+      "name": "Build Campaign Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are the email marketing strategist for {{ $('Settings').first().json.store_name }} ({{ $('Settings').first().json.store_url }}), an online store on Shopify that sends email with Klaviyo. You plan and write one email campaign at a time from the store's real data: its Klaviyo segments, how past campaigns performed, and its Shopify products.\n\nBrand voice: {{ $('Settings').first().json.brand_voice }}\n\n## How to work\n1. Read the request. If it names products, a collection, an audience, or an offer, follow it.\n2. Choose the audience: exactly one segment_id from the KLAVIYO SEGMENTS list. Pick the segment that best fits the brief. You can call Get_Segment_Size to check how many people are in a segment, and avoid segments with 0 people. Never invent a segment.\n3. Choose 2 to 6 products. Use product ids from the product lists in the request, or call Search_Products to find others. Only use ids that appear in the lists or in Search_Products results, and only products that are in stock.\n4. Learn from past campaigns: look at which topics and subject styles had the best open rate, click rate, and revenue, and use that.\n5. Write the email.\n\n## Rules\n- campaign_name: short and descriptive, for the Klaviyo campaign list.\n- subject: under 50 characters. No ALL CAPS, at most one emoji. preview_text: under 90 characters, adding to the subject.\n- headline: under 60 characters. intro: 2 or 3 sentences.\n- sections: 0 to 3, each with a heading under 40 characters and text under 60 words.\n- cta_text: 2 to 4 words. cta_url: a page on the store's website, such as a collection, or leave it empty to link to the home page.\n- offer_text: only the offer given in the request, worded clearly. Leave it empty if the request has no offer. Never make up a discount or code.\n- Never invent facts: no prices, stock levels, deadlines, reviews, or claims that are not in the request or the data.\n- Plain text only: no HTML, markdown, or curly braces. The email greets the reader by first name automatically.\n- reasoning: 2 or 3 sentences that cite the data behind your choices: the segment, the products, and past results.",
+          "maxIterations": 12
+        }
+      },
+      "id": "b6be0b3a-4626-441d-ab69-20a0e59150cc",
+      "name": "Campaign Strategist Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1100,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Returns how many people are in a Klaviyo segment. Send a segment id from the KLAVIYO SEGMENTS list. The count is in data.attributes.profile_count.",
+        "method": "GET",
+        "url": "=https://a.klaviyo.com/api/segments/{{ $fromAI('segment_id', 'The id of a segment from the KLAVIYO SEGMENTS list', 'string') }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "additional-fields[segment]",
+              "value": "profile_count"
+            },
+            {
+              "name": "fields[segment]",
+              "value": "name"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8dea1af8-e7bd-49b9-b3f6-299a994a9c0f",
+      "name": "Get Segment Size",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        1120,
+        1340
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"campaign_name\": {\n      \"type\": \"string\",\n      \"description\": \"Short descriptive campaign name\"\n    },\n    \"segment_id\": {\n      \"type\": \"string\",\n      \"description\": \"One segment id from the KLAVIYO SEGMENTS list\"\n    },\n    \"subject\": {\n      \"type\": \"string\",\n      \"description\": \"Subject line, under 50 characters\"\n    },\n    \"preview_text\": {\n      \"type\": \"string\",\n      \"description\": \"Preview text, under 90 characters\"\n    },\n    \"headline\": {\n      \"type\": \"string\",\n      \"description\": \"Headline, under 60 characters\"\n    },\n    \"intro\": {\n      \"type\": \"string\",\n      \"description\": \"2 or 3 sentences, plain text\"\n    },\n    \"sections\": {\n      \"type\": \"array\",\n      \"description\": \"0 to 3 content sections\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"heading\": {\n            \"type\": \"string\",\n            \"description\": \"Under 40 characters\"\n          },\n          \"text\": {\n            \"type\": \"string\",\n            \"description\": \"Under 60 words, plain text\"\n          }\n        },\n        \"required\": [\n          \"heading\",\n          \"text\"\n        ]\n      }\n    },\n    \"product_ids\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"2 to 6 Shopify product ids, in the order to show them\"\n    },\n    \"cta_text\": {\n      \"type\": \"string\",\n      \"description\": \"Button text, 2 to 4 words\"\n    },\n    \"cta_url\": {\n      \"type\": \"string\",\n      \"description\": \"A page on the store's website, or empty for the home page\"\n    },\n    \"offer_text\": {\n      \"type\": \"string\",\n      \"description\": \"The offer from the request, or empty\"\n    },\n    \"reasoning\": {\n      \"type\": \"string\",\n      \"description\": \"2 or 3 sentences citing the data behind the choices\"\n    }\n  },\n  \"required\": [\n    \"campaign_name\",\n    \"segment_id\",\n    \"subject\",\n    \"preview_text\",\n    \"headline\",\n    \"intro\",\n    \"product_ids\",\n    \"cta_text\",\n    \"reasoning\"\n  ]\n}"
+      },
+      "id": "fd713d10-2272-46b6-a7ec-af3be0c66736",
+      "name": "Campaign Format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1320,
+        1340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.shopify_store }}/admin/api/2026-10/graphql.json",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "shopifyOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: \"query ($ids: [ID!]!) { nodes(ids: $ids) { ... on Product { id title handle status productType vendor totalInventory tracksInventory onlineStoreUrl priceRangeV2 { minVariantPrice { amount currencyCode } } featuredMedia { preview { image { url } } } } } }\", variables: { ids: ((($json.output || {}).product_ids) || []).map(id => /^\\d+$/.test(String(id)) ? 'gid://shopify/Product/' + id : String(id)).filter(id => /^gid:\\/\\/shopify\\/Product\\/\\d+$/.test(id)).slice(0, 6) } }) }}",
+        "options": {}
+      },
+      "id": "7687d35a-820f-4ca1-bd16-41cf04a39082",
+      "name": "Get Campaign Products",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1420,
+        1100
+      ],
+      "credentials": {
+        "shopifyOAuth2Api": {
+          "id": "shopify-oauth2",
+          "name": "Shopify OAuth2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Checks the agent's campaign, looks up the real product details from Shopify, and builds the email HTML,\n// the Klaviyo template, and the draft campaign request.\nconst settings = $('Settings').first().json;\nconst ctx = $('Build Campaign Context').first().json;\nconst ai = $('Campaign Strategist Agent').first().json.output ?? {};\nconst shop = $input.first().json;\nconst revision = $('Prepare Revision').isExecuted ? $('Prepare Revision').first().json.revision : 0;\n\n// Plain text only: no HTML, and no {{ }} or {% %} that Klaviyo would try to run as template code\nconst clean = (v, max) => String(v ?? '')\n  .replace(/<[^>]*>/g, '')\n  .replace(/\\{\\{|\\}\\}|\\{%|%\\}/g, '')\n  .replace(/\\s+/g, ' ')\n  .trim()\n  .slice(0, max);\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst storeUrl = String(settings.store_url).replace(/\\/$/, '');\nconst storeHost = (storeUrl.match(/^https?:\\/\\/([^/?#]+)/i)?.[1] ?? '').toLowerCase();\n\n// The audience must be one of the account's segments\nconst segment = ctx.segments.find((s) => s.id === String(ai.segment_id ?? '').trim());\nif (!segment) {\n  throw new Error(`The agent chose segment \"${ai.segment_id}\", which is not one of your active Klaviyo segments. Run the campaign again.`);\n}\n\nconst money = (amount, currency) => {\n  const n = Number(amount);\n  if (!Number.isFinite(n)) return '';\n  try {\n    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(n);\n  } catch (e) {\n    return `${currency} ${n.toFixed(2)}`;\n  }\n};\n\n// Only active, in-stock products that Shopify returned are used, in the agent's order\nconst products = (shop?.data?.nodes ?? [])\n  .filter((p) => p && p.status === 'ACTIVE' && (!p.tracksInventory || p.totalInventory > 0))\n  .slice(0, 6)\n  .map((p) => ({\n    id: p.id,\n    title: p.title,\n    url: p.onlineStoreUrl || `${storeUrl}/products/${p.handle}`,\n    image_url: p.featuredMedia?.preview?.image?.url ?? '',\n    price: money(p.priceRangeV2?.minVariantPrice?.amount, p.priceRangeV2?.minVariantPrice?.currencyCode),\n  }));\n\nconst subject = clean(ai.subject, 80);\nif (!subject) throw new Error('The agent did not return a subject line. Run the campaign again.');\nconst headline = clean(ai.headline, 90) || subject;\nconst intro = clean(ai.intro, 600);\nconst sections = (Array.isArray(ai.sections) ? ai.sections : [])\n  .map((s) => ({ heading: clean(s?.heading, 60), text: clean(s?.text, 500) }))\n  .filter((s) => s.heading || s.text)\n  .slice(0, 3);\nconst offer = clean(ai.offer_text, 200);\nconst ctaText = clean(ai.cta_text, 30) || 'Shop now';\n// The button only links to your own store\nconst aiCta = String(ai.cta_url ?? '').trim();\nconst ctaUrl = /^https?:\\/\\//i.test(aiCta) && (aiCta.match(/^https?:\\/\\/([^/?#]+)/i)?.[1] ?? '').toLowerCase() === storeHost ? aiCta : storeUrl;\nconst color = /^#[0-9a-f]{3,8}$/i.test(String(settings.brand_color)) ? settings.brand_color : '#111827';\n\n// ---------- Email HTML (table layout with inline styles, so it renders in every email client)\nconst font = 'font-family:Arial,Helvetica,sans-serif;';\nconst button = `<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin:24px auto;\"><tr><td style=\"background:${color};border-radius:6px;\">`\n  + `<a href=\"${esc(ctaUrl)}\" style=\"display:inline-block;padding:14px 28px;${font}font-size:16px;font-weight:bold;color:#ffffff;text-decoration:none;\">${esc(ctaText)}</a></td></tr></table>`;\nconst header = settings.logo_url\n  ? `<img src=\"${esc(settings.logo_url)}\" alt=\"${esc(settings.store_name)}\" width=\"160\" style=\"display:block;margin:0 auto;max-width:160px;height:auto;border:0;\">`\n  : `<div style=\"${font}font-size:20px;font-weight:bold;text-align:center;color:${color};\">${esc(settings.store_name)}</div>`;\nconst productCell = (p) => `<td width=\"50%\" valign=\"top\" style=\"padding:8px;text-align:center;\">`\n  + (p.image_url ? `<a href=\"${esc(p.url)}\"><img src=\"${esc(p.image_url)}\" alt=\"${esc(p.title)}\" width=\"250\" style=\"display:block;width:100%;max-width:250px;height:auto;margin:0 auto;border:0;border-radius:6px;\"></a>` : '')\n  + `<div style=\"${font}font-size:15px;font-weight:bold;color:#111827;margin-top:10px;\">${esc(p.title)}</div>`\n  + (p.price ? `<div style=\"${font}font-size:14px;color:#4b5563;margin-top:4px;\">${esc(p.price)}</div>` : '')\n  + `<a href=\"${esc(p.url)}\" style=\"${font}font-size:14px;color:${color};font-weight:bold;display:inline-block;margin-top:8px;\">Shop now</a></td>`;\nconst productRows = [];\nfor (let i = 0; i < products.length; i += 2) {\n  productRows.push(`<tr>${productCell(products[i])}${products[i + 1] ? productCell(products[i + 1]) : '<td width=\"50%\"></td>'}</tr>`);\n}\n\nconst html = `<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>${esc(subject)}</title></head>\n<body style=\"margin:0;padding:0;background:#f4f4f5;\">\n<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f4f4f5;\"><tr><td align=\"center\" style=\"padding:24px 12px;\">\n<table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;max-width:600px;background:#ffffff;border-radius:8px;\">\n<tr><td style=\"padding:28px 32px 8px;\">${header}</td></tr>\n<tr><td style=\"padding:16px 32px 0;\">\n<h1 style=\"${font}font-size:28px;line-height:1.25;color:#111827;margin:0 0 16px;text-align:center;\">${esc(headline)}</h1>\n<p style=\"${font}font-size:16px;line-height:1.6;color:#374151;margin:0 0 12px;\">Hi {{ first_name|default:'there' }},</p>\n${intro ? `<p style=\"${font}font-size:16px;line-height:1.6;color:#374151;margin:0 0 12px;\">${esc(intro)}</p>` : ''}\n${offer ? `<div style=\"${font}font-size:16px;font-weight:bold;text-align:center;color:${color};border:2px dashed ${color};border-radius:6px;padding:14px;margin:16px 0;\">${esc(offer)}</div>` : ''}\n${button}\n${sections.map((s) => `${s.heading ? `<h2 style=\"${font}font-size:20px;color:#111827;margin:20px 0 8px;\">${esc(s.heading)}</h2>` : ''}${s.text ? `<p style=\"${font}font-size:16px;line-height:1.6;color:#374151;margin:0 0 12px;\">${esc(s.text)}</p>` : ''}`).join('\\n')}\n</td></tr>\n${productRows.length ? `<tr><td style=\"padding:8px 24px 16px;\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">${productRows.join('')}</table></td></tr>` : ''}\n<tr><td style=\"padding:0 32px 24px;\">${products.length ? button : ''}</td></tr>\n<tr><td style=\"padding:20px 32px 28px;border-top:1px solid #e5e7eb;${font}font-size:12px;line-height:1.6;color:#6b7280;text-align:center;\">\n${esc(settings.footer_text)}<br>\n<a href=\"{% unsubscribe_link %}\" style=\"color:#6b7280;\">Unsubscribe</a>\n</td></tr>\n</table>\n</td></tr></table>\n</body></html>`;\n\nconst date = $now.toFormat('yyyy-MM-dd');\nconst campaignName = `${clean(ai.campaign_name, 80) || subject} (AI ${date}${revision ? `, v${revision + 1}` : ''})`;\n\n// The draft campaign: one audience (the segment) and one email message that uses the new template\nconst campaignBody = {\n  data: {\n    type: 'campaign',\n    attributes: {\n      definition: {\n        name: campaignName,\n        description: clean(ai.reasoning, 500),\n        send_settings: { send_strategy: 'simple', send_timezone: settings.timezone },\n      },\n      audiences: [{ temporary_id: 'audience_1', name: segment.name, included: [segment.id], excluded: [] }],\n      messages: [{\n        audience_temporary_id: 'audience_1',\n        name: campaignName,\n        variations: [{\n          definition: {\n            name: 'Email',\n            details: {\n              channel: 'email',\n              template_id: '__TEMPLATE_ID__',\n              subject,\n              preview_text: clean(ai.preview_text, 140),\n              from_email: settings.from_email,\n              from_label: settings.from_label,\n              reply_to_email: settings.from_email,\n            },\n          },\n        }],\n      }],\n    },\n  },\n};\n\nreturn [{\n  json: {\n    revision,\n    campaign_name: campaignName,\n    segment_id: segment.id,\n    segment_name: segment.name,\n    subject,\n    preview_text: clean(ai.preview_text, 140),\n    headline,\n    offer,\n    products,\n    reasoning: clean(ai.reasoning, 600),\n    template_body: { data: { type: 'template', attributes: { name: `AI campaign: ${campaignName}`.slice(0, 250), editor_type: 'CODE', html } } },\n    campaign_body_json: JSON.stringify(campaignBody),\n  },\n}];\n"
+      },
+      "id": "66b6a4cd-a8a8-4d6d-af77-9cf302694127",
+      "name": "Build Campaign Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://a.klaviyo.com/api/templates",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/vnd.api+json",
+        "body": "={{ JSON.stringify($json.template_body) }}",
+        "options": {}
+      },
+      "id": "016d2659-e443-4433-940c-7dd66f1ef4a0",
+      "name": "Create Klaviyo Template",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1860,
+        1100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://a.klaviyo.com/api/campaigns",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/vnd.api+json",
+        "body": "={{ $('Build Campaign Email').first().json.campaign_body_json.replace('__TEMPLATE_ID__', $json.data.id) }}",
+        "options": {}
+      },
+      "id": "cc31fe9d-1d32-44c6-a777-1711e40214e2",
+      "name": "Create Draft Campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2080,
+        1100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://a.klaviyo.com/api/campaigns/{{ ($json.data && $json.data.id) || 'none' }}/relationships/campaign-messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "91c7dcd6-f56b-4026-93a2-043dad98e1cf",
+      "name": "Get Campaign Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2300,
+        1100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://a.klaviyo.com/api/template-preview-send-jobs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/vnd.api+json",
+        "body": "={{ JSON.stringify({ data: { type: 'template-preview-send-job', attributes: { recipients: [$('Settings').first().json.approver_email], context: { first_name: 'there' } }, relationships: { template: { data: { type: 'template', id: $('Create Klaviyo Template').first().json.data.id } } } } }) }}",
+        "options": {}
+      },
+      "id": "3fbb3cde-4853-4ed5-996b-a8521cf724f8",
+      "name": "Send Test Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2520,
+        1100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://a.klaviyo.com/api/segments/{{ $('Build Campaign Email').first().json.segment_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "additional-fields[segment]",
+              "value": "profile_count"
+            },
+            {
+              "name": "fields[segment]",
+              "value": "name"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cf8809f0-5f61-45fc-a21a-ddd48eb398fe",
+      "name": "Get Audience Size",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2740,
+        1100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds the Slack message that asks for approval, with everything needed to decide.\nconst settings = $('Settings').first().json;\nconst email = $('Build Campaign Email').first().json;\nconst campaign = $('Create Draft Campaign').first().json;\nconst messages = $('Get Campaign Message').first().json;\nconst testSend = $('Send Test Email').first().json;\nconst size = $('Get Audience Size').first().json;\nconst req = $('Build Campaign Context').first().json.request;\n\nconst campaignId = campaign?.data?.id ?? '';\nconst messageId = (Array.isArray(messages?.data) ? messages.data[0]?.id : '') || campaign?.data?.relationships?.['campaign-messages']?.data?.[0]?.id || '';\nif (!campaignId) {\n  const reason = campaign?.error?.message ?? JSON.stringify(campaign?.errors ?? campaign).slice(0, 300);\n  throw new Error(`Klaviyo did not create the draft campaign: ${reason}`);\n}\nconst people = size?.data?.attributes?.profile_count;\nconst testNote = testSend?.error\n  ? `The test email could not be sent (${String(testSend.error.message ?? testSend.error).slice(0, 120)}).`\n  : `A test email was sent to ${settings.approver_email}.`;\n\nconst lines = [\n  `*New AI campaign draft${email.revision ? ` (version ${email.revision + 1})` : ''}* from the ${req.source}`,\n  `*Campaign:* ${email.campaign_name}`,\n  `*Audience:* ${email.segment_name}${Number.isFinite(people) ? ` (${people.toLocaleString('en-US')} people)` : ''}`,\n  `*Subject:* ${email.subject}`,\n  `*Preview text:* ${email.preview_text || '(none)'}`,\n  `*Headline:* ${email.headline}`,\n  email.offer ? `*Offer:* ${email.offer}` : '*Offer:* none',\n  `*Products:* ${email.products.map((p) => `${p.title} (${p.price})`).join(', ') || 'none'}`,\n  `*Why:* ${email.reasoning}`,\n  '',\n  `${testNote} The draft is in Klaviyo under Campaigns.`,\n];\n\nreturn [{\n  json: {\n    campaign_id: campaignId,\n    message_id: messageId,\n    audience_size: Number.isFinite(people) ? people : null,\n    slack_message: lines.join('\\n').slice(0, 3500),\n  },\n}];\n"
+      },
+      "id": "f3ebd881-9a14-4c55-8f45-919731275c0f",
+      "name": "Build Approval Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2960,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Settings').first().json.slack_channel_id }}"
+        },
+        "message": "={{ $json.slack_message }}",
+        "responseType": "customForm",
+        "defineForm": "fields",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "What should we do?",
+              "fieldName": "decision",
+              "fieldType": "radio",
+              "requiredField": true,
+              "defaultValue": "Send now",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Send now"
+                  },
+                  {
+                    "option": "Schedule for the time below"
+                  },
+                  {
+                    "option": "Revise with my notes"
+                  },
+                  {
+                    "option": "Keep as a draft in Klaviyo"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Send time, if scheduling (YYYY-MM-DD HH:mm, store time zone)",
+              "fieldName": "send_time",
+              "fieldType": "text",
+              "placeholder": "2026-11-12 10:00"
+            },
+            {
+              "fieldLabel": "Notes for the AI, if revising",
+              "fieldName": "notes",
+              "fieldType": "textarea",
+              "placeholder": "Make it less salesy and feature the new wool sweater first"
+            }
+          ]
+        },
+        "options": {
+          "messageButtonLabel": "Review campaign",
+          "responseFormTitle": "Approve this email campaign",
+          "responseFormDescription": "=Subject: {{ $('Build Campaign Email').first().json.subject }}. Check the test email in your inbox before you send.",
+          "responseFormButtonLabel": "Submit",
+          "limitWaitTime": {
+            "values": {
+              "limitType": "afterTimeInterval",
+              "resumeAmount": 72,
+              "resumeUnit": "hours"
+            }
+          },
+          "appendAttribution": false
+        }
+      },
+      "id": "5c49bd43-19c6-4366-9893-9684db6e8191",
+      "name": "Ask for Approval",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        3180,
+        1100
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-bot",
+          "name": "Slack"
+        }
+      },
+      "webhookId": "dfa74b6d-fe18-4947-92fb-625110b4b498"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reads the reviewer's answer from Slack: send now, schedule, revise with notes, or keep as a draft.\nconst settings = $('Settings').first().json;\nconst approval = $('Build Approval Message').first().json;\nconst email = $('Build Campaign Email').first().json;\nconst answer = $json.data ?? null;\nconst maxRevisions = Number(settings.max_revisions) || 3;\n\nlet decision = 'draft';\nlet note = 'No answer in Slack before the time limit, so the campaign was kept as a draft.';\nlet sendTime = '';\nconst choice = String(answer?.decision ?? '');\nconst notes = String(answer?.notes ?? '').trim().slice(0, 1500);\n\nif (choice.startsWith('Send now')) {\n  decision = 'send_now';\n  note = '';\n} else if (choice.startsWith('Schedule')) {\n  const typed = String(answer?.send_time ?? '').trim();\n  const when = DateTime.fromFormat(typed, 'yyyy-MM-dd HH:mm', { zone: settings.timezone });\n  if (!when.isValid) {\n    note = `\"${typed}\" isn't a send time in the format 2026-11-12 10:00, so the campaign was kept as a draft.`;\n  } else if (when <= $now.plus({ minutes: 15 })) {\n    note = `${typed} is less than 15 minutes away or in the past, so the campaign was kept as a draft.`;\n  } else {\n    decision = 'schedule';\n    sendTime = when.toUTC().toISO({ suppressMilliseconds: true });\n    note = `${when.toFormat('cccc, LLL d, yyyy, h:mm a')} (${settings.timezone})`;\n  }\n} else if (choice.startsWith('Revise')) {\n  if (email.revision + 1 >= maxRevisions) {\n    note = `This was version ${email.revision + 1} of ${maxRevisions}, so it was kept as a draft instead of being revised again.`;\n  } else {\n    decision = 'revise';\n    note = notes || 'Try a different angle and subject line.';\n  }\n} else if (answer) {\n  note = 'Kept as a draft in Klaviyo, as requested.';\n}\n\nreturn [{\n  json: {\n    decision,\n    note,\n    send_time: sendTime,\n    feedback: decision === 'revise' ? note : '',\n    campaign_id: approval.campaign_id,\n    message_id: approval.message_id,\n  },\n}];\n"
+      },
+      "id": "7cadee51-67e2-4e2b-91ae-d83e39af73c2",
+      "name": "Read Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3400,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "bd32ecfd-beac-43e6-9a20-acd82cca5d16",
+                    "leftValue": "={{ $json.decision }}",
+                    "rightValue": "send_now",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Send now"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b20bd6e8-6cf2-4cb1-99ee-3a467b00f611",
+                    "leftValue": "={{ $json.decision }}",
+                    "rightValue": "schedule",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Schedule"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "86315a18-f942-44db-bbf8-1ab0a77c1eab",
+                    "leftValue": "={{ $json.decision }}",
+                    "rightValue": "revise",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Revise"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Keep as draft"
+        }
+      },
+      "id": "ec3cc213-b6c7-4369-858b-0eac495a469f",
+      "name": "Route Decision",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        3620,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://a.klaviyo.com/api/campaign-send-jobs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/vnd.api+json",
+        "body": "={{ JSON.stringify({ data: { type: 'campaign-send-job', id: $json.campaign_id } }) }}",
+        "options": {}
+      },
+      "id": "21b83542-1a0f-4023-a4c0-e49b17779781",
+      "name": "Send Campaign Now",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3880,
+        900
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://a.klaviyo.com/api/campaign-message-schedule",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/vnd.api+json",
+        "body": "={{ JSON.stringify({ data: { type: 'campaign-message-schedule', attributes: { strategy: 'static', send_time: $json.send_time }, relationships: { 'campaign-message': { data: { type: 'campaign-message', id: $json.message_id } } } } }) }}",
+        "options": {}
+      },
+      "id": "bd88ca02-1b32-4a90-a62e-489b64d7415b",
+      "name": "Schedule Campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3880,
+        1100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://a.klaviyo.com/api/campaigns/{{ $json.campaign_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6024a259-e68c-449f-9718-719af9b84fb4",
+      "name": "Delete Draft Campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3880,
+        1320
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://a.klaviyo.com/api/templates/{{ $('Create Klaviyo Template').first().json.data.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2026-10-15"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f43541f8-a67a-4130-8852-f7ac97bb0654",
+      "name": "Delete Draft Template",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        4100,
+        1320
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klaviyo-api",
+          "name": "Klaviyo API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sends the campaign back to the agent with the reviewer's notes and the previous draft.\nconst ctx = $('Build Campaign Context').first().json;\nconst email = $('Build Campaign Email').first().json;\nconst decision = $('Read Decision').first().json;\nconst revision = email.revision + 1;\n\nconst previous = [\n  `Audience: ${email.segment_name} (${email.segment_id})`,\n  `Subject: ${email.subject}`,\n  `Preview text: ${email.preview_text}`,\n  `Headline: ${email.headline}`,\n  `Offer: ${email.offer || 'none'}`,\n  `Products: ${email.products.map((p) => `${p.id} ${p.title}`).join('; ') || 'none'}`,\n].join('\\n');\n\nreturn [{\n  json: {\n    ...ctx,\n    revision,\n    prompt: `${ctx.original_prompt}\\n\\nREVISION ${revision}\\nYour previous draft:\\n${previous}\\n\\nFeedback from the reviewer: ${decision.feedback}\\n\\nWrite a new version of the campaign that follows this feedback. Keep what the reviewer did not ask to change.`,\n  },\n}];\n"
+      },
+      "id": "c2995aed-80f4-41b4-887f-26313311fdac",
+      "name": "Prepare Revision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4320,
+        1320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Writes the Slack confirmation: sent, scheduled, kept as a draft, or an error from Klaviyo.\nconst decision = $('Read Decision').first().json;\nconst email = $('Build Campaign Email').first().json;\nconst approval = $('Build Approval Message').first().json;\nconst res = $json;\n\nconst audience = `${email.segment_name}${approval.audience_size !== null ? ` (${approval.audience_size.toLocaleString('en-US')} people)` : ''}`;\nconst error = res.error ? String(res.error.message ?? res.error).slice(0, 300) : '';\n\nlet text;\nif (decision.decision === 'send_now' && !error) {\n  text = `:white_check_mark: *Sending now:* \"${email.campaign_name}\" to ${audience}.`;\n} else if (decision.decision === 'schedule' && !error) {\n  text = `:calendar: *Scheduled* for ${decision.note}: \"${email.campaign_name}\" to ${audience}.`;\n} else if (error) {\n  text = `:warning: Klaviyo returned an error, so \"${email.campaign_name}\" is still a draft in Klaviyo: ${error}`;\n} else {\n  text = `:memo: \"${email.campaign_name}\" is a draft in Klaviyo. ${decision.note}`;\n}\n\nreturn [{ json: { text } }];\n"
+      },
+      "id": "a2d2e4b8-8ff7-4784-8803-47b8acc4d8cf",
+      "name": "Report Outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4140,
+        1000
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Settings').first().json.slack_channel_id }}"
+        },
+        "text": "={{ $json.text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "b0c087c2-91c5-4401-8ed2-16c8fea93c7a",
+      "name": "Post Outcome to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        4360,
+        1000
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-bot",
+          "name": "Slack"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## AI Ecommerce Email Marketing Automation for Shopify and Klaviyo\n\nTwo AI agents that write your store's emails from the data in Klaviyo and Shopify. Klaviyo still sends every email, so your templates, unsubscribes, Smart Sending, and reporting keep working.\n\n### Lifecycle Email Agent (automated flows)\nAdd a **webhook** step to any Klaviyo flow (abandoned checkout, welcome, browse abandonment, post-purchase, win-back). The agent reads that customer's Klaviyo profile, predictions, and recent activity, picks in-stock products from Shopify, writes the email, and sends it back as an **AI Email Ready** event. One Klaviyo **AI sender** flow emails it with your template.\n\n### Campaign Strategist Agent (marketing campaigns)\nFill in the form, or let it plan one campaign every Monday. It reads your Klaviyo segments and past campaign results plus Shopify best sellers, new arrivals, and stock, then builds a draft campaign in Klaviyo, sends you a test email, and asks for approval in Slack: send now, schedule, revise with notes, or keep as a draft.\n\n### Setup\n1. Credentials: **Klaviyo API** (Header Auth, `Authorization: Klaviyo-API-Key pk_...`), **Shopify OAuth2**, **OpenAI**, **Slack**, and **Klaviyo Webhook Secret** (Header Auth) on the webhook.\n2. Fill in **Settings**: store name, URLs, brand voice, sender, approver email, time zone, brand color, footer address.\n3. Edit the **Flow Playbook** to match your flows.\n4. In Klaviyo, add the webhook step to your flows and create the AI sender flow (see the guide).\n5. Put your Slack channel ID in **Settings**, then publish.",
+        "height": 1560,
+        "width": 640,
+        "color": 5
+      },
+      "id": "907a2e88-b621-472f-a04d-d055981d36eb",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1860,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Triggers and settings\n**Klaviyo Flow Webhook** receives a call from a Klaviyo flow and answers right away. **Campaign Request Form** and **Weekly Campaign Planner** (Mondays at 9:00) start a campaign.\n\n**Settings** holds your store details and brand voice for both agents. **Which Path?** sends flow calls to the Lifecycle Email Agent and everything else to the Campaign Strategist.",
+        "height": 1560,
+        "width": 760,
+        "color": 7
+      },
+      "id": "0130a010-3250-493c-b8dd-b90d8fcba69e",
+      "name": "Section 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1160,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Lifecycle emails: read the customer in Klaviyo\n**Flow Playbook** turns the webhook's `flow` and `step` into instructions: the goal, what this email should do, which products to show, and when a discount is allowed. Edit it to match your flows.\n\n**Find Klaviyo Profile** and **Get Customer Activity** read the profile, Klaviyo's predictions (lifetime value, churn risk, next order date), and the last 180 days of events. **Build Customer Brief** turns them into a short brief: orders, the open cart, recently viewed products, and email engagement.",
+        "height": 760,
+        "width": 920,
+        "color": 6
+      },
+      "id": "3ac4ade7-ae6c-40b1-a9ff-ace14ff778c9",
+      "name": "Section 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -360,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Lifecycle Email Agent writes and sends\nThe agent writes the email for this customer and calls **Search Products** to find real Shopify products to recommend.\n\n**Get Recommended Products** checks each product in Shopify (active, in stock, real price and link). **Build Email Event** cleans the copy and builds the **AI Email Ready** event. If the agent fails, **Fallback Content** uses the playbook's copy so the email still goes out.\n\n**Send AI Email Event** sends it to Klaviyo. The same flow step for the same person on the same day is only sent once, even if Klaviyo retries the webhook.",
+        "height": 760,
+        "width": 1060,
+        "color": 4
+      },
+      "id": "cd0754eb-3fbc-4ef6-9b50-9fbecf7a25b4",
+      "name": "Section 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        580,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Campaigns: gather Klaviyo and Shopify data\n**Read Campaign Request** takes the form answers, or the weekly brief from Settings.\n\n**Get Klaviyo Segments** lists your active segments. **Get Shopify Metrics** finds the Placed Order metric, and **Get Campaign Results** pulls open rate, click rate, order rate, and revenue for the last 90 days of campaigns. **Get Store Data** reads Shopify best sellers (last 30 days), new arrivals, and the products with the most stock.\n\n**Build Campaign Context** turns it all into the agent's brief.",
+        "height": 760,
+        "width": 1300,
+        "color": 6
+      },
+      "id": "bfa57fad-e45b-403c-ab18-7349cc966b03",
+      "name": "Section 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -360,
+        840
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 5. Campaign Strategist Agent builds the draft in Klaviyo\nThe agent picks the segment, the angle, and 2 to 6 products, and writes the email. It can call **Search Products** and **Get Segment Size**.\n\n**Get Campaign Products** checks the products in Shopify. **Build Campaign Email** checks the segment and builds the email HTML with your logo, colors, products, and unsubscribe link. **Create Klaviyo Template** and **Create Draft Campaign** save it in Klaviyo as a draft. **Send Test Email** sends a test to your approver email, and **Get Audience Size** counts the segment.",
+        "height": 760,
+        "width": 2160,
+        "color": 4
+      },
+      "id": "7f65eeca-ac78-4fed-8217-2fef99d4751f",
+      "name": "Section 5",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        960,
+        840
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 6. Approve in Slack\n**Ask for Approval** posts the draft in Slack with the audience, subject, products, and the agent's reasoning, and waits up to 72 hours.\n\n- **Send now** sends the campaign. **Schedule** sends it at the time you enter.\n- **Revise with my notes** deletes the draft and sends your notes back to the agent for a new version (up to 3 versions).\n- **Keep as a draft**, or no answer, leaves it in Klaviyo for you.\n\n**Post Outcome to Slack** confirms what happened.",
+        "height": 760,
+        "width": 1420,
+        "color": 3
+      },
+      "id": "6b307662-91f8-4447-ae1d-eca4c8a66962",
+      "name": "Section 6",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3140,
+        840
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Klaviyo Flow Webhook": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Campaign Request Form": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Campaign Planner": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Which Path?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Which Path?": {
+      "main": [
+        [
+          {
+            "node": "Flow Playbook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Campaign Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flow Playbook": {
+      "main": [
+        [
+          {
+            "node": "Find Klaviyo Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Klaviyo Profile": {
+      "main": [
+        [
+          {
+            "node": "Get Customer Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customer Activity": {
+      "main": [
+        [
+          {
+            "node": "Build Customer Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Customer Brief": {
+      "main": [
+        [
+          {
+            "node": "Lifecycle Email Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lifecycle Email Agent": {
+      "main": [
+        [
+          {
+            "node": "Get Recommended Products",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recommended Products": {
+      "main": [
+        [
+          {
+            "node": "Build Email Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email Event": {
+      "main": [
+        [
+          {
+            "node": "Send AI Email Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback Content": {
+      "main": [
+        [
+          {
+            "node": "Send AI Email Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Campaign Request": {
+      "main": [
+        [
+          {
+            "node": "Get Klaviyo Segments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Klaviyo Segments": {
+      "main": [
+        [
+          {
+            "node": "Get Shopify Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Shopify Metrics": {
+      "main": [
+        [
+          {
+            "node": "Get Campaign Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Campaign Results": {
+      "main": [
+        [
+          {
+            "node": "Get Store Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Store Data": {
+      "main": [
+        [
+          {
+            "node": "Build Campaign Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Campaign Context": {
+      "main": [
+        [
+          {
+            "node": "Campaign Strategist Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Campaign Strategist Agent": {
+      "main": [
+        [
+          {
+            "node": "Get Campaign Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Campaign Products": {
+      "main": [
+        [
+          {
+            "node": "Build Campaign Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Campaign Email": {
+      "main": [
+        [
+          {
+            "node": "Create Klaviyo Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Klaviyo Template": {
+      "main": [
+        [
+          {
+            "node": "Create Draft Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Draft Campaign": {
+      "main": [
+        [
+          {
+            "node": "Get Campaign Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Campaign Message": {
+      "main": [
+        [
+          {
+            "node": "Send Test Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Test Email": {
+      "main": [
+        [
+          {
+            "node": "Get Audience Size",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Audience Size": {
+      "main": [
+        [
+          {
+            "node": "Build Approval Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Approval Message": {
+      "main": [
+        [
+          {
+            "node": "Ask for Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask for Approval": {
+      "main": [
+        [
+          {
+            "node": "Read Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Decision": {
+      "main": [
+        [
+          {
+            "node": "Route Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Decision": {
+      "main": [
+        [
+          {
+            "node": "Send Campaign Now",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Schedule Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Delete Draft Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Draft Campaign": {
+      "main": [
+        [
+          {
+            "node": "Delete Draft Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Draft Template": {
+      "main": [
+        [
+          {
+            "node": "Prepare Revision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Revision": {
+      "main": [
+        [
+          {
+            "node": "Campaign Strategist Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Campaign Now": {
+      "main": [
+        [
+          {
+            "node": "Report Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Campaign": {
+      "main": [
+        [
+          {
+            "node": "Report Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Outcome": {
+      "main": [
+        [
+          {
+            "node": "Post Outcome to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Lifecycle Email Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Campaign Strategist Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Products": {
+      "ai_tool": [
+        [
+          {
+            "node": "Lifecycle Email Agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Campaign Strategist Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Segment Size": {
+      "ai_tool": [
+        [
+          {
+            "node": "Campaign Strategist Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lifecycle Email Format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Lifecycle Email Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Campaign Format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Campaign Strategist Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
