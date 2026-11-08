@@ -1,0 +1,777 @@
+{
+  "name": "AI Restaurant Email Graphic Generator API",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "restaurant-email-graphic",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "59517151-015f-40e6-9101-caef797675cc",
+      "name": "Graphic Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -900,
+        400
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "graphic-api-key",
+          "name": "Graphic API Key"
+        }
+      },
+      "webhookId": "1c395ed4-4417-4fa5-ad8f-48c9f0609bf8"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "21ecc7d0-8836-4705-bf48-e54fc4c10fbc",
+              "name": "restaurant_name",
+              "value": "Your Restaurant",
+              "type": "string"
+            },
+            {
+              "id": "c714c0b9-f766-4088-bcb2-1ca1924b354b",
+              "name": "cuisine",
+              "value": "modern Italian",
+              "type": "string"
+            },
+            {
+              "id": "e4e8e6d7-d27d-4bcd-999a-0efccc8e1e27",
+              "name": "brand_voice",
+              "value": "Warm and welcoming, like a host who remembers you. Short and specific. No hype words and no ALL CAPS.",
+              "type": "string"
+            },
+            {
+              "id": "9a85804c-b2e5-481e-b193-ca369062737a",
+              "name": "brand_style",
+              "value": "Warm, modern editorial food photography with soft natural light and a shallow depth of field. Clean and uncluttered, with plenty of space for the text.",
+              "type": "string"
+            },
+            {
+              "id": "620fc7b5-fb6b-4520-9847-eda343862f77",
+              "name": "brand_colors",
+              "value": "Deep terracotta (#7c2d12), warm cream (#fdf6ec), and charcoal (#1c1917)",
+              "type": "string"
+            },
+            {
+              "id": "663f3e11-d150-4eba-9996-1762931198e2",
+              "name": "font_style",
+              "value": "An elegant serif for the headline, and a clean bold sans serif for the item names, prices, and button",
+              "type": "string"
+            },
+            {
+              "id": "e7da3efc-a575-46c9-9e7f-19095ec7d5df",
+              "name": "currency",
+              "value": "USD",
+              "type": "string"
+            },
+            {
+              "id": "d170c337-392e-477c-89f2-e6d4a8bc1159",
+              "name": "locale",
+              "value": "en-US",
+              "type": "string"
+            },
+            {
+              "id": "9483881a-1311-466a-affa-e944ffb19410",
+              "name": "timezone",
+              "value": "America/New_York",
+              "type": "string"
+            },
+            {
+              "id": "fc488dde-92a3-405f-aedf-30b7bc1b38e8",
+              "name": "lapsed_after_days",
+              "value": 45,
+              "type": "number"
+            },
+            {
+              "id": "0a8fb0b3-2160-4db5-825c-9c6895e311de",
+              "name": "image_quality",
+              "value": "medium",
+              "type": "string"
+            },
+            {
+              "id": "d1bca75f-716e-4d1f-9fa3-e61fb95ba438",
+              "name": "max_attempts",
+              "value": 3,
+              "type": "number"
+            },
+            {
+              "id": "7fda8cc6-b14d-41a4-b25c-d2d3d468af5d",
+              "name": "on_failed_check",
+              "value": "error",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6cb489c3-964e-4043-b5ef-1166720631c1",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -680,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Checks the API request and turns the guest's purchases, the price list, and their sign-ins into a profile\n// for the Graphic Designer Agent: how often they come, what they order, what it costs today, and whether\n// they have been signing in without ordering.\nconst s = $('Settings').first().json;\nconst body = $('Graphic Request').first().json.body ?? {};\nconst tz = s.timezone;\nconst now = $now.setZone(tz);\nconst errors = [];\n\nconst text = (v, max = 200) => String(v ?? '').replace(/\\s+/g, ' ').trim().slice(0, max);\nconst num = (v) => {\n  const n = typeof v === 'string' ? Number(v.replace(/[^0-9.-]/g, '')) : Number(v);\n  return v === null || v === undefined || v === '' || !Number.isFinite(n) ? null : n;\n};\nconst when = (v) => {\n  const d = typeof v === 'number' ? DateTime.fromMillis(v) : DateTime.fromISO(String(v ?? ''), { setZone: true });\n  return d.isValid ? d.setZone(tz) : null;\n};\nconst key = (v) => text(v).toLowerCase();\nconst money = (n) => new Intl.NumberFormat(s.locale || 'en-US', {\n  style: 'currency', currency: s.currency || 'USD', minimumFractionDigits: n % 1 ? 2 : 0,\n}).format(n);\nconst daysAgo = (d) => Math.max(0, Math.floor(now.diff(d, 'days').days));\n\nconst guest = body.guest && typeof body.guest === 'object' ? body.guest : {};\nif (!Array.isArray(body.purchases)) errors.push('purchases must be an array (send [] for a guest who has not ordered yet)');\nif (!Array.isArray(body.prices) || !body.prices.length) errors.push('prices must be a non-empty array of menu items, each with name and price');\nif (body.sign_ins !== undefined && !Array.isArray(body.sign_ins)) errors.push('sign_ins must be an array');\n\n// ---------- Price list (only items that are available today)\nconst menu = [];\n(Array.isArray(body.prices) ? body.prices : []).slice(0, 500).forEach((p, i) => {\n  const name = text(p?.name, 80);\n  const price = num(p?.price);\n  if (!name || price === null || price < 0) {\n    errors.push(`prices[${i}] needs a name and a price`);\n    return;\n  }\n  if (p.available === false || menu.some((m) => key(m.name) === key(name))) return;\n  menu.push({ name, price, category: text(p.category, 60), description: text(p.description, 160), is_new: p.is_new === true });\n});\nconst onMenu = new Map(menu.map((m) => [key(m.name), m]));\n\n// ---------- Purchases\nconst visits = [];\n(Array.isArray(body.purchases) ? body.purchases : []).slice(0, 1000).forEach((o, i) => {\n  const d = when(o?.date ?? o?.purchased_at ?? o?.created_at);\n  if (!d) {\n    errors.push(`purchases[${i}] needs a date in ISO 8601 format`);\n    return;\n  }\n  const items = (Array.isArray(o.items) ? o.items : [])\n    .map((li) => ({ name: text(li?.name, 80), quantity: num(li?.quantity) ?? 1, price: num(li?.price) }))\n    .filter((li) => li.name);\n  const total = num(o.total) ?? items.reduce((sum, li) => sum + (li.price ?? 0) * li.quantity, 0);\n  visits.push({ d, items, total, type: text(o.order_type ?? o.type, 30).toLowerCase() || 'unknown' });\n});\nvisits.sort((a, b) => a.d - b.d);\n\n// ---------- Sign-ins\nconst signIns = (Array.isArray(body.sign_ins) ? body.sign_ins : []).slice(0, 2000)\n  .map((x) => ({ d: when(typeof x === 'object' && x !== null ? x.date ?? x.at ?? x.signed_in_at : x), channel: text(x?.channel, 30).toLowerCase() || 'unknown' }))\n  .filter((x) => x.d)\n  .sort((a, b) => a.d - b.d);\n\nif (errors.length) {\n  return [{ json: { valid: false, errors: errors.slice(0, 10) } }];\n}\n\n// ---------- Visit patterns\nconst daypart = (h) => (h >= 5 && h < 11 ? 'breakfast' : h >= 11 && h < 16 ? 'lunch' : h >= 16 && h < 22 ? 'dinner' : 'late night');\nconst top = (values, n = 1) => {\n  const counts = new Map();\n  values.forEach((v) => counts.set(v, (counts.get(v) ?? 0) + 1));\n  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, n);\n};\nconst days = [...new Set(visits.map((v) => v.d.toISODate()))];\nconst gaps = days.slice(1).map((d, i) => DateTime.fromISO(d).diff(DateTime.fromISO(days[i]), 'days').days).sort((a, b) => a - b);\nconst medianGap = gaps.length ? Math.round(gaps[Math.floor((gaps.length - 1) / 2)]) : null;\nconst last = visits.at(-1) ?? null;\nconst sinceLast = last ? daysAgo(last.d) : null;\nconst totalSpent = visits.reduce((sum, v) => sum + v.total, 0);\n\n// Favorite items, with today's price from the price list\nconst dishes = new Map();\nfor (const v of visits) {\n  for (const li of v.items) {\n    const k = key(li.name);\n    const dish = dishes.get(k) ?? { name: li.name, visits: 0, quantity: 0, last_paid: null };\n    dish.visits += 1;\n    dish.quantity += li.quantity;\n    if (li.price !== null) dish.last_paid = li.price;\n    dishes.set(k, dish);\n  }\n}\nconst favorites = [...dishes.values()].sort((a, b) => b.visits - a.visits || b.quantity - a.quantity).slice(0, 5).map((dish) => {\n  const item = onMenu.get(key(dish.name));\n  return { ...dish, name: item?.name ?? dish.name, on_menu: Boolean(item), current_price: item?.price ?? null };\n});\n\n// Sign-in patterns\nconst lastSignIn = signIns.at(-1) ?? null;\nconst signInsSincePurchase = last ? signIns.filter((x) => x.d > last.d).length : signIns.length;\nconst within = (n) => signIns.filter((x) => daysAgo(x.d) <= n).length;\n\n// Segment\nconst lapsedAfter = Math.max(Number(s.lapsed_after_days) || 45, medianGap ? medianGap * 2 : 0);\nlet segment;\nif (!visits.length) segment = signIns.length ? 'signed_up_never_ordered' : 'new_guest';\nelse if (visits.length === 1 && sinceLast <= 30) segment = 'first_visit_recent';\nelse if (sinceLast >= lapsedAfter) segment = signInsSincePurchase >= 2 ? 'lapsed_but_browsing' : 'lapsed';\nelse if (visits.length >= 4) segment = 'regular';\nelse segment = 'occasional';\nconst SEGMENTS = {\n  new_guest: 'No orders and no sign-ins yet.',\n  signed_up_never_ordered: 'Has an account and signs in, but has never ordered.',\n  first_visit_recent: 'Ordered once, in the last 30 days.',\n  lapsed: `Has not ordered in ${sinceLast} days, longer than usual, and is not signing in either.`,\n  lapsed_but_browsing: `Has not ordered in ${sinceLast} days, but has signed in ${signInsSincePurchase} times since: interested, not buying.`,\n  regular: 'Orders often and recently.',\n  occasional: 'Orders now and then, and is not overdue.',\n};\n\n// Menu items to suggest: not tried yet, in the categories they order from, then new items\nconst tried = new Set(dishes.keys());\nconst favCategories = new Set(favorites.map((f) => onMenu.get(key(f.name))?.category).filter(Boolean));\nconst suggestions = menu\n  .filter((m) => !tried.has(key(m.name)))\n  .sort((a, b) => Number(favCategories.has(b.category)) - Number(favCategories.has(a.category)) || Number(b.is_new) - Number(a.is_new))\n  .slice(0, 8);\n\n// Price list for the prompt: favorites and suggestions first, then the rest, up to 60 items\nconst shown = [];\nfor (const m of [...favorites.map((f) => onMenu.get(key(f.name))).filter(Boolean), ...suggestions, ...menu.filter((x) => x.is_new), ...menu]) {\n  if (!shown.includes(m) && shown.length < 60) shown.push(m);\n}\n\nconst campaign = body.campaign && typeof body.campaign === 'object' ? body.campaign : {};\nconst firstName = text(guest.first_name, 40);\nconst offer = text(campaign.offer, 80);\nconst size = ['landscape', 'square', 'portrait'].includes(campaign.size) ? campaign.size : 'landscape';\n\nconst prompt = [\n  'GUEST',\n  `First name: ${firstName || 'unknown. Do not use a name.'}`,\n  `Segment: ${segment}. ${SEGMENTS[segment]}`,\n  '',\n  'PURCHASES',\n  visits.length\n    ? [\n      `Orders: ${visits.length} (first ${visits[0].d.toISODate()}, last ${last.d.toISODate()}, ${sinceLast} days ago)`,\n      `Usually orders ${top(visits.map((v) => daypart(v.d.hour)))[0][0]} on ${top(visits.map((v) => v.d.toFormat('cccc')), 2).map((x) => x[0]).join(' and ')}, mostly ${top(visits.map((v) => v.type))[0][0]}.`,\n      medianGap ? `Usually orders again every ${medianGap} days.` : 'Not enough orders to know how often they come back.',\n      `Average order: ${money(totalSpent / visits.length)}.`,\n      'Favorite items (name | orders that included it | price today | last price paid):',\n      ...favorites.map((f) => `- ${f.name} | ${f.visits} | ${f.on_menu ? money(f.current_price) : 'no longer on the menu'} | ${f.last_paid !== null ? money(f.last_paid) : 'unknown'}`),\n      'Last 3 orders:',\n      ...visits.slice(-3).reverse().map((v) => `- ${v.d.toFormat('ccc, LLL d')} ${daypart(v.d.hour)}, ${v.type}: ${v.items.map((li) => li.name).join(', ') || 'no items'} (${money(v.total)})`),\n    ].join('\\n')\n    : 'No orders yet.',\n  '',\n  'SIGN-INS',\n  signIns.length\n    ? `${within(30)} in the last 30 days, ${within(90)} in the last 90. Last sign-in ${lastSignIn.d.toISODate()} (${daysAgo(lastSignIn.d)} days ago). ${signInsSincePurchase} since their last order. Channels: ${top(signIns.map((x) => x.channel), 3).map(([c, n]) => `${c} (${n})`).join(', ')}.`\n    : 'No sign-ins.',\n  '',\n  'ITEMS THEY HAVE NOT TRIED (good suggestions)',\n  suggestions.map((m) => `- ${m.name}${m.is_new ? ' (new)' : ''}`).join('\\n') || 'none',\n  '',\n  'PRICE LIST (name | price | category | new). Only these items can appear in the graphic.',\n  shown.map((m) => `- ${m.name} | ${money(m.price)} | ${m.category || '-'}${m.is_new ? ' | new' : ''}`).join('\\n'),\n  '',\n  'CAMPAIGN',\n  `Goal: ${text(campaign.goal, 300) || 'your choice: the message most likely to get this guest to order again soon'}`,\n  `Offer: ${offer || 'none. Do not show or mention any discount or deal.'}`,\n  `Graphic shape: ${size}`,\n  `Today: ${now.toFormat('cccc, LLLL d, yyyy')}`,\n].join('\\n');\n\nreturn [{\n  json: {\n    valid: true,\n    guest_id: text(guest.id, 80),\n    first_name: firstName,\n    segment,\n    offer,\n    size,\n    menu,\n    favorites,\n    stats: {\n      orders: visits.length,\n      days_since_last_order: sinceLast,\n      usual_days_between_orders: medianGap,\n      sign_ins_last_30_days: within(30),\n      sign_ins_since_last_order: signInsSincePurchase,\n    },\n    prompt,\n  },\n}];\n"
+      },
+      "id": "8461806f-d3a6-4095-9246-cc5688f1dbeb",
+      "name": "Read Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d80bd731-6c14-4a95-a608-17e1da38b11b",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b8e35f06-48ed-41dd-9f21-2a31926b5366",
+      "name": "Valid Request?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -240,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'Invalid request', details: $json.errors }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "83628f38-565b-475b-92da-485f91de3bf7",
+      "name": "Respond Invalid Request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -20,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are the art director and email strategist for {{ $('Settings').first().json.restaurant_name }}, a {{ $('Settings').first().json.cuisine }} restaurant. You design one email graphic for one guest, based on their purchase history, today's menu prices, and their sign-in history.\n\nBrand voice: {{ $('Settings').first().json.brand_voice }}\nVisual style: {{ $('Settings').first().json.brand_style }}\n\n## How to decide\n1. Read the guest's segment, favorite items, usual days and times, and sign-ins. Pick the one message most likely to get them to order soon:\n   - lapsed: bring back a favorite they haven't had in a while.\n   - lapsed_but_browsing: they keep signing in but don't order. Make it easy to say yes: a favorite, or a new item, with a clear button.\n   - regular: thank them, or suggest something they haven't tried that fits what they order.\n   - first_visit_recent: invite them back with the item they ordered or one close to it.\n   - signed_up_never_ordered or new_guest: a crowd-pleaser or a new item, and a warm first invitation.\n   - occasional: a favorite, or something new, timed to the day and meal they usually order.\n   If the campaign gives a goal, follow it.\n2. Choose 1 to 3 items from the price list. Copy each name exactly into featured_items.name. You may give a shorter label made only of words from that name.\n3. Write very little text. Image models misspell long text, so every word counts.\n\n## Rules\n- headline: 2 to 6 words, under 40 characters. You may start with the guest's first name if it is known.\n- subline: up to 10 words, or empty.\n- show_prices: true to show today's prices next to the items. The workflow adds the prices from the price list, so never write a price anywhere.\n- offer_badge: only if the campaign has an offer. Up to 5 words that state it exactly, with no new terms. Otherwise empty.\n- cta_text: 1 to 3 words, such as Order now, Book a table, or Reorder.\n- visual_scene: describe the photo: the hero item plated, its setting, and the light. Name only items you featured. No text, signs, or menus in the scene.\n- layout: where the food and the text go, for example the dish on the right and the text on a cream panel on the left.\n- Never invent items, prices, offers, events, or facts about the guest. Never mention how much they spent or how many times they ordered.\n- email_subject: under 50 characters. preview_text: under 90 characters. alt_text: one sentence that says what the graphic shows and says.\n- reasoning: one or two sentences on which data led to this message.",
+          "maxIterations": 4
+        }
+      },
+      "id": "6687db33-d1c5-4d1e-ab23-7d439f780415",
+      "name": "Graphic Designer Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "options": {}
+      },
+      "id": "88c4ef10-75f1-4aeb-bd5c-ec85c973ab8e",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        40,
+        660
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-api",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"angle\": {\n      \"type\": \"string\",\n      \"description\": \"The message, such as bring_back_favorite, try_something_new, thank_you, or first_invite\"\n    },\n    \"reasoning\": {\n      \"type\": \"string\",\n      \"description\": \"One or two sentences on which data led to this message\"\n    },\n    \"headline\": {\n      \"type\": \"string\",\n      \"description\": \"2 to 6 words, under 40 characters\"\n    },\n    \"subline\": {\n      \"type\": \"string\",\n      \"description\": \"Up to 10 words, or empty\"\n    },\n    \"featured_items\": {\n      \"type\": \"array\",\n      \"description\": \"1 to 3 items from the price list\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"name\": {\n            \"type\": \"string\",\n            \"description\": \"The exact name from the price list\"\n          },\n          \"label\": {\n            \"type\": \"string\",\n            \"description\": \"Optional shorter label, only words from the name\"\n          }\n        },\n        \"required\": [\n          \"name\"\n        ]\n      }\n    },\n    \"show_prices\": {\n      \"type\": \"boolean\",\n      \"description\": \"Whether to show today's prices next to the items\"\n    },\n    \"offer_badge\": {\n      \"type\": \"string\",\n      \"description\": \"Up to 5 words stating the campaign's offer, or empty\"\n    },\n    \"cta_text\": {\n      \"type\": \"string\",\n      \"description\": \"Button text, 1 to 3 words\"\n    },\n    \"visual_scene\": {\n      \"type\": \"string\",\n      \"description\": \"The photo: the hero item, its setting, and the light. No text.\"\n    },\n    \"layout\": {\n      \"type\": \"string\",\n      \"description\": \"Where the food and the text go\"\n    },\n    \"email_subject\": {\n      \"type\": \"string\",\n      \"description\": \"Under 50 characters\"\n    },\n    \"preview_text\": {\n      \"type\": \"string\",\n      \"description\": \"Under 90 characters\"\n    },\n    \"alt_text\": {\n      \"type\": \"string\",\n      \"description\": \"One sentence describing the graphic and its text\"\n    }\n  },\n  \"required\": [\n    \"angle\",\n    \"reasoning\",\n    \"headline\",\n    \"featured_items\",\n    \"show_prices\",\n    \"cta_text\",\n    \"visual_scene\",\n    \"layout\",\n    \"email_subject\",\n    \"preview_text\",\n    \"alt_text\"\n  ]\n}"
+      },
+      "id": "57a21fee-e4f6-44bc-8341-48c32736df45",
+      "name": "Design Brief Format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        200,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Checks the agent's design brief against the price list and writes the image prompt.\n// Prices always come from the price list, never from the AI, and every piece of text is listed\n// so the Text Check can confirm it after the image is made.\nconst s = $('Settings').first().json;\nconst r = $('Read Request').first().json;\nconst b = $json.output ?? {};\n\n// Plain text for the image: double quotes would break the quoted text list in the prompt\nconst clean = (v, max) => String(v ?? '').replace(/[“”\"]/g, \"'\").replace(/\\s+/g, ' ').trim().slice(0, max);\nconst words = (v) => String(v).toLowerCase().match(/[a-z0-9]+/g) ?? [];\nconst money = (n) => new Intl.NumberFormat(s.locale || 'en-US', {\n  style: 'currency', currency: s.currency || 'USD', minimumFractionDigits: n % 1 ? 2 : 0,\n}).format(n);\nconst onMenu = new Map(r.menu.map((m) => [m.name.toLowerCase(), m]));\n\n// Featured items must be on the price list. A shorter label may only use words from the menu name.\nconst items = [];\nfor (const it of Array.isArray(b.featured_items) ? b.featured_items : []) {\n  const m = onMenu.get(String(it?.name ?? '').trim().toLowerCase());\n  if (!m || items.some((x) => x.name === m.name)) continue;\n  const menuWords = new Set(words(m.name));\n  let label = clean(it.label, 30);\n  if (!label || !words(label).length || !words(label).every((w) => menuWords.has(w))) label = m.name;\n  items.push({ name: m.name, label, price: m.price, price_text: money(m.price) });\n  if (items.length === 3) break;\n}\nif (!items.length) {\n  const fallback = r.favorites.map((f) => onMenu.get(f.name.toLowerCase())).find(Boolean) ?? r.menu[0];\n  items.push({ name: fallback.name, label: fallback.name, price: fallback.price, price_text: money(fallback.price) });\n}\n\nconst showPrices = b.show_prices !== false;\nconst headline = clean(b.headline, 40) || clean(`${r.first_name ? `${r.first_name}, ` : ''}we saved you a seat`, 40);\nconst subline = clean(b.subline, 70);\nconst shorten = (v, max) => {\n  const t = clean(v, 500);\n  return t.length <= max ? t : t.slice(0, max + 1).replace(/\\s+\\S*$/, '');\n};\nconst offerBadge = r.offer ? clean(b.offer_badge, 32) || shorten(r.offer, 32) : '';\nconst cta = clean(b.cta_text, 22) || 'Order now';\n\n// Every piece of text, in reading order\nconst expected = [{ role: 'headline', text: headline }];\nif (subline) expected.push({ role: 'subline', text: subline });\nfor (const it of items) {\n  expected.push({ role: 'item name', text: it.label });\n  if (showPrices) expected.push({ role: `price of ${it.label}`, text: it.price_text });\n}\nif (offerBadge) expected.push({ role: 'offer badge', text: offerBadge });\nexpected.push({ role: 'button', text: cta });\n\nconst describe = (e) => ({\n  headline: `Headline, the largest text: \"${e.text}\"`,\n  subline: `Subline, smaller, under the headline: \"${e.text}\"`,\n  'item name': `Item name: \"${e.text}\"`,\n  'offer badge': `Offer badge, in a small ribbon or tag: \"${e.text}\"`,\n  button: `Button text, on a solid rounded button: \"${e.text}\"`,\n}[e.role] ?? `Price, right next to its item: \"${e.text}\"`);\n\nconst SIZES = { landscape: '1536x1024', square: '1024x1024', portrait: '1024x1536' };\nconst imagePrompt = [\n  `A polished ${r.size} email header graphic for ${s.restaurant_name}, a ${s.cuisine} restaurant.`,\n  `Scene: ${clean(b.visual_scene, 700) || `An appetizing, close-up photo of ${items[0].name}.`}`,\n  `Layout: ${clean(b.layout, 400) || 'The food on one side, the text on a clean solid panel on the other side.'}`,\n  `Style: ${s.brand_style}`,\n  `Colors: ${s.brand_colors}`,\n  `Typography: ${s.font_style}`,\n  '',\n  'TEXT IN THE IMAGE',\n  'Show only the text below. Show each piece once, spelled exactly as written, with the same capitalization, numbers, and punctuation:',\n  ...expected.map((e, i) => `${i + 1}. ${describe(e)}`),\n  '',\n  'RULES',\n  '- No other words, letters, numbers, prices, logos, signs, menus, labels, or watermarks anywhere, including on plates, glasses, or anything else in the scene.',\n  '- Each price sits right next to its item, exactly as written.',\n  '- All text is large, high-contrast, and well inside the edges, with at least a 6% margin on every side, so nothing is cut off on a phone.',\n].join('\\n');\n\nconst checkPrompt = [\n  'This email graphic should show exactly this text, and nothing else:',\n  ...expected.map((e, i) => `${i + 1}. ${e.role}: \"${e.text}\"`),\n  '',\n  'Read every piece of text in the image exactly as it appears, letter by letter. Then report any expected text that is missing or',\n  'spelled differently, any extra text (including small or garbled text on objects in the scene), any text cut off at an edge, and any text too hard to read.',\n].join('\\n');\n\nreturn [{\n  json: {\n    image_prompt: imagePrompt,\n    base_prompt: imagePrompt,\n    size: SIZES[r.size],\n    check_prompt: checkPrompt,\n    expected,\n    items,\n    show_prices: showPrices,\n    brief: {\n      angle: clean(b.angle, 40),\n      reasoning: clean(b.reasoning, 400),\n      headline,\n      email_subject: clean(b.email_subject, 80),\n      preview_text: clean(b.preview_text, 120),\n      alt_text: clean(b.alt_text, 200) || `${headline}. ${items.map((it) => it.label).join(', ')}.`,\n    },\n  },\n}];\n"
+      },
+      "id": "d6a8a7cc-2da2-42d9-ab95-dd7a4f5f12fa",
+      "name": "Build Image Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "generate",
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-image-1",
+          "cachedResultName": "GPT-IMAGE-1"
+        },
+        "prompt": "={{ $json.image_prompt }}",
+        "options": {
+          "quality": "={{ $('Settings').first().json.image_quality }}",
+          "size": "={{ $json.size }}"
+        }
+      },
+      "id": "3d047bf6-1b7c-45bb-ae2a-8e53e4780910",
+      "name": "Generate Graphic",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        560,
+        400
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-api",
+          "name": "OpenAI"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'The image could not be generated', details: String($json.error?.message ?? $json.error ?? 'unknown error') }) }}",
+        "options": {
+          "responseCode": 502
+        }
+      },
+      "id": "3679a3ec-88da-4115-b9c7-888a9f0caa98",
+      "name": "Respond Image Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        800,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Build Image Prompt').first().json.check_prompt }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "type": "SystemMessagePromptTemplate",
+              "message": "You check the text in marketing images before they are emailed to customers. Read every piece of text in the image exactly as it appears, letter by letter and number by number, including small text on objects in the scene. Never correct spelling or fill in what the text should say. Report only real problems: missing text, misspelled or garbled text, extra text, text cut off at an edge, or text too small or low-contrast to read on a phone."
+            },
+            {
+              "type": "HumanMessagePromptTemplate",
+              "messageType": "imageBinary",
+              "binaryImageDataKey": "data",
+              "imageDetail": "high"
+            }
+          ]
+        }
+      },
+      "id": "ebd39cb2-4c0b-4ae4-a5b6-0106c61c21b4",
+      "name": "Text Check",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        800,
+        400
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"text_found\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"Every piece of text in the image, exactly as it appears\"\n    },\n    \"issues\": {\n      \"type\": \"array\",\n      \"description\": \"Real problems only, or an empty list\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"type\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"missing\",\n              \"misspelled\",\n              \"extra_text\",\n              \"cut_off\",\n              \"unreadable\"\n            ]\n          },\n          \"text\": {\n            \"type\": \"string\",\n            \"description\": \"The text and what is wrong with it\"\n          }\n        },\n        \"required\": [\n          \"type\",\n          \"text\"\n        ]\n      }\n    }\n  },\n  \"required\": [\n    \"text_found\",\n    \"issues\"\n  ]\n}"
+      },
+      "id": "b88cc46c-a96c-4ec4-9490-e7b429668eb5",
+      "name": "Text Check Format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        900,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compares the text the vision model read in the image with the text that should be there.\n// Passed: returns the image. Problems: makes the image again with the problems called out,\n// up to max_attempts. Still wrong after that: an error, or the image with a warning (Settings: on_failed_check).\nconst s = $('Settings').first().json;\nconst r = $('Read Request').first().json;\nconst built = $('Build Image Prompt').first().json;\nconst image = $('Generate Graphic').first();\nconst attempt = $runIndex + 1;\nconst maxAttempts = Math.min(5, Math.max(1, Number(s.max_attempts) || 3));\nconst check = $json.output ?? null;\n\n// Case, quotes, and punctuation don't count; letters, numbers, and prices must match exactly\nconst norm = (v) => String(v ?? '').toLowerCase()\n  .replace(/[‘’`]/g, \"'\")\n  .replace(/(?<!\\d)[.,]|[.,](?!\\d)/g, ' ')\n  .replace(/[^\\p{L}\\p{N}$€£¥.,%' ]+/gu, ' ')\n  .replace(/\\s+/g, ' ').trim();\nconst symbol = new Intl.NumberFormat(s.locale || 'en-US', { style: 'currency', currency: s.currency || 'USD' })\n  .format(1).replace(/[\\d.,\\s ]/g, '');\nconst escape = (v) => v.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\nconst prices = (v) => [...String(v).matchAll(new RegExp(`${escape(symbol)}\\\\s?(\\\\d{1,5}(?:[.,]\\\\d{1,2})?)`, 'g'))]\n  .map((m) => Number(m[1].replace(',', '.')));\n\nconst problems = [];\nif (!check || !Array.isArray(check.text_found)) {\n  problems.push(`The text check could not read the image: ${String($json.error?.message ?? $json.error ?? 'no answer').slice(0, 200)}`);\n} else {\n  const found = check.text_found.map(String);\n  const all = norm(found.join(' | '));\n  for (const e of built.expected) {\n    if (!all.includes(norm(e.text))) problems.push(`The ${e.role} should read \"${e.text}\" but is missing or spelled differently.`);\n  }\n  const allowed = built.show_prices ? built.items.map((it) => it.price) : [];\n  for (const n of prices(found.join(' '))) {\n    if (!allowed.some((p) => Math.abs(p - n) < 0.005)) problems.push(`The image shows a price that should not be there: ${symbol}${n}.`);\n  }\n  for (const issue of Array.isArray(check.issues) ? check.issues : []) {\n    if (issue?.text) problems.push(`${String(issue.type ?? 'issue').replace(/_/g, ' ')}: ${String(issue.text).slice(0, 200)}`);\n  }\n}\nconst unique = [...new Set(problems)].slice(0, 8);\n\nconst headers = {\n  subject: encodeURIComponent(built.brief.email_subject),\n  preview: encodeURIComponent(built.brief.preview_text),\n  alt: encodeURIComponent(built.brief.alt_text),\n  headline: encodeURIComponent(built.brief.headline),\n  file: `email-graphic-${String(r.guest_id || 'guest').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'guest'}.png`,\n};\n\nif (!unique.length || (attempt >= maxAttempts && s.on_failed_check === 'return_image')) {\n  return [{\n    json: {\n      status: unique.length ? 'unverified' : 'passed',\n      send_image: true,\n      attempts: attempt,\n      problems: unique,\n      headers,\n      segment: r.segment,\n      angle: built.brief.angle,\n    },\n    binary: image.binary,\n  }];\n}\n\nif (attempt < maxAttempts) {\n  return [{\n    json: {\n      status: 'retry',\n      send_image: false,\n      attempts: attempt,\n      problems: unique,\n      size: built.size,\n      image_prompt: `${built.base_prompt}\\n\\nIMPORTANT: An earlier version of this graphic had these text problems. Fix every one:\\n${unique.map((p) => `- ${p}`).join('\\n')}\\nUse fewer, larger letters, and spell every word and price exactly as listed.`,\n    },\n  }];\n}\n\nreturn [{\n  json: {\n    status: 'failed',\n    send_image: false,\n    attempts: attempt,\n    problems: unique,\n    error: `The text in the graphic could not be verified after ${attempt} attempts.`,\n  },\n}];\n"
+      },
+      "id": "50aaa969-f7de-423f-bf88-55eeb7dc06dd",
+      "name": "Review Text Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "764b59b3-7cf8-419d-9c79-92d9c5730e4d",
+                    "leftValue": "={{ $json.send_image }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Send image"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "299f2177-f610-4aff-bef7-4571cfd1161b",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "retry",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Try again"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Text check failed"
+        }
+      },
+      "id": "193f25e9-2850-44c8-9b31-41a50877f24f",
+      "name": "Route Result",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1260,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "binary",
+        "responseDataSource": "set",
+        "inputFieldName": "data",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "image/png"
+              },
+              {
+                "name": "Content-Disposition",
+                "value": "=inline; filename=\"{{ $json.headers.file }}\""
+              },
+              {
+                "name": "X-Email-Subject",
+                "value": "={{ $json.headers.subject }}"
+              },
+              {
+                "name": "X-Preview-Text",
+                "value": "={{ $json.headers.preview }}"
+              },
+              {
+                "name": "X-Alt-Text",
+                "value": "={{ $json.headers.alt }}"
+              },
+              {
+                "name": "X-Headline",
+                "value": "={{ $json.headers.headline }}"
+              },
+              {
+                "name": "X-Segment",
+                "value": "={{ $json.segment }}"
+              },
+              {
+                "name": "X-Text-Check",
+                "value": "={{ $json.status }}"
+              },
+              {
+                "name": "X-Attempts",
+                "value": "={{ String($json.attempts) }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "47f03f74-b4df-421e-b2a7-c5accc3f1e5e",
+      "name": "Respond with Graphic",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1520,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: $json.error, problems: $json.problems, attempts: $json.attempts }) }}",
+        "options": {
+          "responseCode": 422
+        }
+      },
+      "id": "c8995d10-f470-413b-b19a-8b78ea5ccca8",
+      "name": "Respond Text Check Failed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1520,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## AI Restaurant Email Graphic Generator API\n\nSend one guest's purchase history, your menu prices, and their sign-in history to this API. An AI agent picks the message most likely to bring them back, OpenAI's image model makes the graphic, and a vision check reads the text back before the PNG is returned.\n\n### How it works\n1. **Graphic Request** receives the data. **Read Request** builds the guest's profile: how often they order, their favorites at today's prices, and whether they sign in without ordering.\n2. The **Graphic Designer Agent** picks the message, 1 to 3 items, and a few words of text, and describes the photo and layout.\n3. **Build Image Prompt** adds the prices from your price list (never from the AI) and lists every word for the image.\n4. **Generate Graphic** makes the image. **Text Check** reads its text, and **Review Text Check** makes it again (up to 3 times) if anything is wrong.\n5. **Respond with Graphic** returns the PNG, with the email subject, preview text, and alt text in headers.\n\n### Setup\n1. Credentials: **OpenAI** and **Graphic API Key** (Header Auth, for example `X-API-Key` and a long random value).\n2. Fill in **Settings** with your restaurant, brand style, colors, and currency.\n3. Publish, then POST to `/webhook/restaurant-email-graphic`.\n\n### Request\n```json\n{\n  \"guest\": { \"id\": \"G-1042\", \"first_name\": \"Maria\" },\n  \"purchases\": [{ \"date\": \"2026-09-17T19:20:00-04:00\",\n    \"order_type\": \"dine-in\", \"total\": 82.5,\n    \"items\": [{ \"name\": \"Braised Short Rib\", \"quantity\": 1, \"price\": 32 }] }],\n  \"prices\": [{ \"name\": \"Braised Short Rib\", \"price\": 34, \"category\": \"Entrees\" }],\n  \"sign_ins\": [{ \"date\": \"2026-11-06T12:04:00-05:00\", \"channel\": \"app\" }],\n  \"campaign\": { \"goal\": \"\", \"offer\": \"\", \"size\": \"landscape\" }\n}\n```",
+        "height": 1000,
+        "width": 680,
+        "color": 5
+      },
+      "id": "7df70be8-4b29-4f6e-9362-74e4644c7ad5",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1640,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Receive the guest's data\n**Graphic Request** is a POST webhook protected by an API key header. **Settings** holds your brand: name, cuisine, voice, photo style, colors, fonts, and currency.\n\n**Read Request** checks the request and builds the profile: orders, usual day and meal, dine-in or takeout, favorites with today's price and the last price paid, sign-ins in the last 30 and 90 days, and sign-ins since the last order. It sorts the guest into a segment, such as regular, lapsed, or lapsed but browsing. A bad request gets a `400` with the reasons.",
+        "height": 700,
+        "width": 1000,
+        "color": 7
+      },
+      "id": "4168fe77-a0e6-4248-bcd1-2f9d137fe045",
+      "name": "Section 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -960,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. The agent designs the graphic\nThe **Graphic Designer Agent** reads the profile and picks one message, 1 to 3 items from your price list, a short headline, an optional subline and offer badge, and the button text. It describes the photo and the layout, and writes the email subject, preview text, and alt text.\n\n**Build Image Prompt** keeps only items on your price list, adds their prices from the list, and writes the image prompt with every word the image should show.",
+        "height": 700,
+        "width": 520,
+        "color": 4
+      },
+      "id": "d7ae6a92-2bca-43a6-b495-ad32435f6fb8",
+      "name": "Section 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Make the graphic and check its text\n**Generate Graphic** makes the image with `gpt-image-1` (1536x1024 for landscape, Settings: image_quality).\n\n**Text Check** reads every piece of text in the image with a vision model. **Review Text Check** compares it with the expected text and prices. If anything is missing, misspelled, extra, or cut off, it makes the image again with those problems called out, up to `max_attempts` (3).\n\nIf the image model fails, **Respond Image Error** returns a `502`.",
+        "height": 700,
+        "width": 940,
+        "color": 6
+      },
+      "id": "52167ddc-59ff-49f4-92b2-0c2148660034",
+      "name": "Section 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        480,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Respond\n**Respond with Graphic** returns the PNG. The headers carry the email subject, preview text, alt text, and headline (URL-encoded), the guest's segment, and the result of the text check.\n\nIf the text still isn't right after the last attempt, **Respond Text Check Failed** returns a `422` with the problems. Set `on_failed_check` to `return_image` to get the last image instead, with `X-Text-Check: unverified`.",
+        "height": 640,
+        "width": 520,
+        "color": 3
+      },
+      "id": "5a28052b-8145-45ad-8afa-5a450da99523",
+      "name": "Section 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        120
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Graphic Request": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Read Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Request": {
+      "main": [
+        [
+          {
+            "node": "Valid Request?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Request?": {
+      "main": [
+        [
+          {
+            "node": "Graphic Designer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Invalid Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Graphic Designer Agent": {
+      "main": [
+        [
+          {
+            "node": "Build Image Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Image Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Graphic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Graphic": {
+      "main": [
+        [
+          {
+            "node": "Text Check",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Image Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Check": {
+      "main": [
+        [
+          {
+            "node": "Review Text Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review Text Check": {
+      "main": [
+        [
+          {
+            "node": "Route Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Result": {
+      "main": [
+        [
+          {
+            "node": "Respond with Graphic",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate Graphic",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Text Check Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Graphic Designer Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Text Check",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Design Brief Format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Graphic Designer Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Check Format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Text Check",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
