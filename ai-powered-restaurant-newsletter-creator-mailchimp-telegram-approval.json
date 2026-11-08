@@ -1,0 +1,1578 @@
+{
+  "name": "AI-Powered Restaurant Newsletter Creator with Mailchimp and Telegram Approval",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                2
+              ],
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "id": "ac54d0c7-5645-4616-844d-c6262f312d14",
+      "name": "Newsletter Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -900,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2d67de9c-6864-4c90-8815-4dc67ff2dda6",
+              "name": "restaurant_name",
+              "value": "Your Restaurant",
+              "type": "string"
+            },
+            {
+              "id": "bc9a57c5-8058-4c66-b63f-84cf1ab0991c",
+              "name": "cuisine",
+              "value": "modern Italian",
+              "type": "string"
+            },
+            {
+              "id": "e3a9e5bd-5253-44c9-bfc3-4391c0877074",
+              "name": "city",
+              "value": "Richmond, Virginia",
+              "type": "string"
+            },
+            {
+              "id": "7755903f-43b4-4437-825d-5bac9cfeb7df",
+              "name": "website_url",
+              "value": "https://yourrestaurant.com",
+              "type": "string"
+            },
+            {
+              "id": "d9f7939b-92c7-4caa-994a-c607d1ca8c07",
+              "name": "reservation_url",
+              "value": "https://yourrestaurant.com/reservations",
+              "type": "string"
+            },
+            {
+              "id": "c80be875-c6a4-4e85-a8e4-fbbbf8ab4bb9",
+              "name": "order_online_url",
+              "value": "https://yourrestaurant.com/order",
+              "type": "string"
+            },
+            {
+              "id": "908c0665-ea56-415f-b6df-9f022bd78054",
+              "name": "about_restaurant",
+              "value": "Family-owned neighborhood spot since 2014. Fresh pasta made every morning, a wood-fired oven, and a wine list focused on small Italian producers. Patio seating from April to October.",
+              "type": "string"
+            },
+            {
+              "id": "a32d24bf-6377-43dd-8694-527cd368422a",
+              "name": "menu_highlights",
+              "value": "Cacio e pepe; wild mushroom tagliatelle; wood-fired Margherita pizza; braised short rib with polenta; tiramisu; Negroni flight; Sunday family-style supper",
+              "type": "string"
+            },
+            {
+              "id": "47c1ba9f-055a-42da-9787-cc250c38bcce",
+              "name": "brand_voice",
+              "value": "Warm, a little playful, and proud of the food. Short paragraphs. Talk to guests like regulars. No hype words and no ALL CAPS.",
+              "type": "string"
+            },
+            {
+              "id": "2f36a0d9-aec8-4804-bcea-f900055fc9ad",
+              "name": "timezone",
+              "value": "America/New_York",
+              "type": "string"
+            },
+            {
+              "id": "c9190dcd-eb28-44a0-b144-f8fa56806d05",
+              "name": "section_count",
+              "value": 4,
+              "type": "number"
+            },
+            {
+              "id": "a71a4a12-22c6-4eeb-b105-7d62206e5d2f",
+              "name": "telegram_chat_id",
+              "value": "123456789",
+              "type": "string"
+            },
+            {
+              "id": "886fd6cd-f005-4dc7-950a-dc83450cb3a5",
+              "name": "mailchimp_server",
+              "value": "us21",
+              "type": "string"
+            },
+            {
+              "id": "c95b0256-738d-4d3c-8ed7-fe0ed35b1261",
+              "name": "mailchimp_list_id",
+              "value": "YOUR_AUDIENCE_ID",
+              "type": "string"
+            },
+            {
+              "id": "7de04deb-ccc7-4418-80a8-c44917e2430a",
+              "name": "mailchimp_segment_id",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "94d74e34-fb21-41e8-8176-338206963019",
+              "name": "from_name",
+              "value": "Your Restaurant",
+              "type": "string"
+            },
+            {
+              "id": "8011ec16-7293-4465-8f81-035c13eb7f79",
+              "name": "reply_to",
+              "value": "hello@yourrestaurant.com",
+              "type": "string"
+            },
+            {
+              "id": "46811a7c-c8b0-423d-941c-3ec915615e1a",
+              "name": "approver_email",
+              "value": "you@yourrestaurant.com",
+              "type": "string"
+            },
+            {
+              "id": "261cc65b-4b28-49fb-9158-e89abd6966e2",
+              "name": "logo_url",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "fc25e44d-1f22-4e9c-ba81-d0bd89524de0",
+              "name": "brand_color",
+              "value": "#7c2d12",
+              "type": "string"
+            },
+            {
+              "id": "8300aac6-9222-4342-b337-c6e34d52b420",
+              "name": "max_revisions",
+              "value": 3,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7f58fde2-ed08-4f79-814c-e0164134f5f3",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -680,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "={{ $json.telegram_chat_id }}",
+        "message": "=*Time to plan the next {{ $json.restaurant_name.replace(/[_*`\\[\\]]/g, '') }} newsletter*\n\nTap the button and give me a topic, like weekend specials, the new cocktail menu, or healthy eating. Add anything you want featured. I'll research it, write the newsletter, and send you a draft to approve.",
+        "responseType": "customForm",
+        "defineForm": "fields",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Newsletter topic",
+              "fieldType": "text",
+              "requiredField": true,
+              "placeholder": "Our new fall cocktail menu"
+            },
+            {
+              "fieldLabel": "Anything to feature",
+              "fieldType": "textarea",
+              "placeholder": "New dishes, specials, events, or news to include, with dates and prices"
+            },
+            {
+              "fieldLabel": "Offer to include",
+              "fieldType": "text",
+              "placeholder": "Half-price bottles of wine on Wednesdays in November"
+            },
+            {
+              "fieldLabel": "Notes for the writer",
+              "fieldType": "textarea",
+              "placeholder": "Tone, who it's for, or anything to avoid"
+            }
+          ]
+        },
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "limitType": "afterTimeInterval",
+              "resumeAmount": 48,
+              "resumeUnit": "hours"
+            }
+          },
+          "appendAttribution": false,
+          "messageButtonLabel": "Choose the topic",
+          "responseFormTitle": "Next newsletter",
+          "responseFormDescription": "Give the AI a topic. It researches it, writes each section in your voice, and sends you a draft in Telegram.",
+          "responseFormButtonLabel": "Start writing"
+        }
+      },
+      "id": "238b3ea8-dd7c-4f14-b444-27deecbdca57",
+      "name": "Ask for Topic",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -460,
+        400
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot",
+          "name": "Telegram Bot"
+        }
+      },
+      "webhookId": "c4b70e64-ba25-4aa7-9caa-a1b23c66fc84"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reads the topic form from Telegram. If nobody answered before the time limit, has_topic is false.\n// Telegram returns form answers by field label, so keep these labels in step with the \"Ask for Topic\" form.\nconst LABELS = {\n  topic: 'Newsletter topic',\n  feature: 'Anything to feature',\n  offer: 'Offer to include',\n  notes: 'Notes for the writer',\n};\nconst s = $('Settings').first().json;\nconst answers = $json.data ?? {};\nconst read = (key, max) => {\n  const value = answers[LABELS[key]] ?? answers[key];\n  return value === undefined || value === null ? '' : String(value).replace(/\\s+\\n/g, '\\n').trim().slice(0, max);\n};\n\nconst now = $now.setZone(s.timezone);\nconst topic = read('topic', 300);\n\nreturn [{\n  json: {\n    has_topic: Boolean(topic),\n    topic,\n    feature: read('feature', 2000),\n    offer: read('offer', 255),\n    notes: read('notes', 1500),\n    today: now.toFormat('cccc, LLLL d, yyyy'),\n    date: now.toFormat('yyyy-MM-dd'),\n  },\n}];\n"
+      },
+      "id": "13e06e1a-97ab-43e3-bb0f-fe7c691a783a",
+      "name": "Read Topic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c6e1498e-17a1-430b-9c59-0c5f05470160",
+              "leftValue": "={{ $json.has_topic }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ecdcc50a-3bb2-4b5e-9c7b-28926f4063ab",
+      "name": "Got a Topic?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -20,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Settings').first().json.telegram_chat_id }}",
+        "text": "No newsletter topic came in within 48 hours, so there is no newsletter this time. I'll ask again at the next scheduled run.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "8e0c9c39-b1b2-4b59-a0e2-3ae14d084235",
+      "name": "No Topic Received",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        640
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot",
+          "name": "Telegram Bot"
+        }
+      },
+      "webhookId": "8942e5f8-0651-464b-b30d-f6788263c039"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Research this newsletter topic for {{ $('Settings').first().json.restaurant_name }}.\n\nTopic: {{ $json.topic }}\nThe owner wants to feature: {{ $json.feature || 'nothing specific' }}\nNotes from the owner: {{ $json.notes || 'none' }}\nToday: {{ $json.today }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You research topics for a restaurant's email newsletter.\n\n{{ $('Settings').first().json.restaurant_name }} is a {{ $('Settings').first().json.cuisine }} restaurant in {{ $('Settings').first().json.city }} ({{ $('Settings').first().json.website_url }}).\nAbout the restaurant: {{ $('Settings').first().json.about_restaurant }}\n\nFind current, interesting, true information about the topic that the restaurant's guests would enjoy reading and that connects to what the restaurant serves.\n\n## How to work\n1. Call Tavily_Search 3 to 6 times with different angles: food and dining trends around the topic, the season, local events or news in {{ $('Settings').first().json.city }} that relate to it, and what diners care about. Use the news topic for recent news and local events, and general for everything else.\n2. Keep only facts stated in the search results, each with the URL of the result it came from.\n3. Prefer recent, reputable sources: food and drink publications, local news, and industry reports. Skip other restaurants' promotions.\n\n## Rules\n- Never invent statistics, quotes, events, or dates. If the results don't support a fact, leave it out.\n- findings: 4 to 8. Each is one sentence with a fact a newsletter could use, why it matters to the restaurant's guests, and the source title and URL.\n- angles: 2 to 4 ideas for how the restaurant could write about the topic.\n- hooks: seasonal or local hooks, such as a holiday, an event, or what is in season this month. Give dates only if the results do.\n- summary: 2 or 3 sentences.",
+          "maxIterations": 10
+        }
+      },
+      "id": "a9fd8181-3a0b-4af3-bb63-35159c4d22ed",
+      "name": "Research Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        240,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "options": {}
+      },
+      "id": "ae1a4cef-5ddb-4612-8c61-b10034b5c308",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        160,
+        660
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-api",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"summary\": {\n      \"type\": \"string\",\n      \"description\": \"2 or 3 sentences\"\n    },\n    \"findings\": {\n      \"type\": \"array\",\n      \"description\": \"4 to 8 facts from the search results\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"fact\": {\n            \"type\": \"string\",\n            \"description\": \"One sentence with a fact a newsletter could use\"\n          },\n          \"why_it_matters\": {\n            \"type\": \"string\",\n            \"description\": \"Why it matters to the restaurant's guests\"\n          },\n          \"source_title\": {\n            \"type\": \"string\",\n            \"description\": \"Title of the search result\"\n          },\n          \"source_url\": {\n            \"type\": \"string\",\n            \"description\": \"URL of the search result\"\n          }\n        },\n        \"required\": [\n          \"fact\",\n          \"why_it_matters\",\n          \"source_title\",\n          \"source_url\"\n        ]\n      }\n    },\n    \"angles\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"2 to 4 ideas for how to write about the topic\"\n    },\n    \"hooks\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"Seasonal or local hooks\"\n    }\n  },\n  \"required\": [\n    \"summary\",\n    \"findings\",\n    \"angles\"\n  ]\n}"
+      },
+      "id": "e930ddd4-9709-48f7-87d3-450a519d5260",
+      "name": "Research Format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        320,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Searches the web with Tavily. Send a search query, and the topic: news for recent news and local events, general for everything else. Returns a short answer and up to 5 results, each with title, url, content (the relevant text from the page), and published_date for news.",
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: $fromAI('query', 'The search query', 'string'), topic: String($fromAI('topic', 'news for recent news and local events, general for everything else', 'string')).toLowerCase() === 'news' ? 'news' : 'general', search_depth: 'basic', max_results: 5, include_answer: 'basic' }) }}",
+        "options": {}
+      },
+      "id": "c75775e5-3fb2-400a-9bcd-1e9c43fc7a3b",
+      "name": "Tavily Search",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        480,
+        660
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tavily-api",
+          "name": "Tavily API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Numbers the research findings and writes the planner's brief: the owner's request plus the research.\nconst s = $('Settings').first().json;\nconst t = $('Read Topic').first().json;\nconst r = $json.output ?? {};\nconst clean = (v, max = 600) => String(v ?? '').replace(/\\s+/g, ' ').trim().slice(0, max);\nconst list = (v) => (Array.isArray(v) ? v : []).map((x) => clean(x, 300)).filter(Boolean);\n\nconst findings = (Array.isArray(r.findings) ? r.findings : [])\n  .filter((f) => f && clean(f.fact))\n  .slice(0, 12)\n  .map((f) => ({\n    fact: clean(f.fact),\n    why_it_matters: clean(f.why_it_matters, 300),\n    source_title: clean(f.source_title, 150),\n    source_url: /^https?:\\/\\//.test(String(f.source_url ?? '')) ? String(f.source_url).trim() : '',\n  }));\nconst sectionCount = Math.min(6, Math.max(2, Number(s.section_count) || 4));\n\nconst prompt = [\n  'NEWSLETTER REQUEST',\n  `Topic: ${t.topic}`,\n  `The owner wants to feature: ${t.feature || 'nothing specific'}`,\n  `Offer: ${t.offer ? `${t.offer} (the email shows it in its own box)` : 'none. Do not mention any discount or deal.'}`,\n  `Notes from the owner: ${t.notes || 'none'}`,\n  `Today: ${t.today}`,\n  `Sections to plan: ${sectionCount}`,\n  '',\n  'RESEARCH SUMMARY',\n  clean(r.summary, 1000) || 'No summary.',\n  '',\n  'RESEARCH FINDINGS (number | fact | why it matters | source)',\n  findings.length\n    ? findings.map((f, i) => `${i + 1} | ${f.fact} | ${f.why_it_matters} | ${f.source_title} ${f.source_url}`.trim()).join('\\n')\n    : 'No findings. Plan the issue around the restaurant and the owner\\'s request.',\n  '',\n  'ANGLES THE RESEARCHER SUGGESTS',\n  list(r.angles).map((a) => `- ${a}`).join('\\n') || 'none',\n  '',\n  'SEASONAL OR LOCAL HOOKS',\n  list(r.hooks).map((h) => `- ${h}`).join('\\n') || 'none',\n].join('\\n');\n\nreturn [{ json: { prompt, findings, section_count: sectionCount, research_summary: clean(r.summary, 1000) } }];\n"
+      },
+      "id": "31cc95cc-9103-4be0-97e4-35c84ce76aaa",
+      "name": "Build Planning Brief",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "type": "SystemMessagePromptTemplate",
+              "message": "=You are the editor of a restaurant's email newsletter. You plan one issue at a time from the owner's request and fresh research.\n\n{{ $('Settings').first().json.restaurant_name }} is a {{ $('Settings').first().json.cuisine }} restaurant in {{ $('Settings').first().json.city }} ({{ $('Settings').first().json.website_url }}).\nAbout the restaurant: {{ $('Settings').first().json.about_restaurant }}\nMenu highlights (the only dishes and drinks you may name, besides what the owner asks to feature): {{ $('Settings').first().json.menu_highlights }}\nBrand voice: {{ $('Settings').first().json.brand_voice }}\nLinks the button can use: reserve = {{ $('Settings').first().json.reservation_url || 'none' }}, order = {{ $('Settings').first().json.order_online_url || 'none' }}, website = {{ $('Settings').first().json.website_url }}.\n\n## How to plan\n- Plan the number of sections the request asks for. If the owner gave something to feature, it is what the restaurant wants to promote: give it a section, usually the first.\n- Mix the sections: at least one about the restaurant itself (a dish, a drink, the team, or the feature) and at least one that shares something interesting from the research, tied back to the restaurant.\n- For each section give a title (under 50 characters), the angle in one sentence, 2 to 4 key points, the numbers of the research findings it should use (each finding at most once), and the exact names of any menu items or features it can mention.\n- subject: under 50 characters, specific and inviting. No ALL CAPS, at most one emoji. subject_alternatives: 2 other options.\n- preview_text: under 90 characters, adding to the subject. headline: under 60 characters.\n- intro: 2 or 3 sentences that set up the issue. Do not start with a greeting; the email already says hi with their first name.\n- cta_link: reserve, order, or website, whichever fits the issue and exists. cta_text: 2 to 4 words.\n- closing: 1 or 2 sentences. The email adds the sign-off.\n- The email shows the offer, if there is one, in its own box. Never make up a discount or deal.\n- Never invent facts. Statistics, trends, and news come only from the research or your searches. Restaurant details (dishes, drinks, prices, events, dates, hours, offers) come only from the restaurant details above and the owner's request.\n- Plain text only: no HTML, markdown, curly braces, or *| |* characters.\n"
+            }
+          ]
+        }
+      },
+      "id": "46d9ff30-b75e-46df-a7de-f4d136e1a538",
+      "name": "Newsletter Planner",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        780,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-5-5",
+          "cachedResultName": "Claude Sonnet 5.5"
+        },
+        "options": {
+          "maxTokensToSample": 8000
+        }
+      },
+      "id": "bfc8a8fb-a4bf-4b56-8f1e-59950e9ebcb1",
+      "name": "Claude Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.5,
+      "position": [
+        1000,
+        660
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "anthropic-api",
+          "name": "Anthropic"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"subject\": {\n      \"type\": \"string\",\n      \"description\": \"Subject line, under 50 characters\"\n    },\n    \"subject_alternatives\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"2 other subject lines\"\n    },\n    \"preview_text\": {\n      \"type\": \"string\",\n      \"description\": \"Preview text, under 90 characters\"\n    },\n    \"headline\": {\n      \"type\": \"string\",\n      \"description\": \"Headline, under 60 characters\"\n    },\n    \"intro\": {\n      \"type\": \"string\",\n      \"description\": \"2 or 3 sentences, no greeting\"\n    },\n    \"sections\": {\n      \"type\": \"array\",\n      \"description\": \"The sections, in order\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"title\": {\n            \"type\": \"string\",\n            \"description\": \"Under 50 characters\"\n          },\n          \"angle\": {\n            \"type\": \"string\",\n            \"description\": \"What the section says, in one sentence\"\n          },\n          \"key_points\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"string\"\n            },\n            \"description\": \"2 to 4 key points\"\n          },\n          \"finding_numbers\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"integer\"\n            },\n            \"description\": \"Numbers of the research findings to use\"\n          },\n          \"mention_items\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"string\"\n            },\n            \"description\": \"Exact names of menu items or features to mention\"\n          }\n        },\n        \"required\": [\n          \"title\",\n          \"angle\",\n          \"key_points\",\n          \"finding_numbers\",\n          \"mention_items\"\n        ]\n      }\n    },\n    \"cta_link\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"reserve\",\n        \"order\",\n        \"website\"\n      ],\n      \"description\": \"Where the button goes\"\n    },\n    \"cta_text\": {\n      \"type\": \"string\",\n      \"description\": \"Button text, 2 to 4 words\"\n    },\n    \"closing\": {\n      \"type\": \"string\",\n      \"description\": \"1 or 2 sentences\"\n    }\n  },\n  \"required\": [\n    \"subject\",\n    \"subject_alternatives\",\n    \"preview_text\",\n    \"headline\",\n    \"intro\",\n    \"sections\",\n    \"cta_link\",\n    \"cta_text\",\n    \"closing\"\n  ]\n}"
+      },
+      "id": "4d0f9d05-3740-4eac-8c9b-5b421bdaac3f",
+      "name": "Plan Format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        840,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns the plan into one item per section for the Section Writer Agent, with the research findings it should use.\nconst t = $('Read Topic').first().json;\nconst brief = $('Build Planning Brief').first().json;\nconst plan = $json.output ?? {};\nconst findings = brief.findings ?? [];\nconst clean = (v, max = 400) => String(v ?? '').replace(/\\s+/g, ' ').trim().slice(0, max);\nconst list = (v, max = 6) => (Array.isArray(v) ? v : []).map((x) => clean(x, 200)).filter(Boolean).slice(0, max);\n\nconst sections = (Array.isArray(plan.sections) ? plan.sections : []).filter((x) => x && clean(x.title)).slice(0, 6);\nif (!sections.length) throw new Error('The planner returned no sections. Run the workflow again.');\nconst outline = sections.map((x, i) => `${i + 1}. ${clean(x.title, 80)}`).join('\\n');\n\nreturn sections.map((section, i) => {\n  const numbers = [...new Set((Array.isArray(section.finding_numbers) ? section.finding_numbers : []).map(Number))]\n    .filter((n) => Number.isInteger(n) && n >= 1 && n <= findings.length);\n  const assigned = numbers.map((n) => findings[n - 1]);\n  const prompt = [\n    `Write section ${i + 1} of ${sections.length} of the newsletter.`,\n    '',\n    `Newsletter topic: ${t.topic}`,\n    `Newsletter headline: ${clean(plan.headline, 120)}`,\n    `The owner wants to feature: ${t.feature || 'nothing specific'}`,\n    `Offer in this issue: ${t.offer || 'none. Do not mention any discount or deal.'}`,\n    `Notes from the owner: ${t.notes || 'none'}`,\n    '',\n    'THIS SECTION',\n    `Title: ${clean(section.title, 80)}`,\n    `What it should say: ${clean(section.angle, 400)}`,\n    `Key points:\\n${list(section.key_points).map((p) => `- ${p}`).join('\\n') || '- your choice'}`,\n    `Menu items or features it can mention: ${list(section.mention_items).join('; ') || 'none'}`,\n    '',\n    'RESEARCH FOR THIS SECTION',\n    assigned.length\n      ? assigned.map((f) => `- ${f.fact} (source: ${f.source_title} ${f.source_url})`.trim()).join('\\n')\n      : 'None assigned. Search with Tavily_Search only if the section needs a fact.',\n    '',\n    'ALL SECTIONS IN THIS ISSUE (do not repeat what the others cover)',\n    outline,\n  ].join('\\n');\n  return {\n    json: {\n      section_number: i + 1,\n      title: clean(section.title, 80),\n      prompt,\n      assigned_sources: assigned.filter((f) => f.source_url).map((f) => ({ title: f.source_title || f.source_url, url: f.source_url })),\n    },\n    pairedItem: { item: 0 },\n  };\n});\n"
+      },
+      "id": "4edd7e48-e447-478f-9905-7d30642a4925",
+      "name": "Split Sections",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You write one section of a restaurant's email newsletter.\n\n{{ $('Settings').first().json.restaurant_name }} is a {{ $('Settings').first().json.cuisine }} restaurant in {{ $('Settings').first().json.city }} ({{ $('Settings').first().json.website_url }}).\nAbout the restaurant: {{ $('Settings').first().json.about_restaurant }}\nMenu highlights (the only dishes and drinks you may name, besides what the owner asks to feature): {{ $('Settings').first().json.menu_highlights }}\nBrand voice: {{ $('Settings').first().json.brand_voice }}\n\n## How to work\n1. Read the section plan and the research assigned to it.\n2. If the section needs one more fact or detail, call Tavily_Search once or twice. Most sections need no searching.\n3. Write the section.\n\n## Rules\n- 80 to 140 words in 1 to 3 short paragraphs, for someone reading on their phone.\n- Keep the planned title, or use a sharper one under 50 characters.\n- Tie the research back to the restaurant: why it matters to someone deciding where to eat tonight.\n- Don't repeat what the other sections cover.\n- No greeting and no sign-off.\n- Never invent facts. Statistics, trends, and news come only from the research or your searches. Restaurant details (dishes, drinks, prices, events, dates, hours, offers) come only from the restaurant details above and the owner's request.\n- Plain text only: no HTML, markdown, curly braces, or *| |* characters.\n- sources: the title and URL of each source you used, or an empty list.",
+          "maxIterations": 5
+        }
+      },
+      "id": "65d9c52a-7c64-4d4d-b8fc-f9554ae3817c",
+      "name": "Section Writer Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1320,
+        400
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"title\": {\n      \"type\": \"string\",\n      \"description\": \"Section title, under 50 characters\"\n    },\n    \"paragraphs\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"1 to 3 short paragraphs, 80 to 140 words in all\"\n    },\n    \"sources\": {\n      \"type\": \"array\",\n      \"description\": \"Sources used, or empty\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"title\": {\n            \"type\": \"string\"\n          },\n          \"url\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"title\",\n          \"url\"\n        ]\n      }\n    }\n  },\n  \"required\": [\n    \"title\",\n    \"paragraphs\",\n    \"sources\"\n  ]\n}"
+      },
+      "id": "6ad64ef0-a5f3-4588-8422-0bd099f769d2",
+      "name": "Section Format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1440,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Puts the plan and the written sections together into one newsletter draft.\n// A section whose writer failed is left out; the run stops only if every section failed.\nconst plan = $('Newsletter Planner').first().json.output ?? {};\nconst planned = $('Split Sections').all();\nconst written = $input.all();\nconst clean = (v, max = 2000) => String(v ?? '').replace(/[ \\t]+/g, ' ').trim().slice(0, max);\n\nconst sections = [];\nconst sources = new Map();\nconst errors = [];\nwritten.forEach((item, i) => {\n  const out = item.json.output;\n  const paragraphs = (Array.isArray(out?.paragraphs) ? out.paragraphs : []).map((p) => clean(p, 1200)).filter(Boolean).slice(0, 3);\n  if (!paragraphs.length) {\n    errors.push(`Section ${i + 1}: ${clean(item.json.error?.message ?? item.json.error ?? 'no text returned', 200)}`);\n    return;\n  }\n  sections.push({ title: clean(out.title, 80) || planned[i]?.json.title || '', paragraphs });\n  const used = [...(Array.isArray(out.sources) ? out.sources : []), ...(planned[i]?.json.assigned_sources ?? [])];\n  for (const src of used) {\n    const url = String(src?.url ?? '').trim();\n    if (/^https?:\\/\\//.test(url) && !sources.has(url)) sources.set(url, clean(src.title, 150) || url);\n  }\n});\nif (!sections.length) throw new Error(`No section could be written. ${errors.join(' ')}`);\n\nreturn [{\n  json: {\n    revision: 0,\n    newsletter: {\n      subject: clean(plan.subject, 150),\n      subject_alternatives: (Array.isArray(plan.subject_alternatives) ? plan.subject_alternatives : []).map((x) => clean(x, 150)).filter(Boolean).slice(0, 2),\n      preview_text: clean(plan.preview_text, 150),\n      headline: clean(plan.headline, 120),\n      intro: clean(plan.intro, 800),\n      sections,\n      cta_link: plan.cta_link,\n      cta_text: clean(plan.cta_text, 40),\n      closing: clean(plan.closing, 400),\n    },\n    sources: [...sources.entries()].map(([url, title]) => ({ title, url })).slice(0, 12),\n    change_summary: '',\n    skipped_sections: errors,\n  },\n}];\n"
+      },
+      "id": "085e1c61-5509-4d08-bac3-1b96c6467915",
+      "name": "Assemble Newsletter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Cleans the newsletter copy and builds the Mailchimp email HTML.\n// Runs for the first draft and again after every revision.\nconst s = $('Settings').first().json;\nconst t = $('Read Topic').first().json;\nconst d = $json;\nconst n = d.newsletter ?? {};\nconst revision = Number(d.revision) || 0;\n\n// Plain text only: no HTML, and no *| |* that Mailchimp would read as a merge tag\nconst clean = (v, max) => String(v ?? '').replace(/<[^>]*>/g, '').replace(/\\*\\||\\|\\*/g, '').replace(/\\s+/g, ' ').trim().slice(0, max);\nconst esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\n\nconst subject = clean(n.subject, 150);\nif (!subject) throw new Error('The newsletter has no subject line. Run the workflow again.');\nconst sections = (Array.isArray(n.sections) ? n.sections : [])\n  .map((x) => ({\n    title: clean(x?.title, 80),\n    paragraphs: (Array.isArray(x?.paragraphs) ? x.paragraphs : []).map((p) => clean(p, 1200)).filter(Boolean).slice(0, 3),\n  }))\n  .filter((x) => x.paragraphs.length)\n  .slice(0, 6);\nif (!sections.length) throw new Error('The newsletter has no sections. Run the workflow again.');\n\nconst newsletter = {\n  subject,\n  subject_alternatives: (Array.isArray(n.subject_alternatives) ? n.subject_alternatives : []).map((x) => clean(x, 150)).filter(Boolean).slice(0, 2),\n  preview_text: clean(n.preview_text, 150),\n  headline: clean(n.headline, 120) || subject,\n  intro: clean(n.intro, 800),\n  sections,\n  cta_link: ['reserve', 'order', 'website'].includes(n.cta_link) ? n.cta_link : 'website',\n  cta_text: clean(n.cta_text, 40),\n  closing: clean(n.closing, 400),\n};\n\nconst links = { reserve: s.reservation_url, order: s.order_online_url, website: s.website_url };\nconst ctaUrl = links[newsletter.cta_link] || s.reservation_url || s.order_online_url || s.website_url;\nconst ctaText = newsletter.cta_text || (newsletter.cta_link === 'order' ? 'Order now' : newsletter.cta_link === 'reserve' ? 'Book a table' : 'Visit us');\nconst offer = clean(t.offer, 255);\nconst color = /^#[0-9a-f]{3,8}$/i.test(String(s.brand_color)) ? s.brand_color : '#7c2d12';\n\n// ---------- Email HTML (table layout with inline styles, so it renders in every email client)\nconst serif = 'font-family:Georgia,\\'Times New Roman\\',serif;';\nconst sans = 'font-family:Arial,Helvetica,sans-serif;';\nconst p = (text) => `<p style=\"${sans}font-size:16px;line-height:1.65;color:#44403c;margin:0 0 14px;\">${esc(text)}</p>`;\nconst header = s.logo_url\n  ? `<img src=\"${esc(s.logo_url)}\" alt=\"${esc(s.restaurant_name)}\" width=\"160\" style=\"display:block;margin:0 auto;max-width:160px;height:auto;border:0;\">`\n  : `<div style=\"${serif}font-size:24px;text-align:center;color:${color};\">${esc(s.restaurant_name)}</div>`;\nconst button = `<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin:8px auto 24px;\"><tr><td style=\"background:${color};border-radius:4px;\">`\n  + `<a href=\"${esc(ctaUrl)}\" style=\"display:inline-block;padding:14px 30px;${sans}font-size:16px;font-weight:bold;color:#ffffff;text-decoration:none;\">${esc(ctaText)}</a></td></tr></table>`;\nconst sectionHtml = sections.map((x, i) => `<tr><td style=\"padding:${i ? '8px' : '4px'} 32px 4px;\">`\n  + `<div style=\"border-top:1px solid #e7e5e4;padding-top:22px;\">`\n  + (x.title ? `<h2 style=\"${serif}font-size:22px;line-height:1.3;font-weight:normal;color:#1c1917;margin:0 0 10px;\">${esc(x.title)}</h2>` : '')\n  + x.paragraphs.map(p).join('')\n  + '</div></td></tr>').join('\\n');\n\nconst html = `<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>${esc(subject)}</title></head>\n<body style=\"margin:0;padding:0;background:#f5f5f4;\">\n<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f5f5f4;\"><tr><td align=\"center\" style=\"padding:24px 12px;\">\n<table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;max-width:600px;background:#ffffff;border-radius:6px;\">\n<tr><td style=\"padding:28px 32px 8px;\">${header}</td></tr>\n<tr><td style=\"padding:16px 32px 4px;\">\n<h1 style=\"${serif}font-size:30px;line-height:1.2;font-weight:normal;color:#1c1917;margin:0 0 18px;text-align:center;\">${esc(newsletter.headline)}</h1>\n<p style=\"${sans}font-size:16px;line-height:1.65;color:#44403c;margin:0 0 14px;\">*|IF:FNAME|*Hi *|FNAME|*,*|ELSE:|*Hi there,*|END:IF|*</p>\n${newsletter.intro ? p(newsletter.intro) : ''}\n${offer ? `<div style=\"${sans}font-size:16px;font-weight:bold;text-align:center;color:${color};border:2px solid ${color};border-radius:4px;padding:14px;margin:18px 0 6px;\">${esc(offer)}</div>` : ''}\n</td></tr>\n${sectionHtml}\n<tr><td style=\"padding:12px 32px 0;\">\n${newsletter.closing ? p(newsletter.closing) : ''}\n${button}\n<p style=\"${sans}font-size:16px;line-height:1.65;color:#44403c;margin:0 0 24px;\">The ${esc(s.restaurant_name)} team</p>\n</td></tr>\n<tr><td style=\"padding:20px 32px 28px;border-top:1px solid #e7e5e4;${sans}font-size:12px;line-height:1.6;color:#78716c;text-align:center;\">\n*|LIST:COMPANY|*<br>*|HTML:LIST_ADDRESS_HTML|*<br>\n<a href=\"*|UNSUB|*\" style=\"color:#78716c;\">Unsubscribe</a>\n</td></tr>\n</table>\n</td></tr></table>\n</body></html>`;\n\nreturn [{\n  json: {\n    revision,\n    newsletter,\n    sources: Array.isArray(d.sources) ? d.sources : [],\n    change_summary: clean(d.change_summary, 400),\n    skipped_sections: Array.isArray(d.skipped_sections) ? d.skipped_sections : [],\n    subject,\n    preview_text: newsletter.preview_text,\n    campaign_title: `Newsletter: ${clean(t.topic, 60)} (${t.date}${revision ? `, v${revision + 1}` : ''})`,\n    cta_url: ctaUrl,\n    html,\n  },\n}];\n"
+      },
+      "id": "7b38f5cd-0671-480c-be25-17e0fcc2d25f",
+      "name": "Build Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1860,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f5d10459-f690-4e0f-8e0c-21dba5f343e0",
+              "leftValue": "={{ $json.revision }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a666b51d-60e6-4e3c-95ca-690e96c644df",
+      "name": "First Draft?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2080,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/campaigns",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: 'regular', recipients: Object.assign({ list_id: $('Settings').first().json.mailchimp_list_id }, $('Settings').first().json.mailchimp_segment_id ? { segment_opts: { saved_segment_id: Number($('Settings').first().json.mailchimp_segment_id) } } : {}), settings: { subject_line: $json.subject, preview_text: $json.preview_text, title: $json.campaign_title, from_name: $('Settings').first().json.from_name, reply_to: $('Settings').first().json.reply_to, to_name: '*|FNAME|*' } }) }}",
+        "options": {}
+      },
+      "id": "d36c5a88-c036-43df-9fd3-09f42887e92e",
+      "name": "Create Draft Campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2300,
+        300
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/campaigns/{{ $('Create Draft Campaign').first().json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ settings: { subject_line: $json.subject, preview_text: $json.preview_text, title: $json.campaign_title, from_name: $('Settings').first().json.from_name, reply_to: $('Settings').first().json.reply_to, to_name: '*|FNAME|*' } }) }}",
+        "options": {}
+      },
+      "id": "64193af6-528e-47a7-bb4c-85cb0bee3fb9",
+      "name": "Update Campaign Settings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2300,
+        520
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/campaigns/{{ $('Create Draft Campaign').first().json.id }}/content",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ html: $('Build Email').first().json.html }) }}",
+        "options": {}
+      },
+      "id": "bdf7c89e-cc04-4c62-8539-99bcc6a96af5",
+      "name": "Set Campaign Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2520,
+        400
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/campaigns/{{ $('Create Draft Campaign').first().json.id }}/actions/test",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ test_emails: [$('Settings').first().json.approver_email], send_type: 'html' }) }}",
+        "options": {}
+      },
+      "id": "3005537d-f9d2-4aa5-8246-e7f778cb253f",
+      "name": "Send Test Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2740,
+        400
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/campaigns/{{ $('Create Draft Campaign').first().json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,recipients.recipient_count,recipients.list_name"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1420c67-8401-4607-860a-3febc4ac7bc2",
+      "name": "Get Campaign Recipients",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2960,
+        400
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Writes the Telegram approval message: the draft at a glance, the sources to check, and who will get it.\n// Telegram reads this message as Markdown, so AI text is escaped (and stripped inside bold labels).\nconst s = $('Settings').first().json;\nconst t = $('Read Topic').first().json;\nconst e = $('Build Email').first().json;\nconst campaign = $('Create Draft Campaign').first().json;\nconst recipients = $('Get Campaign Recipients').first().json;\nconst test = $('Send Test Email').first().json;\nconst n = e.newsletter;\n\nif (!campaign?.id) {\n  throw new Error(`Mailchimp did not create the draft campaign: ${String(campaign?.detail ?? campaign?.error?.message ?? JSON.stringify(campaign)).slice(0, 300)}`);\n}\n\nconst md = (v) => String(v ?? '').replace(/([_*`[])/g, '\\\\$1');\nconst bold = (v) => `*${String(v ?? '').replace(/[_*`[\\]]/g, '')}*`;\nconst cut = (v, max) => {\n  const text = String(v ?? '').trim();\n  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;\n};\n\nconst count = recipients?.recipients?.recipient_count;\nconst audience = `${recipients?.recipients?.list_name || 'your Mailchimp audience'}${s.mailchimp_segment_id ? ' (saved segment)' : ''}`;\nconst testFailed = test?.error || Number(test?.status) >= 400;\nconst footer = [\n  testFailed\n    ? `The test email could not be sent: ${md(cut(test.detail ?? test.error?.message ?? test.error, 150))}`\n    : `A test email was sent to ${md(s.approver_email)}. Check it before you approve.`,\n  `${bold('Audience:')} ${md(audience)}${Number.isFinite(count) ? `, ${count} subscribers` : ''}`,\n];\n\nconst build = (previewLength, sourceCount) => [\n  bold(`Newsletter draft${e.revision ? ` (version ${e.revision + 1})` : ''}: ${cut(t.topic, 80)}`),\n  `${bold('Subject:')} ${md(n.subject)}`,\n  n.subject_alternatives.length ? `${bold('Other subject ideas:')} ${md(n.subject_alternatives.join(' / '))}` : null,\n  `${bold('Preview text:')} ${md(n.preview_text || '(none)')}`,\n  e.change_summary ? `${bold('What changed:')} ${md(cut(e.change_summary, 300))}` : null,\n  '',\n  bold(cut(n.headline, 100)),\n  previewLength ? md(cut(n.intro, previewLength + 100)) : null,\n  '',\n  ...n.sections.map((x, i) => (previewLength\n    ? `${bold(`${i + 1}. ${cut(x.title, 80)}`)}\\n${md(cut(x.paragraphs[0], previewLength))}`\n    : bold(`${i + 1}. ${cut(x.title, 80)}`))),\n  '',\n  `${bold('Button:')} ${md(n.cta_text)} (${md(e.cta_url)})`,\n  t.offer ? `${bold('Offer:')} ${md(t.offer)}` : null,\n  e.skipped_sections.length ? `${bold('Left out:')} ${e.skipped_sections.length} section(s) could not be written` : null,\n  sourceCount && e.sources.length\n    ? `${bold('Sources to check:')}\\n${e.sources.slice(0, sourceCount).map((x) => `- ${md(cut(x.title, 70))}: ${md(x.url)}`).join('\\n')}`\n    : null,\n  '',\n  ...footer,\n].filter((line) => line !== null).join('\\n');\n\n// Telegram allows 4,096 characters, so shorten the previews and the source list until it fits\nlet message = build(260, 5);\nfor (const [previewLength, sourceCount] of [[160, 5], [100, 3], [0, 3], [0, 0]]) {\n  if (message.length <= 3800) break;\n  message = build(previewLength, sourceCount);\n}\n\nreturn [{ json: { campaign_id: campaign.id, recipient_count: Number.isFinite(count) ? count : null, telegram_message: message } }];\n"
+      },
+      "id": "2aa3bd26-efc2-401c-a1a1-301d0e4735bc",
+      "name": "Build Approval Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3180,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "={{ $('Settings').first().json.telegram_chat_id }}",
+        "message": "={{ $json.telegram_message }}",
+        "responseType": "customForm",
+        "defineForm": "fields",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "What should we do?",
+              "fieldType": "radio",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Approve and send now"
+                  },
+                  {
+                    "option": "Schedule for the time below"
+                  },
+                  {
+                    "option": "Revise with my notes"
+                  },
+                  {
+                    "option": "Keep as a draft in Mailchimp"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Send time",
+              "fieldType": "text",
+              "placeholder": "2026-11-12 11:00 (only if scheduling)"
+            },
+            {
+              "fieldLabel": "Notes for the editor",
+              "fieldType": "textarea",
+              "placeholder": "Only if revising, for example: shorter intro, and lead with the cocktail section"
+            }
+          ]
+        },
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "limitType": "afterTimeInterval",
+              "resumeAmount": 72,
+              "resumeUnit": "hours"
+            }
+          },
+          "appendAttribution": false,
+          "messageButtonLabel": "Review the newsletter",
+          "responseFormTitle": "Approve this newsletter",
+          "responseFormDescription": "=Subject: {{ $('Build Email').first().json.subject }}. Check the test email in your inbox first. Send times use {{ $('Settings').first().json.timezone }}, and Mailchimp schedules on the quarter hour.",
+          "responseFormButtonLabel": "Submit"
+        }
+      },
+      "id": "4f4cf522-c503-4153-95ef-365ce8215612",
+      "name": "Ask for Approval",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3400,
+        400
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot",
+          "name": "Telegram Bot"
+        }
+      },
+      "webhookId": "3f9bba7d-5904-4af4-8216-f1af5ed8d820"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reads the answer from Telegram: send now, schedule, revise with notes, or keep as a draft.\n// Telegram returns form answers by field label, so keep these labels in step with the \"Ask for Approval\" form.\n// Mailchimp only schedules on the quarter hour, so times are moved to the next :00, :15, :30, or :45.\nconst LABELS = { decision: 'What should we do?', sendTime: 'Send time', notes: 'Notes for the editor' };\nconst s = $('Settings').first().json;\nconst t = $('Read Topic').first().json;\nconst e = $('Build Email').first().json;\nconst brief = $('Build Planning Brief').first().json;\nconst approval = $('Build Approval Message').first().json;\nconst answers = $json.data ?? null;\nconst read = (key) => String(answers?.[LABELS[key]] ?? answers?.[key] ?? '').trim();\nconst maxRevisions = Number(s.max_revisions) || 3;\n\nlet decision = 'draft';\nlet note = 'No answer in Telegram before the time limit, so the newsletter was kept as a draft.';\nlet sendTime = '';\nlet editorPrompt = '';\nconst choice = read('decision');\n\nif (choice.startsWith('Approve')) {\n  decision = 'send_now';\n  note = '';\n} else if (choice.startsWith('Schedule')) {\n  const typed = read('sendTime');\n  let when = DateTime.fromFormat(typed, 'yyyy-MM-dd HH:mm', { zone: s.timezone });\n  if (!when.isValid) {\n    note = `\"${typed}\" isn't a send time in the format 2026-11-12 11:00, so the newsletter was kept as a draft.`;\n  } else {\n    const extra = when.minute % 15;\n    if (extra) when = when.plus({ minutes: 15 - extra });\n    if (when <= $now.plus({ minutes: 15 })) {\n      note = `${typed} is less than 15 minutes away or in the past, so the newsletter was kept as a draft.`;\n    } else {\n      decision = 'schedule';\n      sendTime = when.toUTC().toISO({ suppressMilliseconds: true });\n      note = `${when.toFormat('cccc, LLL d, yyyy, h:mm a')} (${s.timezone})`;\n    }\n  }\n} else if (choice.startsWith('Revise')) {\n  if (e.revision + 1 >= maxRevisions) {\n    note = `This was version ${e.revision + 1} of ${maxRevisions}, so it was kept as a draft instead of being revised again.`;\n  } else {\n    decision = 'revise';\n    note = read('notes').slice(0, 1500) || 'Make it more engaging and tighten the writing.';\n    const findings = (brief.findings ?? []).map((f, i) => `${i + 1}. ${f.fact} (${f.source_url})`).join('\\n');\n    editorPrompt = [\n      'FEEDBACK FROM THE OWNER',\n      note,\n      '',\n      'CURRENT NEWSLETTER (JSON)',\n      JSON.stringify(e.newsletter, null, 2),\n      '',\n      `Newsletter topic: ${t.topic}`,\n      `The owner wants to feature: ${t.feature || 'nothing specific'}`,\n      `Offer shown in its own box: ${t.offer || 'none. Do not mention any discount or deal.'}`,\n      '',\n      'RESEARCH FINDINGS YOU MAY USE',\n      findings || 'none',\n    ].join('\\n');\n  }\n} else if (answers) {\n  note = 'Kept as a draft in Mailchimp, as requested.';\n}\n\nreturn [{\n  json: {\n    decision,\n    note,\n    send_time: sendTime,\n    editor_prompt: editorPrompt,\n    campaign_id: approval.campaign_id,\n  },\n}];\n"
+      },
+      "id": "0cfcf4ef-fd9c-4fc0-80ac-902247c88ba5",
+      "name": "Read Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3620,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "8979fb2e-2f3a-4c47-859a-9d4077cb0eac",
+                    "leftValue": "={{ $json.decision }}",
+                    "rightValue": "send_now",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Send now"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f1b0b235-349f-47ca-8f7f-1ee651118f98",
+                    "leftValue": "={{ $json.decision }}",
+                    "rightValue": "schedule",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Schedule"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "00ce80d2-abce-430b-b905-d8ea6da52ca8",
+                    "leftValue": "={{ $json.decision }}",
+                    "rightValue": "revise",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Revise"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Keep as draft"
+        }
+      },
+      "id": "05b403b4-d1b2-40de-8534-04a766e9332e",
+      "name": "Route Decision",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        3840,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/campaigns/{{ $json.campaign_id }}/actions/send",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "options": {}
+      },
+      "id": "d9e4c83b-025c-41f0-b347-a38cb26fc539",
+      "name": "Send Campaign Now",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        4100,
+        160
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Settings').first().json.mailchimp_server }}.api.mailchimp.com/3.0/campaigns/{{ $json.campaign_id }}/actions/schedule",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mailchimpApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ schedule_time: $json.send_time }) }}",
+        "options": {}
+      },
+      "id": "5429084e-98e7-41fb-95f8-bbb3c0d5dc06",
+      "name": "Schedule Campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        4100,
+        360
+      ],
+      "credentials": {
+        "mailchimpApi": {
+          "id": "mailchimp-api",
+          "name": "Mailchimp API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.editor_prompt }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "type": "SystemMessagePromptTemplate",
+              "message": "=You are the editor of a restaurant's email newsletter. You revise a draft to follow the owner's feedback.\n\n{{ $('Settings').first().json.restaurant_name }} is a {{ $('Settings').first().json.cuisine }} restaurant in {{ $('Settings').first().json.city }} ({{ $('Settings').first().json.website_url }}).\nAbout the restaurant: {{ $('Settings').first().json.about_restaurant }}\nMenu highlights (the only dishes and drinks you may name, besides what the owner asks to feature): {{ $('Settings').first().json.menu_highlights }}\nBrand voice: {{ $('Settings').first().json.brand_voice }}\nLinks the button can use: reserve = {{ $('Settings').first().json.reservation_url || 'none' }}, order = {{ $('Settings').first().json.order_online_url || 'none' }}, website = {{ $('Settings').first().json.website_url }}.\n\n## Rules\n- Follow the feedback. Keep everything the owner did not ask to change.\n- Return the whole newsletter, with every section, in the same fields.\n- subject under 50 characters, preview_text under 90, headline under 60. Each section is 80 to 140 words in 1 to 3 paragraphs.\n- Do not start the intro with a greeting, and do not add a sign-off.\n- The email shows the offer, if there is one, in its own box. Never make up a discount or deal.\n- Never invent facts. Statistics, trends, and news come only from the research or your searches. Restaurant details (dishes, drinks, prices, events, dates, hours, offers) come only from the restaurant details above and the owner's request.\n- Plain text only: no HTML, markdown, curly braces, or *| |* characters.\n- change_summary: one or two sentences on what you changed."
+            }
+          ]
+        }
+      },
+      "id": "cc1267ce-28ea-4b73-b99e-1cdd208705d7",
+      "name": "AI Editor",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        4100,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"subject\": {\n      \"type\": \"string\",\n      \"description\": \"Subject line, under 50 characters\"\n    },\n    \"subject_alternatives\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"2 other subject lines\"\n    },\n    \"preview_text\": {\n      \"type\": \"string\",\n      \"description\": \"Preview text, under 90 characters\"\n    },\n    \"headline\": {\n      \"type\": \"string\",\n      \"description\": \"Headline, under 60 characters\"\n    },\n    \"intro\": {\n      \"type\": \"string\",\n      \"description\": \"2 or 3 sentences, no greeting\"\n    },\n    \"sections\": {\n      \"type\": \"array\",\n      \"description\": \"Every section, in order\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"title\": {\n            \"type\": \"string\",\n            \"description\": \"Under 50 characters\"\n          },\n          \"paragraphs\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"string\"\n            },\n            \"description\": \"1 to 3 short paragraphs\"\n          }\n        },\n        \"required\": [\n          \"title\",\n          \"paragraphs\"\n        ]\n      }\n    },\n    \"cta_link\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"reserve\",\n        \"order\",\n        \"website\"\n      ],\n      \"description\": \"Where the button goes\"\n    },\n    \"cta_text\": {\n      \"type\": \"string\",\n      \"description\": \"Button text, 2 to 4 words\"\n    },\n    \"closing\": {\n      \"type\": \"string\",\n      \"description\": \"1 or 2 sentences\"\n    },\n    \"change_summary\": {\n      \"type\": \"string\",\n      \"description\": \"One or two sentences on what changed\"\n    }\n  },\n  \"required\": [\n    \"subject\",\n    \"preview_text\",\n    \"headline\",\n    \"intro\",\n    \"sections\",\n    \"cta_link\",\n    \"cta_text\",\n    \"closing\",\n    \"change_summary\"\n  ]\n}"
+      },
+      "id": "fed50c57-24d8-4acf-8261-3bb980aa6ca6",
+      "name": "Edited Newsletter Format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        4200,
+        840
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Takes the AI Editor's revised newsletter and sends it back through Build Email as the next version.\nconst previous = $('Build Email').first().json;\nconst { change_summary: changeSummary, ...newsletter } = $json.output ?? {};\n\nreturn [{\n  json: {\n    revision: previous.revision + 1,\n    newsletter: { ...previous.newsletter, ...newsletter },\n    sources: previous.sources,\n    change_summary: String(changeSummary ?? '').trim(),\n    skipped_sections: [],\n  },\n}];\n"
+      },
+      "id": "8949eba1-ede6-47a3-91b3-84c75a2899dd",
+      "name": "Apply Revision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4340,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Writes the Telegram confirmation: sent, scheduled, kept as a draft, or an error from Mailchimp.\nconst decision = $('Read Decision').first().json;\nconst e = $('Build Email').first().json;\nconst approval = $('Build Approval Message').first().json;\nconst res = $json;\n\nconst md = (v) => String(v ?? '').replace(/([_*`[])/g, '\\\\$1');\nconst name = `\"${md(e.subject)}\"`;\nconst audience = approval.recipient_count !== null ? ` to ${approval.recipient_count} subscribers` : '';\nconst failed = res.error || (Number(res.status) >= 400 && res.detail);\nconst error = failed ? String(res.detail ?? res.error?.message ?? res.error).slice(0, 300) : '';\n\nlet text;\nif (decision.decision === 'send_now' && !error) {\n  text = `✅ *Sending now:* ${name}${audience}.`;\n} else if (decision.decision === 'schedule' && !error) {\n  text = `🗓 *Scheduled* for ${md(decision.note)}: ${name}${audience}.`;\n} else if (error) {\n  text = `⚠️ Mailchimp returned an error, so ${name} is still a draft in Mailchimp: ${md(error)}`;\n} else {\n  text = `📝 ${name} is a draft in Mailchimp. ${md(decision.note)}`;\n}\n\nreturn [{ json: { text } }];\n"
+      },
+      "id": "ed8e504d-7981-4f6a-8174-f6e9a4f0804d",
+      "name": "Report Outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4360,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Settings').first().json.telegram_chat_id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "dd064297-bc0e-4bca-911a-6ff0691e2080",
+      "name": "Send Outcome to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4580,
+        260
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot",
+          "name": "Telegram Bot"
+        }
+      },
+      "webhookId": "5ba447ea-216e-4483-a262-9e7a907de9fa"
+    },
+    {
+      "parameters": {
+        "content": "## AI-Powered Restaurant Newsletter Creator with Mailchimp and Telegram Approval\n\nWrites your restaurant's email newsletter from one topic you send in Telegram, researches it on the web, and sends it to your Mailchimp audience after you approve it.\n\n### How it works\n1. **Every Tuesday at 10:00** a Telegram message asks for the topic, plus anything to feature, an offer, and notes.\n2. The **Research Agent** searches the web with Tavily for trends, seasonal angles, and local news, and keeps only facts with a source.\n3. The **Newsletter Planner** (Claude) plans the subject, intro, and sections around your request and the research.\n4. The **Section Writer Agent** (Claude) writes each section in your brand voice, using your real menu highlights.\n5. The draft is built in **Mailchimp**, a test email goes to your inbox, and a summary with the sources arrives in **Telegram**.\n6. Approve and send, schedule it, keep it as a draft, or send notes to the **AI Editor** for a new version.\n\n### Setup\n1. Credentials: **Telegram Bot**, **OpenAI**, **Anthropic**, **Tavily API** (Header Auth: `Authorization` = `Bearer tvly-...`), and **Mailchimp API**.\n2. Fill in **Settings**: your restaurant, menu highlights, voice, links, Telegram chat ID, and Mailchimp server and audience ID.\n3. Publish the workflow. n8n must be reachable over public HTTPS for the Telegram buttons.",
+        "height": 960,
+        "width": 640,
+        "color": 5
+      },
+      "id": "f581529e-6693-49e7-8be9-6e19a2d46279",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1640,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Ask for a topic in Telegram\n**Newsletter Schedule** starts each issue. **Settings** holds your restaurant details for every AI step. **Ask for Topic** sends a Telegram message with a button that opens a short form: the topic, anything to feature, an offer, and notes. It waits up to 48 hours.\n\n**Read Topic** reads the answers. If none came in, **No Topic Received** says so in Telegram and the run ends.",
+        "height": 680,
+        "width": 1120,
+        "color": 7
+      },
+      "id": "a9c134fb-d17e-4b2c-94f5-c760101a0983",
+      "name": "Section 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -960,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Research the topic\nThe **Research Agent** searches the web 3 to 6 times with **Tavily Search**: dining trends, the season, and local news in your city. It returns 4 to 8 findings, each with its source, plus angles and seasonal hooks.\n\n**Build Planning Brief** numbers the findings for the planner.",
+        "height": 680,
+        "width": 520,
+        "color": 4
+      },
+      "id": "da54538f-7efc-4068-a1a7-3d95395a586f",
+      "name": "Section 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        180,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Plan the issue and write each section\nThe **Newsletter Planner** picks the subject, preview text, headline, intro, and sections (4 by default, Settings: section_count), and assigns findings and menu items to each section.\n\n**Split Sections** makes one item per section, and the **Section Writer Agent** writes each one in your voice. It can search Tavily for one more fact. **Assemble Newsletter** puts the issue together and collects the sources. If a section fails, it is left out and noted in Telegram.",
+        "height": 680,
+        "width": 1060,
+        "color": 6
+      },
+      "id": "f6719b3d-7386-4724-8e71-87e1a402227e",
+      "name": "Section 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        720,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Build the draft in Mailchimp\n**Build Email** cleans the copy and builds the email: your logo or name, headline, a first-name greeting, intro, offer box, sections, a button to reserve, order, or visit your site, and a footer with your address and unsubscribe link.\n\nThe first draft creates a campaign (**Create Draft Campaign**); a revision updates it (**Update Campaign Settings**). **Set Campaign Content** saves the HTML, **Send Test Email** sends a test to your approver email, and **Build Approval Message** writes the Telegram summary with the sources to check.",
+        "height": 680,
+        "width": 1500,
+        "color": 4
+      },
+      "id": "793eceff-2b13-4d6f-b062-a393864c5bd9",
+      "name": "Section 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1800,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 5. Approve in Telegram\n**Ask for Approval** posts the summary with a **Review the newsletter** button and waits up to 72 hours.\n\n- **Approve and send now** sends the campaign. **Schedule** sends it at the time you enter (moved to the next quarter hour).\n- **Revise with my notes** sends your notes to the **AI Editor**, which rewrites the draft. The campaign is updated and you get a new test and message (up to 3 versions).\n- **Keep as a draft**, or no answer, leaves it in Mailchimp.\n\n**Send Outcome to Telegram** confirms what happened.",
+        "height": 860,
+        "width": 1400,
+        "color": 3
+      },
+      "id": "15353390-a23b-4438-8ef9-41aef4df1c9a",
+      "name": "Section 5",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3320,
+        120
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Newsletter Schedule": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Ask for Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask for Topic": {
+      "main": [
+        [
+          {
+            "node": "Read Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Topic": {
+      "main": [
+        [
+          {
+            "node": "Got a Topic?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Got a Topic?": {
+      "main": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Topic Received",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Agent": {
+      "main": [
+        [
+          {
+            "node": "Build Planning Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Planning Brief": {
+      "main": [
+        [
+          {
+            "node": "Newsletter Planner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Newsletter Planner": {
+      "main": [
+        [
+          {
+            "node": "Split Sections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Sections": {
+      "main": [
+        [
+          {
+            "node": "Section Writer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Section Writer Agent": {
+      "main": [
+        [
+          {
+            "node": "Assemble Newsletter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Newsletter": {
+      "main": [
+        [
+          {
+            "node": "Build Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email": {
+      "main": [
+        [
+          {
+            "node": "First Draft?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "First Draft?": {
+      "main": [
+        [
+          {
+            "node": "Create Draft Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Campaign Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Draft Campaign": {
+      "main": [
+        [
+          {
+            "node": "Set Campaign Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Campaign Settings": {
+      "main": [
+        [
+          {
+            "node": "Set Campaign Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Campaign Content": {
+      "main": [
+        [
+          {
+            "node": "Send Test Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Test Email": {
+      "main": [
+        [
+          {
+            "node": "Get Campaign Recipients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Campaign Recipients": {
+      "main": [
+        [
+          {
+            "node": "Build Approval Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Approval Message": {
+      "main": [
+        [
+          {
+            "node": "Ask for Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask for Approval": {
+      "main": [
+        [
+          {
+            "node": "Read Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Decision": {
+      "main": [
+        [
+          {
+            "node": "Route Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Decision": {
+      "main": [
+        [
+          {
+            "node": "Send Campaign Now",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Schedule Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Editor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Editor": {
+      "main": [
+        [
+          {
+            "node": "Apply Revision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Revision": {
+      "main": [
+        [
+          {
+            "node": "Build Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Campaign Now": {
+      "main": [
+        [
+          {
+            "node": "Report Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Campaign": {
+      "main": [
+        [
+          {
+            "node": "Report Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Outcome": {
+      "main": [
+        [
+          {
+            "node": "Send Outcome to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Newsletter Planner",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Section Writer Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI Editor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tavily Search": {
+      "ai_tool": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Section Writer Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Newsletter Planner",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Section Format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Section Writer Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edited Newsletter Format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Editor",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
